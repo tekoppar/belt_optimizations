@@ -18,13 +18,13 @@
     <ClCompile Include="x64\BeltOptimizations.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="x64\first_test.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="x64\second_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="headers\cpu_info.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="x64\alignment_testing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -57,9 +57,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\inserter.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="x64\first_test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="x64\second_test.h">
@@ -123,6 +120,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\mem_utilities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="x64\alignment_testing.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

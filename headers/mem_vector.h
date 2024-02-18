@@ -744,6 +744,12 @@ namespace mem
 			this->resize((this->get_capacity() + min_size) * 2ll);
 		};
 
+		inline constexpr void resize() noexcept
+			requires (mem::concepts::vector_has_method<value_type> == false)
+		{
+			this->reallocate(std::move(this->values));
+		};
+
 		inline constexpr void resize(long long newSize) noexcept
 			requires (mem::concepts::vector_has_method<value_type> == false)
 		{
@@ -1070,6 +1076,31 @@ namespace mem
 
 					val.values = nullptr;
 			}
+		};
+
+		inline constexpr value_type& emplace_back() noexcept
+			requires(std::is_default_constructible_v<value_type> == true)
+		{
+			static_assert(std::is_default_constructible_v<value_type> == true);
+			if (this->needs_resize()) [[unlikely]]
+				{
+					this->resize();
+					if (std::is_constant_evaluated() == false)
+						new (this->values.last) value_type{};
+					else
+						*values.last = value_type{};
+					++this->values.last;
+					return *(values.last - 1ll);
+				}
+			else [[likely]]
+				{
+					if (std::is_constant_evaluated() == false)
+						new (this->values.last) value_type{};
+					else
+						*values.last = value_type{};
+					++this->values.last;
+					return *(values.last - 1ll);
+				}
 		};
 
 		template <typename... Types>
@@ -1494,13 +1525,16 @@ namespace mem
 		};
 	};
 
-	template <typename vector_type, class __vector>
-	__declspec(noinline) constexpr __vector::iterator erase_indices(__vector& data, std::vector<typename __vector::iterator>& delete_iterators) noexcept
+	template <typename vector_type, class __vector, typename delete_vector_type>
+	__declspec(noinline) constexpr delete_vector_type erase_indices(__vector& data, std::vector<delete_vector_type>& delete_iterators) noexcept
 	{
 		auto indice_iter{ delete_iterators.begin() };
-		typename __vector::iterator writer_iter = *indice_iter;
+		typename __vector::iterator writer_iter = indice_iter->item_groups_iter;
 		typename __vector::iterator reader_iter{ writer_iter };
 		typename __vector::iterator last_iter{ data.last() };
+
+		auto data_writer_iter = indice_iter->item_groups_data_iter;
+		auto data_reader_iter{ data_writer_iter };
 
 		if (writer_iter != last_iter)
 		{
@@ -1508,14 +1542,17 @@ namespace mem
 			{
 				while (reader_iter != last_iter)
 				{
-					const long long initial_count = (indice_iter != delete_iterators.end() ? (*indice_iter) - reader_iter : last_iter - reader_iter);
+					const long long initial_count = (indice_iter != delete_iterators.end() ? (indice_iter->item_groups_iter) - reader_iter : last_iter - reader_iter);
 					if (initial_count > 0ll)
 					{
 						if constexpr (mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type)
 						{
 							SIMDMemCopy256<vector_type, true>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
+							SIMDMemCopy256<vector_type, true>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
 							writer_iter += initial_count;
 							reader_iter += initial_count;
+							data_writer_iter += initial_count;
+							data_reader_iter += initial_count;
 						}
 						else
 						{
@@ -1528,6 +1565,7 @@ namespace mem
 								if constexpr (mem::use_memcpy::force_checks_off == __vector::use_memcpy_value)
 								{
 									SIMDMemCopy256<vector_type, 16ull, 4ull>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type);
+									SIMDMemCopy256<vector_type, 16ull, 4ull>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type);
 									//std::memcpy(writer_iter.operator->() + 1, reader_iter.operator->() + 1, sizeof(vector_type));
 									//std::memcpy(writer_iter.operator->() + 2, reader_iter.operator->() + 2, sizeof(vector_type));
 									//std::memcpy(writer_iter.operator->() + 3, reader_iter.operator->() + 3, sizeof(vector_type));
@@ -1544,10 +1582,20 @@ namespace mem
 									*(writer_iter + 2) = std::move(*(reader_iter + 2));
 									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 3ll);
 									*(writer_iter + 3) = std::move(*(reader_iter + 3));
+									
+									*data_writer_iter = std::move(*data_reader_iter);
+									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 1ll);
+									*(data_writer_iter + 1) = std::move(*(data_reader_iter + 1));
+									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 2ll);
+									*(data_writer_iter + 2) = std::move(*(data_reader_iter + 2));
+									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 3ll);
+									*(data_writer_iter + 3) = std::move(*(data_reader_iter + 3));
 									if (std::is_constant_evaluated() == false)
 									{
 										auto fetch_ptr = (reader_iter.operator->() + 3ll);
 										mem::pre_fetch_cachelines<vector_type, 4ll>(fetch_ptr + 4ll);
+										auto data_fetch_ptr = (data_reader_iter.operator->() + 3ll);
+										mem::pre_fetch_cachelines<vector_type, 4ll>(data_fetch_ptr + 4ll);
 										//_mm_prefetch((char const*)(fetch_ptr), _MM_HINT_NTA);
 										//_mm_prefetch((char const*)(fetch_ptr + 1ll), _MM_HINT_NTA);
 										//_mm_prefetch((char const*)(fetch_ptr + 2ll), _MM_HINT_NTA);
@@ -1556,12 +1604,17 @@ namespace mem
 								}
 								writer_iter += 4ll;
 								reader_iter += 4ll;
+								data_writer_iter += 4ll;
+								data_reader_iter += 4ll;
 							}
 							for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
 							{
 								*writer_iter = std::move(*reader_iter);
+								*data_writer_iter = std::move(*data_reader_iter);
 								++writer_iter;
 								++reader_iter;
+								++data_writer_iter;
+								++data_reader_iter;
 							}
 						}
 					}
@@ -1574,12 +1627,14 @@ namespace mem
 			}
 			else
 			{
-				for (; reader_iter != last_iter; ++reader_iter)
+				for (; reader_iter != last_iter; ++reader_iter, ++data_reader_iter)
 				{
-					if (*indice_iter != reader_iter)
+					if (indice_iter->item_groups_iter != reader_iter)
 					{
 						*writer_iter = std::move(*reader_iter);
+						*data_writer_iter = std::move(*data_reader_iter);
 						++writer_iter;
+						++data_writer_iter;
 					}
 					else
 					{
@@ -1588,7 +1643,7 @@ namespace mem
 				}
 			}
 		}
-		return writer_iter;
+		return delete_vector_type{ writer_iter, data_writer_iter };
 	};
 	template <typename vector_type>
 	constexpr inline auto erase_indices(vector_type& data, std::vector<std::size_t>& indicesToDelete) noexcept
@@ -1762,7 +1817,8 @@ namespace mem
 	};
 };
 
-namespace mem {
+namespace mem
+{
 	constexpr int validate_mem_iterator()
 	{
 		using _Alty = typename std::allocator_traits<mem::allocator<int>>::template rebind_alloc<int>;

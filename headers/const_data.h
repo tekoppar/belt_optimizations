@@ -14,6 +14,7 @@
 
 #if __BELT_SWITCH__ == 3
 using item_groups_type = item_32;
+using item_groups_data_type = item_32_data;
 #elif __BELT_SWITCH__ == 4
 using item_groups_type = item_256;
 #endif
@@ -24,7 +25,13 @@ using item_groups_type = item_256;
 #define __BELT_SEGMENT_VECTOR_ITERATORS__
 #define __BELT_SEGMENT_VECTOR_TYPE__
 #ifdef __BELT_SEGMENT_VECTOR_TYPE__
+using _data_vector = mem::vector<item_groups_data_type, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<item_groups_data_type, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
 using _vector = mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
+struct remove_iterators_
+{
+	_vector::iterator item_groups_iter{ nullptr };
+	_data_vector::iterator item_groups_data_iter{ nullptr };
+};
 #else
 using _vector = std::vector<item_groups_type>;
 #endif

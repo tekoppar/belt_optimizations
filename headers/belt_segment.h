@@ -37,6 +37,7 @@ public:
 	vec2_uint start_of_segment{ 0, 0 };
 	vec2_uint end_of_segment{ 0, 0 };
 #ifdef __BELT_SEGMENT_VECTOR_TYPE__
+	_data_vector item_groups_data{ 4 };
 	_vector item_groups{ 4 };
 #else
 	_vector item_groups;
@@ -49,7 +50,7 @@ public:
 	std::vector<belt_segment*> connected_segments;
 
 	std::vector<long long> increment_count;
-	std::vector<_vector::iterator> remove_iterators;
+	std::vector<remove_iterators_> remove_iterators;
 	bool item_was_removed = false;
 	belt_utility::belt_direction segment_direction{ belt_utility::belt_direction::left_right };
 
@@ -145,10 +146,10 @@ public:
 				//_mm_prefetch((const char*)(begin_iter + iter_offset + 48), _MM_HINT_NTA);
 				//_mm_prefetch((const char*)(begin_iter + iter_offset + 72), _MM_HINT_NTA);
 				tmp1 = tmp1 + *begin_iter;
-				tmp2 = tmp2 + *(begin_iter + 24);
-				tmp3 = tmp3 + *(begin_iter + 48);
-				tmp4 = tmp4 + *(begin_iter + 72);
-				begin_iter += 96;
+				tmp2 = tmp2 + *(begin_iter + sizeof(item_groups_type)/8);
+				tmp3 = tmp3 + *(begin_iter + (sizeof(item_groups_type)/8*2));
+				tmp4 = tmp4 + *(begin_iter + (sizeof(item_groups_type)/8*3));
+				begin_iter += sizeof(item_groups_type)/8*4;
 			}
 			total = tmp1 + tmp2 + tmp3 + tmp4;
 			for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
@@ -231,9 +232,9 @@ public:
 		inserters.erase(inserters.begin() + index);
 	};
 
-	inline constexpr void item_group_has_zero_count(item_groups_type* ptr) noexcept
+	inline constexpr void item_group_has_zero_count(item_groups_type* ptr, item_groups_data_type* data_ptr) noexcept
 	{
-		remove_iterators.emplace_back(_vector::iterator{ ptr });
+		remove_iterators.emplace_back(_vector::iterator{ ptr }, _data_vector::iterator{ data_ptr });
 	};
 
 	inline constexpr void item_group_has_reached_goal(item_groups_type* ptr) noexcept
@@ -264,11 +265,13 @@ public:
 	{
 		const auto erase_values = mem::erase_indices<item_groups_type, _vector>(item_groups, remove_iterators);
 #ifdef __BELT_SEGMENT_VECTOR_TYPE__
-		item_groups.erase(erase_values, item_groups.last());
+		item_groups.erase(erase_values.item_groups_iter, item_groups.last());
+		item_groups_data.erase(erase_values.item_groups_data_iter, item_groups_data.last());
 #else
 		const auto before_size = item_groups.size();
 		item_groups.erase(erase_values, item_groups.end());
-		if (std::is_constant_evaluated() == false) {
+		if (std::is_constant_evaluated() == false)
+		{
 			if (item_groups.size() != before_size - remove_indexes.size()) throw std::runtime_error("");
 		}
 #endif
@@ -285,7 +288,7 @@ public:
 #ifdef _BOUNDS_CHECKING_
 			ASSERT_NOT_CONSTEXPR(ref < item_groups.size());
 #endif
-			if (ref->get_direction_position() <= position.x)
+			if (ref.item_groups_iter->get_direction_position() <= position.x)
 			{
 				++increment_count[current_index];
 				break;
@@ -440,12 +443,49 @@ public:
 		return -1;
 	};
 
+	constexpr void item_group_resize_occured() noexcept
+	{
+		if (item_groups.size() > 256ll)
+		{
+			//if (std::is_constant_evaluated() == false) mem::pre_fetch_cacheline_ptrs<item_groups_type, 10ll>(&item_groups[0]);
+			const auto loops = expr::divide_with_remainder(item_groups.size(), 4ll);
+			//if (std::is_constant_evaluated() == false) mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll>(&item_groups[0] + 4ll);
+			for (long long i = loops.div, i_loop = 0ll; i > 0ll; --i)
+			{
+				item_groups[i_loop].set_item_data_ptr(&item_groups_data[i_loop]);
+				item_groups[i_loop + 1ll].set_item_data_ptr(&item_groups_data[i_loop + 1ll]);
+				item_groups[i_loop + 2ll].set_item_data_ptr(&item_groups_data[i_loop + 2ll]);
+				item_groups[i_loop + 3ll].set_item_data_ptr(&item_groups_data[i_loop + 3ll]);
+				i_loop += 4ll;
+			}
+			for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
+			{
+				item_groups[i].set_item_data_ptr(&item_groups_data[i]);
+			}
+		}
+		else
+		{
+			auto begin_data_iter = item_groups_data.begin();
+			auto begin_iter = item_groups.begin();
+			auto last_iter = item_groups.last();
+			while (begin_iter != last_iter)
+			{
+				begin_iter->set_item_data_ptr(begin_data_iter.operator->());
+				++begin_iter;
+				++begin_data_iter;
+			}
+		}
+	};
+
 	constexpr bool add_item(const item_uint& new_item) noexcept
 	{
 		if (item_groups.size() == 0)
 		{
-			auto& new_item_group = item_groups.emplace_back(segment_direction, get_end_distance_direction());
+			const bool resize_happened = item_groups_data.needs_resize();
+			auto& new_data_group = item_groups_data.emplace_back();
+			auto& new_item_group = item_groups.emplace_back(segment_direction, get_end_distance_direction(), &new_data_group);
 			new_item_group.set_owner_ptr(this);
+			if (resize_happened) item_group_resize_occured();
 #ifdef _BOUNDS_CHECKING_
 			ASSERT_NOT_CONSTEXPR(0ll < item_groups.size());
 #endif
@@ -484,8 +524,11 @@ public:
 			}
 			else if (belt_utility::find_closest_item_group_return_result::new_group_before_iter == iter.scan)
 			{
-				auto new_iter_group = item_groups.emplace(iter.result, segment_direction, get_end_distance_direction());
+				const bool resize_happened = item_groups_data.needs_resize();
+				auto& new_data_group = item_groups_data.emplace_back();
+				auto new_iter_group = item_groups.emplace(iter.result, segment_direction, get_end_distance_direction(), &new_data_group);
 				(new_iter_group + 1)->set_owner_ptr(this);
+				if (resize_happened) item_group_resize_occured();
 #ifdef __BELT_SEGMENT_VECTOR_TYPE__
 				if (new_iter_group != item_groups.last()) new_iter_group->add_item(new_item, new_item.position);
 #else
@@ -502,16 +545,22 @@ public:
 				if (iter.result + 1 == item_groups.end())
 #endif
 				{
-					auto& new_iter_group = item_groups.emplace_back(segment_direction, get_end_distance_direction());
+					const bool resize_happened = item_groups_data.needs_resize();
+					auto& new_data_group = item_groups_data.emplace_back();
+					auto& new_iter_group = item_groups.emplace_back(segment_direction, get_end_distance_direction(), &new_data_group);
 					new_iter_group.set_owner_ptr(this);
+					if (resize_happened) item_group_resize_occured();
 					new_iter_group.add_item(new_item, new_item.position);
 					wake_up_inserter(new_item.type);
 					return true;
 				}
 				else
 				{
-					auto new_iter_group = item_groups.emplace(iter.result + 1, segment_direction, get_end_distance_direction());
+					const bool resize_happened = item_groups_data.needs_resize();
+					auto& new_data_group = item_groups_data.emplace_back();
+					auto new_iter_group = item_groups.emplace(iter.result + 1, segment_direction, get_end_distance_direction(), &new_data_group);
 					new_iter_group->set_owner_ptr(this);
+					if (resize_happened) item_group_resize_occured();
 #ifdef __BELT_SEGMENT_VECTOR_TYPE__
 					if (new_iter_group != item_groups.last()) new_iter_group->add_item(new_item, new_item.position);
 #else

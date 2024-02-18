@@ -158,8 +158,8 @@
       <FileType>Document</FileType>
     </ClInclude>
     <ClCompile Include="headers\cpu_info.h" />
+    <ClCompile Include="x64\alignment_testing.cpp" />
     <ClCompile Include="x64\BeltOptimizations.cpp" />
-    <ClCompile Include="x64\first_test.cpp" />
     <ClCompile Include="x64\second_test.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -192,7 +192,7 @@
     <ClInclude Include="headers\single_list.h" />
     <ClInclude Include="headers\type_conversion.h" />
     <ClInclude Include="headers\vectors.h" />
-    <ClInclude Include="x64\first_test.h" />
+    <ClInclude Include="x64\alignment_testing.h" />
     <ClInclude Include="x64\second_test.h" />
   </ItemGroup>
   <ItemGroup>
