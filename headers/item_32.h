@@ -794,9 +794,9 @@ public:
 		//{
 			//if (std::is_constant_evaluated() == false) items_moved_per_frame += count();
 
-			++item_position_x;
-			--item_goal_distance;
-			if (item_goal_distance == 0ll) belt_segment_helpers::item_group_has_reached_goal(owner_ptr, this);
+		++item_position_x;
+		--item_goal_distance;
+		if (item_goal_distance == 0ll) belt_segment_helpers::item_group_has_reached_goal(owner_ptr, this);
 		/*}
 		else if (belt_utility::belt_update_mode::first_stuck == active_mode)
 		{
@@ -830,6 +830,114 @@ public:
 	};
 };
 
+class item_32_data
+{
+private:
+	__declspec(align(8)) long long item_count{ 0 };
+	__declspec(align(32)) bool contains_item[32]{
+	false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false
+	};
+	__declspec(align(32)) unsigned char item_distance[32]{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	};
+	__declspec(align(64)) belt_item items[32];
+
+public:
+	constexpr item_32_data(const item_32_data& o) noexcept :
+		item_count{ o.item_count }
+	{
+		if (std::is_constant_evaluated() == false)
+		{
+			std::memcpy(&contains_item[0], &o.contains_item[0], 32);
+			std::memcpy(&item_distance[0], &o.item_distance[0], 32);
+			std::memcpy(&items[0], &o.items[0], 64);
+#ifdef _SIMPLE_MEMORY_LEAK_DETECTION
+			detect_memory_leak(this);
+#endif
+		}
+		else
+		{
+			for (long long i = 0; i < o.item_count; ++i)
+			{
+				contains_item[i] = o.contains_item[i];
+				item_distance[i] = o.item_distance[i];
+				items[i] = o.items[i];
+			}
+		}
+	};
+	constexpr item_32_data(item_32_data&& o) noexcept :
+		item_count{ o.item_count }
+	{
+		if (std::is_constant_evaluated() == false)
+		{
+			std::memcpy(&contains_item[0], &o.contains_item[0], 32);
+			std::memcpy(&item_distance[0], &o.item_distance[0], 32);
+			std::memcpy(&items[0], &o.items[0], 64);
+#ifdef _SIMPLE_MEMORY_LEAK_DETECTION
+			detect_memory_leak(this);
+#endif
+		}
+		else
+		{
+			for (long long i = 0; i < o.item_count; ++i)
+			{
+				contains_item[i] = o.contains_item[i];
+				item_distance[i] = o.item_distance[i];
+				items[i] = o.items[i];
+			}
+		}
+	};
+	constexpr item_32_data& operator=(const item_32_data& o) noexcept
+	{
+		item_count = o.item_count;
+		if (std::is_constant_evaluated() == false)
+		{
+			std::memcpy(&contains_item[0], &o.contains_item[0], 32);
+			std::memcpy(&item_distance[0], &o.item_distance[0], 32);
+			std::memcpy(&items[0], &o.items[0], 64);
+#ifdef _SIMPLE_MEMORY_LEAK_DETECTION
+			detect_memory_leak(this);
+#endif
+		}
+		else
+		{
+			for (long long i = 0; i < o.item_count; ++i)
+			{
+				contains_item[i] = o.contains_item[i];
+				item_distance[i] = o.item_distance[i];
+				items[i] = o.items[i];
+			}
+		}
+
+		return *this;
+	};
+	constexpr item_32_data& operator=(item_32_data&& o) noexcept
+	{
+		item_count = o.item_count;
+		if (std::is_constant_evaluated() == false)
+		{
+			std::memcpy(&contains_item[0], &o.contains_item[0], 32);
+			std::memcpy(&item_distance[0], &o.item_distance[0], 32);
+			std::memcpy(&items[0], &o.items[0], 64);
+#ifdef _SIMPLE_MEMORY_LEAK_DETECTION
+			detect_memory_leak(this);
+#endif
+		}
+		else
+		{
+			for (long long i = 0; i < o.item_count; ++i)
+			{
+				contains_item[i] = o.contains_item[i];
+				item_distance[i] = o.item_distance[i];
+				items[i] = o.items[i];
+			}
+		}
+
+		return *this;
+	};
+};
 /*constexpr bool test_item_iterator() noexcept
 {
 	std::vector<item_32> items;
