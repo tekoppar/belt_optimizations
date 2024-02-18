@@ -11,7 +11,7 @@ namespace mem
 	class cpu_cache_info
 	{
 		constexpr static inline const long long cache_kb_size = 1024ll;
-		public:
+	public:
 		constexpr static inline const long long cache_total_size_kb = l_n_cache_size_kb;
 		constexpr static inline const long long cache_line_size = c_cache_line_size;
 		constexpr static inline const long long cache_n_ways = l_n_n_ways;
@@ -22,7 +22,7 @@ namespace mem
 	};
 	class cpu_info
 	{
-		public:
+	public:
 		constexpr static inline const mem::cpu_cache_info<32ll, 64ll, 8ll> l1d_info{};
 	};
 
@@ -214,7 +214,7 @@ namespace mem
 		}
 		else
 		{
-			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= 64ll ? (64ll / sizeof(T)) * sizeof(T) : mem::types_in_ptr<T, char>()), 1ll);
+			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= 64ll ? (sizeof(T) == 64ull ? 1ll : (64ll / sizeof(T)) * sizeof(T)) : mem::types_in_ptr<T, char>()), 1ll);
 			constexpr long long prefetch_calls = expr::max<long long>(sizeof(T) <= 64ll ? objects_to_pre_fetch / objects_per_cache_line : objects_to_pre_fetch, 1ll);
 
 			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, objects_per_cache_line, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
@@ -420,23 +420,23 @@ namespace mem
 
 		constexpr auto loop_stride = mem::find_loop_stride<object_type>();
 		constexpr auto trailing_bytes = object_byte_size % mem::cpu_info::l1d_info.cache_line_size;
-		
+
 		/*
 		* if you plan to read the entire object like copying it to another buffer ignore this.
 		* But if you plan to iterate over it and accessing anything with an offset less then 64 bytes - it's alignment
 		* trailing bytes can cause issues as each object will be offset by said amount in memory.
-		* 
+		*
 		* from buffer[0+n] to buffer[loop_stride] the object being accessed won't be
-		* loaded in at the start of a cache line, but will be offset by 
+		* loaded in at the start of a cache line, but will be offset by
 		* cache_line_size - (((trailing_bytes(0x0) * n) + offset) % cache_line_size)
-		* 
+		*
 		* if trailing bytes is odd the cache stride will always be 64 (occurs with 1 byte alignments)
-		* 
+		*
 		* the reason this can be bad is that if you try access the object with an offset that's greater
 		* than the remaining bytes in the cache line is that a new cache line will need to be loaded.
 		* this means any instructions will still for that to happen but you will also start using up
 		* more cache lines and potentially evicting existing ones faster than if you changed alignment
-		* 
+		*
 		* you might think to use the easy solution by aligning the object to the size of the cache line.
 		* but a ptr can only belong the a specific set of cache lines. if you had an object that had a
 		* size of 96 bytes and aligned that to 64. it would occupy 2 cache lines, and if you only ever

@@ -200,7 +200,7 @@ public:
 		if (ptr->item_count > 32 || ptr->item_position_y != 0) throw std::runtime_error("");
 	};
 
-private:
+public:
 	long long item_position_y{ 0 }; //0-7
 	long long item_position_x{ 0 }; //8-15
 	long long item_goal_distance{ 0 }; //16-23
@@ -316,6 +316,17 @@ public:
 		if (i < item_count)
 #endif
 			return { item_data->items[i].type, vec2_uint{item_position_x - get_distance_to_item(i), item_position_y} };
+#ifdef _BOUNDS_CHECKING_
+		else
+			return {};
+#endif
+	};
+	inline constexpr item_uint get_first_item() const noexcept
+	{
+#ifdef _BOUNDS_CHECKING_
+		if (i < item_count)
+#endif
+			return { item_data->items[0ll].type, vec2_uint{item_position_x, item_position_y} };
 #ifdef _BOUNDS_CHECKING_
 		else
 			return {};
@@ -446,13 +457,11 @@ public:
 	constexpr long long get_distance_to_item(long long item_index) const noexcept
 	{
 		if (item_index >= item_count) return 0;
-		const auto local_item_count = item_count;
 		long long total_distance = 0;
 		const long long l = item_index + 1;
 		for (long long i = 0; i < l; ++i)
 		{
-			if (i < local_item_count)
-				total_distance += tc::widen<long long>(item_data->item_distance[i]);
+			total_distance += tc::widen<long long>(item_data->item_distance[i]);
 		}
 
 		return total_distance;
@@ -581,6 +590,32 @@ public:
 
 			//reinterpret_cast<mem::single_list_block_node<item_32>*>(((&item_position_y) - 8))->erase();
 			//TODO at this point the item_32 should be removed since it no longer contains any items nor a goal
+		}
+
+		return true;
+	};
+	constexpr bool remove_first_item() noexcept
+	{
+		if (item_count > 1ll)
+		{
+			long long new_goal_distance = item_count >= 2ll ? item_data->item_distance[1ll] : 0ll;
+			item_data->contains_item[0ll] = false;
+			item_data->item_distance[0ll] = 0;
+			shift_arrays_right();
+			item_goal_distance += new_goal_distance;
+			item_position_x -= new_goal_distance;
+			last_distance_to_item -= new_goal_distance;
+			--item_count;
+		}
+		else
+		{
+			last_distance_to_item = 0;
+			item_goal_distance = 0;
+			--item_count;
+			item_data->contains_item[0ll] = false;
+			item_data->item_distance[0ll] = 0;
+			item_data->items[0ll] = belt_item{};
+			belt_segment_helpers::item_group_has_zero_count(owner_ptr, this, item_data);
 		}
 
 		return true;
@@ -821,7 +856,7 @@ public:
 			}
 		}
 	};
-	constexpr void update_belt() noexcept
+	__forceinline constexpr void update_belt() noexcept
 	{
 		//if (active_mode == belt_utility::belt_update_mode::free)
 		//{

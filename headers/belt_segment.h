@@ -133,23 +133,22 @@ public:
 		{
 			const long long initial_count = item_groups.size();
 			const auto loops = expr::divide_with_remainder(initial_count, 4ll);
-			long long* begin_iter = (long long*)(item_groups.begin()).operator->();
-			begin_iter += 4ll;
-			constexpr long long iter_offset = mem::ptr_type_offset<item_groups_type, long long, 4ll>();
+			auto begin_iter = item_groups.begin();
+			//mem::pre_fetch_cacheline_ptrs<item_groups_type, 16ll, _MM_HINT_NTA>(begin_iter.operator->());
 			long long tmp1{ 0ll }, tmp2{ 0ll }, tmp3{ 0ll }, tmp4{ 0ll };
 			for (long long i = loops.div; i > 0ll; --i)
 			{
-				mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll, _MM_HINT_NTA, long long>(begin_iter + iter_offset);
+				//if (i - (4ll * 3ll) > 0ll) mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll, _MM_HINT_NTA>(begin_iter.operator->() + (4ll * 3ll));
 				//mem::prefetch_offset<4ll - 1ll, 4ll - 1ll, 192ll, item_groups_type, _MM_HINT_NTA>{}.___mm_prefetch___(((item_groups_type*)(begin_iter + iter_offset)));
 				//_mm_prefetch((const char*)(begin_iter + iter_offset), _MM_HINT_NTA);
 				//_mm_prefetch((const char*)(begin_iter + iter_offset + 24), _MM_HINT_NTA);
 				//_mm_prefetch((const char*)(begin_iter + iter_offset + 48), _MM_HINT_NTA);
 				//_mm_prefetch((const char*)(begin_iter + iter_offset + 72), _MM_HINT_NTA);
-				tmp1 = tmp1 + *begin_iter;
-				tmp2 = tmp2 + *(begin_iter + sizeof(item_groups_type)/8);
-				tmp3 = tmp3 + *(begin_iter + (sizeof(item_groups_type)/8*2));
-				tmp4 = tmp4 + *(begin_iter + (sizeof(item_groups_type)/8*3));
-				begin_iter += sizeof(item_groups_type)/8*4;
+				tmp1 = tmp1 + begin_iter.operator->()->count();
+				tmp2 = tmp2 + (begin_iter.operator->() + 1)->count();
+				tmp3 = tmp3 + (begin_iter.operator->() + 2)->count();
+				tmp4 = tmp4 + (begin_iter.operator->() + 3)->count();
+				begin_iter += 4ll;
 			}
 			total = tmp1 + tmp2 + tmp3 + tmp4;
 			for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
@@ -246,18 +245,16 @@ public:
 #ifdef _BOUNDS_CHECKING_
 				ASSERT_NOT_CONSTEXPR(i2 < segment_end_points.size());
 #endif
-				auto segment_ptr = segment_end_points[tc::unsign(i2)];
+				auto segment_ptr = segment_end_points[i2];
 				if (segment_ptr->start_of_segment != ptr->get_position()) continue;
-
-				const auto tmp = ptr->get(0);
-				if (segment_ptr->add_item(tmp))
+				if (segment_ptr->add_item(ptr->get_first_item()))
 				{
-					ptr->remove_item(0);
+					ptr->remove_first_item();
 					item_was_removed = true;
 					break;
-				}
 			}
 		}
+	}
 		else ptr->set_active_mode(belt_utility::belt_update_mode::first_stuck);
 	};
 
@@ -306,7 +303,7 @@ public:
 				else break;
 			}
 		}
-	};
+			};
 
 	constexpr void update_inserters() noexcept
 	{
@@ -337,20 +334,16 @@ public:
 		if (item_groups.size() > 256ll)
 		{
 			const auto loops = expr::divide_with_remainder(item_groups.size(), 4ll);
-			//if (std::is_constant_evaluated() == false) mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll>(&item_groups[0] + 4ll);
 			for (long long i = loops.div, i_loop = 0ll; i > 0ll; --i)
 			{
-				mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll>(&item_groups[i_loop] + 4ll);
-				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 1ll>(&item_groups[i_loop] + 1ll);
+				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll>(&item_groups[i_loop] + 4ll);
+
 				item_groups[i_loop].set_active_mode(belt_utility::belt_update_mode::free);
 				item_groups[i_loop].update_belt();
-				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 1ll>(&item_groups[i_loop] + 2ll);
 				item_groups[i_loop + 1ll].set_active_mode(belt_utility::belt_update_mode::free);
 				item_groups[i_loop + 1ll].update_belt();
-				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 1ll>(&item_groups[i_loop] + 3ll);
 				item_groups[i_loop + 2ll].set_active_mode(belt_utility::belt_update_mode::free);
 				item_groups[i_loop + 2ll].update_belt();
-				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 1ll>(&item_groups[i_loop] + 4ll);
 				item_groups[i_loop + 3ll].set_active_mode(belt_utility::belt_update_mode::free);
 				item_groups[i_loop + 3ll].update_belt();
 				i_loop += 4ll;
@@ -372,27 +365,20 @@ public:
 		}
 	};
 
-	constexpr void update_item() noexcept
+	__declspec(noinline) constexpr void update_item() noexcept
 	{
-		auto begin_iter = item_groups.begin();
-		auto last_iter = item_groups.last();
 		if (item_groups.size() > 256ll)
 		{
-			//if (std::is_constant_evaluated() == false) mem::pre_fetch_cacheline_ptrs<item_groups_type, 10ll>(&item_groups[0]);
+			auto begin_iter = item_groups.begin();
+			//mem::pre_fetch_cacheline_ptrs<item_groups_type, 64ll, _MM_HINT_T1>(begin_iter.operator->());
 			const auto loops = expr::divide_with_remainder(item_groups.size(), 4ll);
-			//if (std::is_constant_evaluated() == false) mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll>(&item_groups[0] + 4ll);
-			for (long long i = loops.div, i_loop = 0ll; i > 0ll; --i)
+			for (long long i = loops.div; i > 0ll; --i)
 			{
-				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 1ll>(&item_groups[i_loop] + 1ll);
-				item_groups[i_loop].update_belt();
-				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 1ll>(&item_groups[i_loop] + 2ll);
-				item_groups[i_loop + 1ll].update_belt();
-				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 1ll>(&item_groups[i_loop] + 3ll);
-				item_groups[i_loop + 2ll].update_belt();
-				//mem::pre_fetch_cacheline_ptrs<item_groups_type, 1ll>(&item_groups[i_loop] + 4ll);
-				item_groups[i_loop + 3ll].update_belt();
-				//if (std::is_constant_evaluated() == false) mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll>(&item_groups[i_loop] + 20ll);
-				i_loop += 4ll;
+				begin_iter.operator->()->update_belt();
+				(begin_iter.operator->() + 1)->update_belt();
+				(begin_iter.operator->() + 2)->update_belt();
+				(begin_iter.operator->() + 3)->update_belt();
+				begin_iter += 4ll;
 			}
 			for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
 			{
@@ -401,6 +387,8 @@ public:
 		}
 		else
 		{
+			auto begin_iter = item_groups.begin();
+			auto last_iter = item_groups.last();
 			while (begin_iter != last_iter)
 			{
 				begin_iter->update_belt();
@@ -519,9 +507,9 @@ public:
 						wake_up_inserter(new_item.type);
 						return true;
 					}
-				}
-				return false;
 			}
+				return false;
+		}
 			else if (belt_utility::find_closest_item_group_return_result::new_group_before_iter == iter.scan)
 			{
 				const bool resize_happened = item_groups_data.needs_resize();
@@ -623,7 +611,7 @@ public:
 	{
 		segment_end_points.push_back(ptr);
 	};
-};
+			};
 
 
 CONSTEXPR_VAR auto test_belt_segment() noexcept
