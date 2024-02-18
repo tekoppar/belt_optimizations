@@ -46,3 +46,7 @@
 *.ipdb
 *.txt
 .vs/BeltOptimizations/v17/.suo
+*.cod
+*.ilk
+*.ifc
+*.command

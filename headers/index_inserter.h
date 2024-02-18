@@ -30,11 +30,9 @@ private:
 	item_group_scan active_mode = item_group_scan::no_close;
 	short sleep_timer{ 32 * 32 };
 	bool is_sleeping{ false };
-	unsigned char _p1{ 0 };
-	item_uint item;
 	item_type item_need_types[8]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square,
 	item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square };
-	std::size_t total_grabbed_items{ 0 };
+	__declspec(align(32)) item_uint item;
 
 public:
 	constexpr index_inserter() noexcept
@@ -227,7 +225,7 @@ public:
 				if ((*(item_group - item_group_offset)).get_last_item_direction_position() <= position.x && (*(item_group - item_group_offset)).get_direction_position() >= position.x)
 				{
 					set_linked_list_data(item_group - item_group_offset);
-					return item_group_scan::same; //means were inbetween the item group
+					return item_group_scan::same; //means were in between the item group
 				}
 				if (0 < (position.x - (*(item_group - item_group_offset)).get_direction_position()) && (position.x - (*(item_group - item_group_offset)).get_direction_position()) < 255ll && (*(item_group - item_group_offset)).count() > 0)
 				{
@@ -244,7 +242,7 @@ public:
 			if (std::is_constant_evaluated() == false) ++good_bad_calls;
 		}
 
-		if ((*item_group).get_last_item_direction_position() <= position.x && (*item_group).get_direction_position() >= position.x) return item_group_scan::same; //means were inbetween the current item group
+		if ((*item_group).get_last_item_direction_position() <= position.x && (*item_group).get_direction_position() >= position.x) return item_group_scan::same; //means were in between the current item group
 		if (0 < (position.x - (*item_group).get_direction_position()) && (position.x - (*item_group).get_direction_position()) < 255ll && (*item_group).count() > 0) return item_group_scan::same;
 		if (item_group.is_next_valid() && (*(item_group + 1)).get_direction_position() > position.x && (*(item_group + 1)).get_last_item_direction_position() > position.x &&
 			(*item_group).get_direction_position() < position.x && (*item_group).get_last_item_direction_position() < position.x)
@@ -252,9 +250,8 @@ public:
 			return item_group_scan::same;
 		}
 
-		index_iterator next_iter{ item_group };
-		index_iterator prev_iter{ item_group };
-		bool next_iter_valid = true, prev_iter_valid = true;
+		decltype(item_group) next_iter{ item_group };
+		decltype(item_group) prev_iter{ item_group };
 
 		if (next_iter.is_next_valid() && (*(next_iter + 1ull)).get_direction_position() >= position.x && (*(next_iter + 1ull)).get_last_item_direction_position() <= position.x)
 		{
@@ -277,25 +274,22 @@ public:
 		if ((*prev_iter).get_last_item_direction_position() > position.x) //scan backwards
 			//if (prev_iter.is_prev_valid() && (*(prev_iter - 1)).get_last_item_direction_position() > position.x) //i = inserter, g = item groups, _ = belt g__g__g__i__ 
 		{
-			std::size_t iter_offset_count{ 0ull };
-			while (prev_iter_valid)
+			//std::size_t iter_offset_count{ 0ull };
+			auto current_index = prev_iter.get_index();
+			for (; current_index > 0ull; --current_index)
 			{
-				prev_iter_valid = prev_iter.is_prev_valid();
-				if (prev_iter_valid)
+				--prev_iter;
+				//++iter_offset_count;
+				//if (std::is_constant_evaluated() == false && iter_offset_count > 10000) __debugbreak();
+				if ((*prev_iter).get_last_item_direction_position() <= position.x && (*prev_iter).get_direction_position() >= position.x) //found a new group backwards that the inserter is between
 				{
-					--prev_iter;
-					++iter_offset_count;
-					//if (std::is_constant_evaluated() == false && iter_offset_count > 100000) __debugbreak();
-					if ((*prev_iter).get_last_item_direction_position() <= position.x && (*prev_iter).get_direction_position() >= position.x) //found a new group backwards that the inserter is between
-					{
-						set_linked_list_data(prev_iter);
-						return item_group_scan::found_prev;
-					}
-					else if ((*prev_iter).get_direction_position() <= position.x) //all item groups from this index is infront of the inserter
-					{
-						set_linked_list_data(prev_iter);
-						return item_group_scan::no_close_backwards;
-					}
+					set_linked_list_data(prev_iter);
+					return item_group_scan::found_prev;
+				}
+				else if ((*prev_iter).get_direction_position() <= position.x) //all item groups from this index is in front of the inserter
+				{
+					set_linked_list_data(prev_iter);
+					return item_group_scan::no_close_backwards;
 				}
 			}
 
@@ -305,20 +299,24 @@ public:
 		if ((*next_iter).get_direction_position() < position.x) //scan forward
 			//if (next_iter.is_next_valid() && (*(next_iter + 1)).get_direction_position() < position.x) //i = inserter, g = item groups, _ = belt __i__g__g__g
 		{
-			std::size_t iter_offset_count{ 0ull };
-			while (next_iter_valid)
+			//std::size_t iter_offset_count{ 0ull };
+			auto vector_size = next_iter.get_vector_size();
+			auto current_index = next_iter.get_index();
+			for (; current_index < vector_size; ++current_index)
 			{
-				next_iter_valid = next_iter.is_next_valid();
-				if (next_iter_valid)
+				prev_iter = next_iter;
+				++next_iter;
+				//++iter_offset_count;
+				//if (std::is_constant_evaluated() == false && iter_offset_count > 20000) __debugbreak();
+				if ((*next_iter).get_last_item_direction_position() <= position.x && (*next_iter).get_direction_position() >= position.x) //found a new group forwards that the inserter is between
 				{
-					++next_iter;
-					++iter_offset_count;
-					//if (std::is_constant_evaluated() == false && iter_offset_count > 100000) __debugbreak();
-					if ((*next_iter).get_last_item_direction_position() <= position.x && (*next_iter).get_direction_position() >= position.x) //found a new group forwards that the inserter is between
-					{
-						set_linked_list_data(next_iter);
-						return item_group_scan::found_next;
-					}
+					set_linked_list_data(next_iter);
+					return item_group_scan::found_next;
+				}
+				else if ((*prev_iter).get_last_item_direction_position() <= position.x && (*next_iter).get_direction_position() >= position.x)
+				{
+					set_linked_list_data(prev_iter);
+					return item_group_scan::found_next;
 				}
 			}
 
@@ -368,7 +366,6 @@ public:
 				{
 					grab_item((*item_group).get(found_index));
 					(*item_group).remove_item(found_index);
-					++total_grabbed_items;
 					if (std::is_constant_evaluated() == false) ++good_grab_calls;
 				}
 				else

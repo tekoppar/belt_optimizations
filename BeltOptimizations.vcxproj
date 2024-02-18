@@ -145,7 +145,6 @@
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>C:\Users\Tekoppar\source\repos\BeltOptimizations\headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/d1reportSingleClassLayoutitem_32 %(AdditionalOptions)</AdditionalOptions>
       <ControlFlowGuard>false</ControlFlowGuard>
     </ClCompile>
     <Link>
@@ -158,7 +157,7 @@
     <ClInclude Include="headers\belt_segment_shared.inl">
       <FileType>Document</FileType>
     </ClInclude>
-    <ClCompile Include="cpp\simd_memcpy.cpp" />
+    <ClCompile Include="headers\cpu_info.h" />
     <ClCompile Include="x64\BeltOptimizations.cpp" />
     <ClCompile Include="x64\first_test.cpp" />
     <ClCompile Include="x64\second_test.cpp" />

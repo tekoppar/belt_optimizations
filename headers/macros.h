@@ -1,5 +1,7 @@
 #pragma once
 
+#define WHAT_MM_SHUFFLE(fp0,fp1,fp2,fp3) (((fp3) << 6) | ((fp2) << 4) | ((fp1) << 2) | ((fp0)))
+
 #define __ASSUME__(__expr) (((__expr) || (assert(__expr), (__expr))), __assume(__expr))
 #define ASSERT_NOT_CONSTEXPR(exp) if (std::is_constant_evaluated() == false) assert((exp));
 #define RELEASE_ASSERT_NOT_CONSTEXPR(__expr) if (std::is_constant_evaluated() == false) {if (__expr) __assume(1); else __assume(0);}

@@ -102,9 +102,9 @@ namespace tc
 	constexpr return_type sign(input_type value, const std::source_location location = std::source_location::current())
 		requires(std::is_signed_v<return_type> == true && std::is_unsigned_v<input_type> == true)
 	{
-		constexpr auto max_return = std::numeric_limits<return_type>::max();
+		constexpr auto max_return = (std::numeric_limits<return_type>::max)();
 		constexpr auto lowest_return = std::numeric_limits<return_type>::lowest();
-		constexpr auto max_input = std::numeric_limits<input_type>::max();
+		constexpr auto max_input = (std::numeric_limits<input_type>::max)();
 		constexpr auto lowest_input = std::numeric_limits<input_type>::lowest();
 		constexpr auto lowest_signed_input = std::numeric_limits<std::make_signed_t<input_type>>::lowest();
 
@@ -148,9 +148,9 @@ namespace tc
 	constexpr return_type unsign(input_type value, const std::source_location location = std::source_location::current())
 		requires(std::is_unsigned_v<return_type> == true && std::is_signed_v<input_type> == true)
 	{
-		constexpr auto max_return = std::numeric_limits<return_type>::max();
+		constexpr auto max_return = (std::numeric_limits<return_type>::max)();
 		constexpr auto lowest_return = std::numeric_limits<return_type>::lowest();
-		constexpr auto max_input = std::numeric_limits<input_type>::max();
+		constexpr auto max_input = (std::numeric_limits<input_type>::max)();
 		constexpr auto lowest_input = std::numeric_limits<input_type>::lowest();
 
 		if (value == static_cast<input_type>(0)) return static_cast<return_type>(0);
@@ -177,7 +177,7 @@ namespace tc
 		}
 
 		//if (std::is_constant_evaluated() == false) throw std::runtime_error(std::string(location.file_name()) + "(" + std::to_string(location.line()) + "," + std::to_string(location.column()) + "): " + location.function_name() + " warning: missing return value");
-		return std::numeric_limits<std::size_t>::max();
+		return (std::numeric_limits<std::size_t>::max)();
 	};
 	template<typename input_type>
 	constexpr std::make_unsigned_t<input_type> unsign(input_type value, const std::source_location location = std::source_location::current())
@@ -287,8 +287,8 @@ static_assert(tc::widen<unsigned long long>(512) == 512);
 static_assert(tc::widen<long long>(512u) == 512);
 
 static_assert(tc::unsign<unsigned int>(55555555ll) == 55555555u, "no");
-static_assert(tc::unsign<unsigned int>(555555555555ll) == std::numeric_limits<unsigned int>::max(), "no");
+static_assert(tc::unsign<unsigned int>(555555555555ll) == (std::numeric_limits<unsigned int>::max)(), "no");
 static_assert(tc::unsign<std::size_t>(-5555555555555ll) == 0ull, "no");
 
 static_assert(tc::sign<int>(55555555ull) == 55555555, "no");
-static_assert(tc::sign<int>(555555555555ull) == std::numeric_limits<int>::max(), "no");
+static_assert(tc::sign<int>(555555555555ull) == (std::numeric_limits<int>::max)(), "no");

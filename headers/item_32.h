@@ -44,7 +44,7 @@ class belt_segment;
 *
 * So every time an item moves to a new segment it either needs to be added to an already existing item_32
 * or create a new item_32 to add itself too. An item can only be added to a item_32 if the distance between
-* the last items position and the newly added is less than or euqal too 255, item_32 only does less than.
+* the last items position and the newly added is less than or equal too 255, item_32 only does less than.
 * There's no support for adding items in the middle, but that can be achieved by comparing the x position
 * of the new item with the distance to x item until it's less than and then check if the next item in the
 * series has a distance greater than 63 if it does the item can fit and you just shift the arrays from that index.
@@ -64,7 +64,7 @@ class belt_segment;
 *
 * This solution has some major advantages, items don't need to be split up into different item_32 based on what
 * inserters wants to pick up, there's no need to keep track of any data besides a bool being toggled. Nothing
-* in the code in item_32 needs to change except to add in support for the reserverd bool code to indicate that an
+* in the code in item_32 needs to change except to add in support for the reserved bool code to indicate that an
 * item is reserved and shift said array when an item is removed. Besides that the item_32 can keep moving until
 * it either reaches zero items or the final end segment.
 *
@@ -86,7 +86,7 @@ class belt_segment;
 * It might be a good idea to test if adding 8bit and 16bit mode variable to the class would be a benefit since
 * than you could have a greater distance between items if there's not enough items moving to avoid creating too
 * many instances of item_32 to hold few items. You would only need to switch on the add and shift parts to use
-* 16bit intrinsics instead of 8bit. This way you could still store the instances as objets instead of ptrs and
+* 16bit intrinsics instead of 8bit. This way you could still store the instances as objects instead of ptrs and
 * avoid using virtual functions to have a item_32_8bit and item_32_16bit version in the same vector.
 */
 
@@ -108,10 +108,11 @@ private:
 	long long item_position_y{ 0 }; //0-7
 	long long item_position_x{ 0 }; //8-15
 	long long item_goal_distance{ 0 }; //16-23
-	const belt_utility::belt_direction direction{ belt_utility::belt_direction::left_right }; //24-31
+	const belt_utility::belt_direction direction{ belt_utility::belt_direction::left_right }; //24-27
+	int last_distance_to_item{ 0 }; //28-31
 	__declspec(align(8)) long long item_count{ 0 }; //32-39
-	belt_utility::belt_update_mode active_mode{ belt_utility::belt_update_mode::free }; //40-47
-	__declspec(align(8)) belt_segment* owner_ptr { nullptr }; //48-55
+	belt_utility::belt_update_mode active_mode{ belt_utility::belt_update_mode::free }; //40-43
+	__declspec(align(8)) belt_segment* owner_ptr { nullptr }; //43-51
 	__declspec(align(32)) bool contains_item[32]{
 		false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false
@@ -141,6 +142,7 @@ public:
 		item_position_x{ o.item_position_x },
 		item_goal_distance{ o.item_goal_distance },
 		direction{ o.direction },
+		last_distance_to_item{ o.last_distance_to_item },
 		item_count{ o.item_count },
 		active_mode{ o.active_mode },
 		owner_ptr{ o.owner_ptr }
@@ -169,6 +171,7 @@ public:
 		item_position_x{ o.item_position_x },
 		item_goal_distance{ o.item_goal_distance },
 		direction{ o.direction },
+		last_distance_to_item{ o.last_distance_to_item },
 		item_count{ o.item_count },
 		active_mode{ o.active_mode },
 		owner_ptr{ o.owner_ptr }
@@ -197,6 +200,7 @@ public:
 		item_position_y = o.item_position_y;
 		item_position_x = o.item_position_x;
 		item_goal_distance = o.item_goal_distance;
+		last_distance_to_item = o.last_distance_to_item;
 		item_count = o.item_count;
 		active_mode = o.active_mode;
 		owner_ptr = o.owner_ptr;
@@ -226,6 +230,7 @@ public:
 		item_position_y = o.item_position_y;
 		item_position_x = o.item_position_x;
 		item_goal_distance = o.item_goal_distance;
+		last_distance_to_item = o.last_distance_to_item;
 		item_count = o.item_count;
 		active_mode = o.active_mode;
 		owner_ptr = o.owner_ptr;
@@ -352,15 +357,55 @@ public:
 	{
 		owner_ptr = owner;
 	};
+private:
+	constexpr long long fast_distance_to_last_item(const unsigned char* ch) const noexcept
+	{
+		auto c1 = ch[0] + ch[1];
+		auto c2 = ch[2] + ch[3];
+		auto c3 = ch[4] + ch[5];
+		auto c4 = ch[6] + ch[7];
+		auto c5 = ch[8] + ch[9];
+		auto c6 = ch[10] + ch[11];
+		auto c7 = ch[12] + ch[13];
+		auto c8 = ch[14] + ch[15];
 
+		auto c9 = ch[16] + ch[17];
+		auto c10 = ch[18] + ch[19];
+		auto c11 = ch[20] + ch[21];
+		auto c12 = ch[22] + ch[23];
+		auto c13 = ch[24] + ch[25];
+		auto c14 = ch[26] + ch[27];
+		auto c15 = ch[28] + ch[29];
+		auto c16 = ch[30] + ch[31];
+
+		int i1 = c1 + c2;
+		int i2 = c3 + c4;
+		int i3 = c5 + c6;
+		int i4 = c7 + c8;
+		int i5 = c9 + c10;
+		int i6 = c11 + c12;
+		int i7 = c13 + c14;
+		int i8 = c15 + c16;
+
+		long l1 = i1 + i2;
+		long l2 = i3 + i4;
+		long l3 = i5 + i6;
+		long l4 = i7 + i8;
+
+		long long ll1 = l1 + l2;
+		long long ll2 = l3 + l4;
+		return ll1 + ll2;
+	};
+public:
 	constexpr long long get_distance_to_last_item() const noexcept
 	{
+		return last_distance_to_item;// fast_distance_to_last_item(item_distance);
 		const auto local_item_count = item_count;
 		if (local_item_count == 0) return 0;
 		long long total_distance = 0;
 		for (long long i = 0; i < local_item_count; ++i)
 		{
-			if (i < local_item_count) total_distance += tc::widen<long long>(item_distance[i]);
+			total_distance += static_cast<long long>(item_distance[i]);
 		}
 
 		return total_distance;
@@ -417,7 +462,7 @@ public:
 		{
 			const long long new_distance = new_item_position.x - item_position_x;
 			item_goal_distance -= new_distance;
-			forced_shift_arrays_left();
+			shift_arrays_left();
 			item_position_x = new_item_position.x;
 			item_position_y = new_item_position.y;
 			++item_count;
@@ -425,6 +470,7 @@ public:
 			item_distance[0] = static_cast<unsigned char>(0);
 			item_distance[1] = static_cast<unsigned char>(new_distance);
 			items[0] = new_item;
+			last_distance_to_item += item_distance[1];
 			return 0;
 		}
 
@@ -438,10 +484,11 @@ public:
 			contains_item[item_count - 1] = true;
 			item_distance[item_count - 1] = static_cast<unsigned char>(distance_to_last_item);
 			items[item_count - 1] = new_item;
+			last_distance_to_item += item_distance[item_count - 1];
 			return item_count - 1;
 		}
 
-		//if we should add inbetween items
+		//if we should add in between items
 		const long long l = count() - 1ll;
 		for (long long i = 0; i < l; ++i)
 		{
@@ -452,6 +499,7 @@ public:
 				contains_item[i + 1] = true;
 				item_distance[i + 1] = static_cast<unsigned char>(new_item_position.x - get_distance_to_item(i + 1));
 				items[i + 1] = new_item;
+				last_distance_to_item += item_distance[i + 1];
 				return tc::narrow<short>(i) + 1;
 			}
 		}
@@ -471,6 +519,7 @@ public:
 				shift_arrays_right();
 				item_goal_distance += new_goal_distance;
 				item_position_x -= new_goal_distance;
+				last_distance_to_item -= new_goal_distance;
 				--item_count;
 			}
 			else
@@ -481,11 +530,13 @@ public:
 				items[index] = belt_item{};
 				shift_arrays_right_from_index(index);
 				item_distance[index] += removed_distance;
+				last_distance_to_item -= removed_distance;
 				--item_count;
 			}
 		}
 		else
 		{
+			last_distance_to_item = 0;
 			item_goal_distance = 0;
 			--item_count;
 			contains_item[index] = false;
@@ -739,27 +790,18 @@ public:
 	};
 	constexpr void update_belt() noexcept
 	{
-		if (active_mode == belt_utility::belt_update_mode::free)
-		{
-			if (std::is_constant_evaluated() == false)
-			{
-				items_moved_per_frame += count();
+		//if (active_mode == belt_utility::belt_update_mode::free)
+		//{
+			//if (std::is_constant_evaluated() == false) items_moved_per_frame += count();
 
-				++item_position_x;
-				--item_goal_distance;
-				if (item_goal_distance == 0ll) belt_segment_helpers::item_group_has_reached_goal(owner_ptr, this);
-			}
-			else
-			{
-				++item_position_x;
-				--item_goal_distance;
-				if (item_goal_distance == 0ll) belt_segment_helpers::item_group_has_reached_goal(owner_ptr, this);
-			}
-		}
+			++item_position_x;
+			--item_goal_distance;
+			if (item_goal_distance == 0ll) belt_segment_helpers::item_group_has_reached_goal(owner_ptr, this);
+		/*}
 		else if (belt_utility::belt_update_mode::first_stuck == active_mode)
 		{
 			items_stuck_update();
-		}
+		}*/
 	};
 	/*
 	* continue incrementing the item_distance until they are all at 32
@@ -770,14 +812,12 @@ public:
 	constexpr void items_stuck_update() noexcept
 	{
 		long long moved_items = 0;
-
 		for (long long i = 1; i < item_count; ++i)
 		{
 			if (item_distance[i] > 32)
 			{
 				--item_distance[i];
 				moved_items = item_count - i;
-				break;
 			}
 		}
 

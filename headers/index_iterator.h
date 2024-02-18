@@ -217,6 +217,14 @@ public:
 	{
 		return vector->empty();
 	};
+	inline constexpr std::size_t get_index() const noexcept
+	{
+		return index;
+	};
+	inline constexpr long long get_vector_size() const noexcept
+	{
+		return vector->size();
+	};
 
 private:
 	alignas(8) std::size_t index{ 0ull };

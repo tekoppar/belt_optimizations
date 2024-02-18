@@ -24,7 +24,7 @@
     <ClCompile Include="x64\second_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cpp\simd_memcpy.cpp">
+    <ClCompile Include="headers\cpu_info.h">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -24,7 +24,7 @@ using item_groups_type = item_256;
 #define __BELT_SEGMENT_VECTOR_ITERATORS__
 #define __BELT_SEGMENT_VECTOR_TYPE__
 #ifdef __BELT_SEGMENT_VECTOR_TYPE__
-using _vector = mem::vector<item_groups_type>;
+using _vector = mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
 #else
 using _vector = std::vector<item_groups_type>;
 #endif

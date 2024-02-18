@@ -350,7 +350,7 @@ namespace mem
 			}
 			else if constexpr (mem::Allocating_Type::ALIGNED_MALLOC == allocating_type)
 			{
-				constexpr auto closest_alignmnet = mem::get_closest_alignmnet<value_type>();
+				constexpr auto closest_alignmnet = (mem::aligned_by<value_type, sizeof(value_type)>() == 0ull ? (mem::aligned_by<value_type, 32ull>() == 0ull ? 32ull : mem::get_closest_alignmnet<value_type>()) : mem::get_closest_alignmnet<value_type>());
 				auto const pv = _aligned_malloc(count, closest_alignmnet);
 #ifdef _DEBUG
 				if (!pv) throw std::bad_alloc();
@@ -366,7 +366,7 @@ namespace mem
 			}
 			else
 			{
-				constexpr auto closest_alignmnet = mem::get_closest_alignmnet<value_type>();
+				constexpr auto closest_alignmnet = (mem::aligned_by<value_type, sizeof(value_type)>() == 0ull ? (mem::aligned_by<value_type, 32ull>() == 0ull ? 32ull : mem::get_closest_alignmnet<value_type>()) : mem::get_closest_alignmnet<value_type>());
 				auto const ptr = ::operator new[](count, std::align_val_t{ closest_alignmnet }, std::nothrow);
 				//if (!mem::is_aligned<T, closest_alignmnet>(ptr)) throw std::bad_alloc();
 				if (!ptr) [[unlikely]] throw std::bad_alloc();
@@ -411,7 +411,7 @@ namespace mem
 			}
 			else
 			{
-				constexpr auto closest_alignmnet = mem::get_closest_alignmnet<value_type>();
+				constexpr auto closest_alignmnet = (mem::aligned_by<value_type, sizeof(value_type)>() == 0ull ? (mem::aligned_by<value_type, 32ull>() == 0ull ? 32ull : mem::get_closest_alignmnet<value_type>()) : mem::get_closest_alignmnet<value_type>());
 				if (n != 0) operator delete[](memory_block, n, std::align_val_t{ closest_alignmnet });
 				else operator delete[](memory_block, std::align_val_t{ closest_alignmnet });
 			}
@@ -551,11 +551,13 @@ namespace mem
 		using _Alty = typename std::allocator_traits<Allocator>::template rebind_alloc<Object>;//std::_Rebind_alloc_t<Allocator, Object>;//
 		using _Alty_traits = std::allocator_traits<_Alty>;
 
-		_Alty MemoryAllocator;
+		//_Alty MemoryAllocator;
 
 		static_assert(std::is_same_v<_Alty, mem::allocator<Object, allocating_type>>);
 
 	public:
+		static constexpr mem::use_memcpy use_memcpy_value = memcpy_check;
+		static constexpr  mem::Allocating_Type use_allocating_type = allocating_type;
 		static_assert(!_ENFORCE_MATCHING_ALLOCATORS || std::is_same_v<Object, typename Allocator::value_type>, _MISMATCHED_ALLOCATOR_MESSAGE("vector<T, Allocator>", "T"));
 
 		using value_type = Object;
@@ -581,8 +583,8 @@ namespace mem
 		scary_val values{ nullptr, nullptr, nullptr };
 
 		inline constexpr vector() = default;
-		inline constexpr vector(long long capacity) noexcept : //requires(mem::is_allocator_v<Allocator, Object>&& mem::is_allocator_requirements_v<_Alty, Object>)
-			values{ this->MemoryAllocator.allocate(static_cast<unsigned long long>(capacity)), static_cast<unsigned long long>(capacity) }
+		inline constexpr vector(long long capacity, _Alty allocator = _Alty{}) noexcept : //requires(mem::is_allocator_v<Allocator, Object>&& mem::is_allocator_requirements_v<_Alty, Object>)
+			values{ _Alty_traits::allocate(allocator, static_cast<unsigned long long>(capacity)), static_cast<unsigned long long>(capacity) }
 		{};
 		inline constexpr ~vector() noexcept
 			//requires (vector_has_method<Object> == false)
@@ -599,7 +601,8 @@ namespace mem
 						}
 					}
 				}
-				this->MemoryAllocator.deallocate(this->values.first);// , this->usize());
+				_Alty MemoryAllocator{};
+				MemoryAllocator.deallocate(this->values.first);// , this->usize());
 			}
 		};
 
@@ -746,13 +749,14 @@ namespace mem
 		{
 			scary_val oldContainer{ this->values };
 			long long old_size = oldContainer.size();
-			this->values = scary_val{ this->MemoryAllocator.allocate(static_cast<std::size_t>(newSize)), static_cast<std::size_t>(newSize) };
+			_Alty MemoryAllocator{};
+			this->values = scary_val{ MemoryAllocator.allocate(static_cast<std::size_t>(newSize)), static_cast<std::size_t>(newSize) };
 
 			for (long long i = 0; i < old_size; ++i)
 			{
 				this->values.first[i] = std::move(oldContainer.first[i]);
 			}
-			this->MemoryAllocator.deallocate(oldContainer.first);
+			MemoryAllocator.deallocate(oldContainer.first);
 			this->values.last = this->values.first + old_size;
 		};
 
@@ -760,11 +764,11 @@ namespace mem
 			requires (mem::concepts::vector_has_method<value_type> == true)
 		{
 			__ASSUME__(values.first != nullptr);
-
+			_Alty MemoryAllocator{};
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
 				const auto old_size = this->size();
-				scary_val newContainer = { this->MemoryAllocator.allocate(tc::widen<std::size_t>(newSize)), tc::widen<std::size_t>(newSize) };
+				scary_val newContainer = { MemoryAllocator.allocate(tc::widen<std::size_t>(newSize)), tc::widen<std::size_t>(newSize) };
 
 				if (values.first + old_size > values.end) throw std::runtime_error("");
 
@@ -777,7 +781,7 @@ namespace mem
 			{
 				scary_val oldContainer{ this->values };
 				this->capacity = newSize;
-				this->values = { this->MemoryAllocator.allocate(newSize), static_cast<std::size_t>(newSize) };
+				this->values = { MemoryAllocator.allocate(newSize), static_cast<std::size_t>(newSize) };
 
 				for (long long i = 0; i < oldContainer.size(); ++i)
 				{
@@ -785,7 +789,7 @@ namespace mem
 				}
 
 				this->values.last = this->values.first + oldContainer.size();
-				this->MemoryAllocator.deallocate(oldContainer.first);
+				MemoryAllocator.deallocate(oldContainer.first);
 			}
 		};
 
@@ -840,7 +844,10 @@ namespace mem
 
 			const auto new_capacity = vector.get_capacity();
 			if (this->get_capacity() < new_capacity || this->values.first == nullptr)
-				this->values = scary_val{ this->MemoryAllocator.allocate(new_capacity), vector.get_ucapacity() };
+			{
+				_Alty MemoryAllocator{};
+				this->values = scary_val{ MemoryAllocator.allocate(new_capacity), vector.get_ucapacity() };
+			}
 
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
@@ -863,9 +870,18 @@ namespace mem
 			__ASSUME__(values.first != nullptr);
 
 			if (this->values.first && !this->empty()) this->clear();
-
+			_Alty MemoryAllocator{};
 			if (this->get_capacity() < vector.get_capacity())
-				this->values = { this->MemoryAllocator.allocate(vector.get_capacity()), static_cast<std::size_t>(vector.get_capacity()) };
+			{
+				if (values.size() > 0ll)
+				{
+					auto old_values = std::move(values);
+					this->values = { MemoryAllocator.allocate(vector.get_capacity()), static_cast<std::size_t>(vector.get_capacity()) };
+					MemoryAllocator.deallocate(old_values.first);
+				}
+				else this->values = { MemoryAllocator.allocate(vector.get_capacity()), static_cast<std::size_t>(vector.get_capacity()) };
+
+			}
 
 			this->capacity = std::exchange(vector.get_capacity(), 0);
 			this->size_ = std::exchange(vector.size(), 0);
@@ -883,7 +899,7 @@ namespace mem
 				}
 			}
 
-			vector.MemoryAllocator.deallocate(vector.values.first);
+			MemoryAllocator.deallocate(vector.values.first);
 			vector.values = nullptr;
 		};
 
@@ -892,21 +908,29 @@ namespace mem
 			if constexpr (mem::use_memcpy::force_checks_off == memcpy_check || mem::use_memcpy::check_based_on_type == memcpy_check && mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
 				auto new_size = oldContainer.get_ucapacity() * 2ull;
-				auto old_size = oldContainer.size();
+				auto old_size = oldContainer.usize();
 				constexpr const size_t type_size = sizeof(Object);
 				std::size_t type_arr_size = type_size * old_size;
-				this->values = scary_val{ this->MemoryAllocator.allocate(new_size), new_size };
+				_Alty MemoryAllocator{};
+				this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
 
-				if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type) SIMDMemCopy256(this->values.first, oldContainer.first, DivideByMultiple(type_arr_size, 16));
-				else std::memcpy(this->values.first, oldContainer.first, type_arr_size);
-				this->MemoryAllocator.deallocate(oldContainer.first);
+				if constexpr (mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type)
+				{
+					SIMDMemCopy256<value_type, true>((void*)values.first, (void*)oldContainer.first, old_size);
+				}
+				else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
+					SIMDMemCopy256((void*)this->values.first, (void*)oldContainer.first, DivideByMultiple(type_arr_size, 16));
+				else
+					std::memcpy(this->values.first, oldContainer.first, type_arr_size);
+				MemoryAllocator.deallocate(oldContainer.first);
 				this->values.last = this->values.first + old_size;
 			}
 			else
 			{
 				auto new_size = oldContainer.get_ucapacity() * 2ull;
 				auto old_size = oldContainer.size();
-				this->values = scary_val{ this->MemoryAllocator.allocate(new_size), new_size };
+				_Alty MemoryAllocator{};
+				this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
 
 				if (old_size > 256ll)
 				{
@@ -914,13 +938,13 @@ namespace mem
 					auto loops = expr::divide_with_remainder(initial_count, 4ll);
 					for (long long i = 0ll, i_loop = 0ll; i < loops.div; ++i)
 					{
-						if (std::is_constant_evaluated() == false)
+						/*if (std::is_constant_evaluated() == false)
 						{
 							auto tmp = oldContainer.first;
 							mem::pre_fetch_cachelines<Object, 4ll, _MM_HINT_NTA>(tmp + (i_loop + 4ll));
 							//auto tmp2 = values.first;
 							//pre_fetch_cachelines<Object, 4ll>(tmp2 + (i_loop + 4ll));
-						}
+						}*/
 						//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(oldContainer.first + (i_loop + 1ll));
 						this->values.first[i_loop] = std::move(oldContainer.first[i_loop]);
 
@@ -947,7 +971,7 @@ namespace mem
 						this->values.first[i] = std::move(oldContainer.first[i]);
 					}
 				}
-				this->MemoryAllocator.deallocate(oldContainer.first);
+				MemoryAllocator.deallocate(oldContainer.first);
 				this->values.last = this->values.first + old_size;
 			}
 		};
@@ -1358,7 +1382,8 @@ namespace mem
 					++first;
 					++start;
 				}
-				_Alty_traits::destroy(this->MemoryAllocator, this->values.last);
+				_Alty MemoryAllocator{};
+				_Alty_traits::destroy(MemoryAllocator, this->values.last);
 			}
 
 			--this->values.last;
@@ -1391,7 +1416,8 @@ namespace mem
 				const iterator _end = this->end();
 				while (first != end)
 				{
-					_Alty_traits::destroy(this->MemoryAllocator, first.operator->());
+					_Alty MemoryAllocator{};
+					_Alty_traits::destroy(MemoryAllocator, first.operator->());
 					++first;
 				}
 			}
@@ -1468,13 +1494,13 @@ namespace mem
 		};
 	};
 
-	template <typename vector_type>
-	__declspec(noinline) constexpr mem::vector<vector_type>::iterator erase_indices(mem::vector<vector_type>& data, std::vector<typename mem::vector<vector_type>::iterator>& delete_iterators) noexcept
+	template <typename vector_type, class __vector>
+	__declspec(noinline) constexpr __vector::iterator erase_indices(__vector& data, std::vector<typename __vector::iterator>& delete_iterators) noexcept
 	{
 		auto indice_iter{ delete_iterators.begin() };
-		typename mem::vector<vector_type>::iterator writer_iter = *indice_iter;
-		typename mem::vector<vector_type>::iterator reader_iter{ writer_iter };
-		typename mem::vector<vector_type>::iterator last_iter{ data.last() };
+		typename __vector::iterator writer_iter = *indice_iter;
+		typename __vector::iterator reader_iter{ writer_iter };
+		typename __vector::iterator last_iter{ data.last() };
 
 		if (writer_iter != last_iter)
 		{
@@ -1485,35 +1511,58 @@ namespace mem
 					const long long initial_count = (indice_iter != delete_iterators.end() ? (*indice_iter) - reader_iter : last_iter - reader_iter);
 					if (initial_count > 0ll)
 					{
-						pre_fetch_cachelines<vector_type, 4ll>(reader_iter.operator->());
-						const auto loops = expr::divide_with_remainder(initial_count, 4ll);
-						for (long long i = loops.div, i_loop = 0ll; i > 0ll; --i)
+						if constexpr (mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type)
 						{
-							//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->());
-							*writer_iter = std::move(*reader_iter);
-							//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 1ll);
-							*(writer_iter + 1) = std::move(*(reader_iter + 1));
-							//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 2ll);
-							*(writer_iter + 2) = std::move(*(reader_iter + 2));
-							//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 3ll);
-							*(writer_iter + 3) = std::move(*(reader_iter + 3));
-							if (std::is_constant_evaluated() == false)
-							{
-								auto fetch_ptr = (reader_iter.operator->() + 3ll);
-								pre_fetch_cachelines<vector_type, 4ll>(fetch_ptr + 4ll);
-								//_mm_prefetch((char const*)(fetch_ptr), _MM_HINT_NTA);
-								//_mm_prefetch((char const*)(fetch_ptr + 1ll), _MM_HINT_NTA);
-								//_mm_prefetch((char const*)(fetch_ptr + 2ll), _MM_HINT_NTA);
-								//_mm_prefetch((char const*)(fetch_ptr + 3ll), _MM_HINT_NTA);
-							}
-							writer_iter += 4ll;
-							reader_iter += 4ll;
+							SIMDMemCopy256<vector_type, true>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
+							writer_iter += initial_count;
+							reader_iter += initial_count;
 						}
-						for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
+						else
 						{
-							*writer_iter = std::move(*reader_iter);
-							++writer_iter;
-							++reader_iter;
+							//mem::pre_fetch_cachelines<vector_type, 4ll>(reader_iter.operator->());
+							const auto loops = expr::divide_with_remainder(initial_count, 4ll);
+							//const auto is_ptr_aligned = mem::is_aligned<vector_type, 16>(writer_iter.operator->());
+
+							for (long long i = loops.div, i_loop = 0ll; i > 0ll; --i)
+							{
+								if constexpr (mem::use_memcpy::force_checks_off == __vector::use_memcpy_value)
+								{
+									SIMDMemCopy256<vector_type, 16ull, 4ull>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type);
+									//std::memcpy(writer_iter.operator->() + 1, reader_iter.operator->() + 1, sizeof(vector_type));
+									//std::memcpy(writer_iter.operator->() + 2, reader_iter.operator->() + 2, sizeof(vector_type));
+									//std::memcpy(writer_iter.operator->() + 3, reader_iter.operator->() + 3, sizeof(vector_type));
+									//auto fetch_ptr = (reader_iter.operator->() + 3ll);
+									//mem::pre_fetch_cachelines<vector_type, 4ll>(fetch_ptr + 4ll);
+								}
+								else
+								{
+									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->());
+									*writer_iter = std::move(*reader_iter);
+									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 1ll);
+									*(writer_iter + 1) = std::move(*(reader_iter + 1));
+									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 2ll);
+									*(writer_iter + 2) = std::move(*(reader_iter + 2));
+									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 3ll);
+									*(writer_iter + 3) = std::move(*(reader_iter + 3));
+									if (std::is_constant_evaluated() == false)
+									{
+										auto fetch_ptr = (reader_iter.operator->() + 3ll);
+										mem::pre_fetch_cachelines<vector_type, 4ll>(fetch_ptr + 4ll);
+										//_mm_prefetch((char const*)(fetch_ptr), _MM_HINT_NTA);
+										//_mm_prefetch((char const*)(fetch_ptr + 1ll), _MM_HINT_NTA);
+										//_mm_prefetch((char const*)(fetch_ptr + 2ll), _MM_HINT_NTA);
+										//_mm_prefetch((char const*)(fetch_ptr + 3ll), _MM_HINT_NTA);
+									}
+								}
+								writer_iter += 4ll;
+								reader_iter += 4ll;
+							}
+							for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
+							{
+								*writer_iter = std::move(*reader_iter);
+								++writer_iter;
+								++reader_iter;
+							}
 						}
 					}
 					if (indice_iter != delete_iterators.end())
@@ -1613,12 +1662,12 @@ namespace mem
 
 			return ptr;
 		}
-		};
+	};
 	template <typename value_type>
 	constexpr static auto allocate_ptr(const std::size_t count)
 	{
 #ifdef _DEBUG
-		constexpr std::size_t bad_arr_length{ std::numeric_limits<std::size_t>::max() / sizeof(value_type) };
+		constexpr std::size_t bad_arr_length{ (std::numeric_limits<std::size_t>::max)() / sizeof(value_type) };
 		if (std::is_constant_evaluated() == false && (count == 0 || count > bad_arr_length))
 			throw std::bad_array_new_length();
 #endif
@@ -1711,7 +1760,7 @@ namespace mem
 			++c;
 		}
 	};
-	};
+};
 
 namespace mem {
 	constexpr int validate_mem_iterator()
