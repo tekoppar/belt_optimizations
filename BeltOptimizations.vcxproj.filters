@@ -29,22 +29,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="headers\belt.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="headers\item.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\vectors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="headers\belt_8.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="headers\belt_utility.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\belt_32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\item_32.h">
@@ -63,9 +54,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\single_list.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\belt_segment_mc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\block_allocator.h">

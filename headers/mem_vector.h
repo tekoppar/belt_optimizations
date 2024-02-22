@@ -1,31 +1,28 @@
 #pragma once
 
+#ifndef _PPL_H
 #include <ppl.h>
+#endif
 
 #include <array>
-#include <cassert>
-#include <cstring>
 #include <iterator>
 #include <memory>
 #include <new>
 #include <stdexcept>
-#include <stdlib.h>
-#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <xmemory>
-#include <corecrt_malloc.h>
+#include <malloc.h>
+#include <exception>
+#include <concrt.h>
+#include <vector>
 
 #include "macros.h"
 #include "math_utility.h"
 #include "mem_utilities.h"
-
 #include "mem_vector_concepts.h"
 #include "type_conversion.h"
-
 #include "simd_memcpy.h"
-
 #include "item_32.h"
 
 namespace mem
@@ -117,7 +114,8 @@ namespace mem
 		CONCURRENCY,
 		MALLOC,
 		ALIGNED_NEW,
-		ALIGNED_MALLOC
+		ALIGNED_MALLOC,
+		ALIGNED_NEW_32
 	};
 
 	enum class use_memcpy
@@ -360,6 +358,14 @@ namespace mem
 			else if constexpr (mem::Allocating_Type::CONCURRENCY == allocating_type)
 			{
 				auto const ptr = concurrency::Alloc(count);
+				if (!ptr) [[unlikely]] throw std::bad_alloc();
+
+				return ptr;
+			}
+			else if constexpr (mem::Allocating_Type::ALIGNED_NEW_32 == allocating_type)
+			{
+				auto const ptr = ::operator new[](count, std::align_val_t{ 32ull }, std::nothrow);
+				//if (!mem::is_aligned<T, closest_alignmnet>(ptr)) throw std::bad_alloc();
 				if (!ptr) [[unlikely]] throw std::bad_alloc();
 
 				return ptr;
@@ -920,9 +926,10 @@ namespace mem
 				_Alty MemoryAllocator{};
 				this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
 
-				if constexpr (mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type)
+				if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll))
 				{
-					SIMDMemCopy256<value_type, true>((void*)values.first, (void*)oldContainer.first, old_size);
+					if constexpr (sizeof(Object) == 32ll) SIMDMemCopy256_32<value_type, true>((void*)values.first, (void*)oldContainer.first, old_size);
+					else SIMDMemCopy256_16<value_type, false>((void*)values.first, (void*)oldContainer.first, old_size);
 				}
 				else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
 					SIMDMemCopy256((void*)this->values.first, (void*)oldContainer.first, DivideByMultiple(type_arr_size, 16));
@@ -1545,10 +1552,19 @@ namespace mem
 					const long long initial_count = (indice_iter != delete_iterators.end() ? (indice_iter->item_groups_iter) - reader_iter : last_iter - reader_iter);
 					if (initial_count > 0ll)
 					{
-						if constexpr (mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type)
+						if constexpr (mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type && (sizeof(vector_type) == 32ll || sizeof(vector_type) == 16ll))
 						{
-							SIMDMemCopy256<vector_type, true>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
-							SIMDMemCopy256<vector_type, true>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+							if constexpr (sizeof(vector_type) == 32ll)
+							{
+								SIMDMemCopy256_32<vector_type, true>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
+								SIMDMemCopy256_32<vector_type, true>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+							}
+							else if constexpr (sizeof(vector_type) == 16ll)
+							{
+								SIMDMemCopy256_16<vector_type, false>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
+								SIMDMemCopy256_16<vector_type, false>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+							}
+
 							writer_iter += initial_count;
 							reader_iter += initial_count;
 							data_writer_iter += initial_count;
@@ -1582,7 +1598,7 @@ namespace mem
 									*(writer_iter + 2) = std::move(*(reader_iter + 2));
 									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 3ll);
 									*(writer_iter + 3) = std::move(*(reader_iter + 3));
-									
+
 									*data_writer_iter = std::move(*data_reader_iter);
 									//pre_fetch_cachelines<vector_type, 1ll>(reader_iter.operator->() + 1ll);
 									*(data_writer_iter + 1) = std::move(*(data_reader_iter + 1));
@@ -1826,7 +1842,7 @@ namespace mem
 		int int_arr[10]{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 		mem::iterator<scary_val> iter_a{ &int_arr[1] };
 		mem::iterator<scary_val> iter_b{ &int_arr[5] };
-		constexpr std::ptrdiff_t n{ 5 - 1 };
+		constexpr std::ptrdiff_t n{ 5ll - 1ll };
 		constexpr std::ptrdiff_t x{ 1 };
 		constexpr std::ptrdiff_t y{ 3 };
 

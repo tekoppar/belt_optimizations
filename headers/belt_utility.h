@@ -59,14 +59,14 @@ namespace belt_utility
 		}
 	};
 
-	template<typename vector, typename compare_position, typename vector_iterator = vector::iterator>
-	static constexpr find_closest_item_group_result<vector_iterator> find_closest_item_group(vector& vec, const compare_position& position) noexcept
+	template<typename data_vector, typename vector, typename compare_position, typename vector_iterator = vector::iterator>
+	static constexpr find_closest_item_group_result<vector_iterator> find_closest_item_group(belt_utility::belt_direction direction, long long segment_end_direction, data_vector& data_vec, vector& vec, const compare_position& position) noexcept
 		requires(element_has_member<compare_position>&& class_has_iterator<vector>)
 	{
 		if (vec.empty()) return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, vector_iterator{} };
 
 		auto last_iter = vec.last() - 1;
-		const auto dir_pos_last_iter = last_iter->get_direction_position();
+		const auto dir_pos_last_iter = last_iter->get_direction_position(segment_end_direction);
 		if (position.x > dir_pos_last_iter + 255ll) return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_after_iter, last_iter };
 		else if (position.x > dir_pos_last_iter)
 		{
@@ -75,8 +75,9 @@ namespace belt_utility
 		}
 
 		auto begin_iter = vec.begin();
+		auto begin_data_iter = data_vec.begin();
 		{
-			const auto last_dir_pos_begin_iter = begin_iter->get_last_item_direction_position();
+			const auto last_dir_pos_begin_iter = begin_iter->get_last_item_direction_position(direction, segment_end_direction, *begin_data_iter);
 			if (position.x < last_dir_pos_begin_iter - 255ll) return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, begin_iter };
 			else if (position.x < last_dir_pos_begin_iter)
 			{
@@ -87,18 +88,19 @@ namespace belt_utility
 
 		long long loop_index{ 0 };
 		auto end_iter = vec.last();
-		for (; begin_iter != end_iter; ++begin_iter)
+		for (; begin_iter != end_iter; ++begin_iter, ++begin_data_iter)
 		{
-			if (begin_iter->get_last_item_direction_position() - 255ll <= position.x && begin_iter->get_direction_position() + 255ll >= position.x) //found matching group
+			if (begin_iter->get_last_item_direction_position(direction, segment_end_direction, *begin_data_iter) - 255ll <= position.x && begin_iter->get_direction_position(segment_end_direction) + 255ll >= position.x) //found matching group
 				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::insert_into_group, begin_iter };
 			else if (loop_index + 1ll < vec.size())
 			{
 				auto tmp = begin_iter + 1ll;
 				if (tmp != end_iter)
 				{
-					if (tmp->get_last_item_direction_position() - 255ll > position.x && begin_iter->get_direction_position() + 255ll < position.x) //if vector is sorted from low to high
+					auto tmp_data = begin_data_iter + 1ll;
+					if (tmp->get_last_item_direction_position(direction, segment_end_direction, *tmp_data) - 255ll > position.x && begin_iter->get_direction_position(segment_end_direction) + 255ll < position.x) //if vector is sorted from low to high
 						return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_after_iter, begin_iter };
-					if (begin_iter->get_last_item_direction_position() - 255ll > position.x && tmp->get_direction_position() + 255ll < position.x) //if vector is sorted from high to low
+					if (begin_iter->get_last_item_direction_position(direction, segment_end_direction, *begin_data_iter) - 255ll > position.x && tmp->get_direction_position(segment_end_direction) + 255ll < position.x) //if vector is sorted from high to low
 						return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, tmp };
 				}
 				//begin_iter = tmp;
@@ -109,12 +111,13 @@ namespace belt_utility
 
 		return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, end_iter };
 	};
-	static constexpr auto find_closest_item_group(std::vector<item_32>& vec, const vec2_uint& position) noexcept
+	template<typename data_vector>
+	static constexpr auto find_closest_item_group(belt_utility::belt_direction direction, long long segment_end_direction, data_vector& data_vec, std::vector<item_32>& vec, const vec2_uint& position) noexcept
 	{
 		if (vec.empty()) return belt_utility::find_closest_item_group_result<std::vector<item_32>::iterator>{ find_closest_item_group_return_result::invalid_value, vec.end() };
 
 		auto last_iter = vec.end() - 1;
-		const auto dir_pos_last_iter = last_iter->get_direction_position();
+		const auto dir_pos_last_iter = last_iter->get_direction_position(segment_end_direction);
 		if (position.x > dir_pos_last_iter + 255ll) return belt_utility::find_closest_item_group_result<std::vector<item_32>::iterator>{ find_closest_item_group_return_result::new_group_after_iter, last_iter };
 		else if (position.x > dir_pos_last_iter)
 		{
@@ -123,8 +126,9 @@ namespace belt_utility
 		}
 
 		auto begin_iter = vec.begin();
+		auto begin_data_iter = data_vec.begin();
 		//{
-		const auto last_dir_pos_begin_iter = begin_iter->get_last_item_direction_position();
+		const auto last_dir_pos_begin_iter = begin_iter->get_last_item_direction_position(direction, segment_end_direction, *begin_data_iter);
 		if (position.x < last_dir_pos_begin_iter - 255ll) return belt_utility::find_closest_item_group_result<std::vector<item_32>::iterator>{ find_closest_item_group_return_result::new_group_before_iter, begin_iter };
 		else if (position.x < last_dir_pos_begin_iter)
 		{
@@ -135,18 +139,19 @@ namespace belt_utility
 
 		std::size_t loop_index{ 0 };
 		auto end_iter = vec.end();
-		for (; begin_iter != end_iter; ++begin_iter)
+		for (; begin_iter != end_iter; ++begin_iter, ++begin_data_iter)
 		{
-			if (begin_iter->get_last_item_direction_position() - 255ll <= position.x && begin_iter->get_direction_position() + 255ll >= position.x) //found matching group
+			if (begin_iter->get_last_item_direction_position(direction, segment_end_direction, *begin_data_iter) - 255ll <= position.x && begin_iter->get_direction_position(segment_end_direction) + 255ll >= position.x) //found matching group
 				return belt_utility::find_closest_item_group_result<std::vector<item_32>::iterator>{ find_closest_item_group_return_result::insert_into_group, begin_iter };
 			else if (loop_index + 1ull < vec.size())
 			{
 				auto tmp = begin_iter + 1ull;
 				if (tmp != end_iter)
 				{
-					if (tmp->get_last_item_direction_position() - 255ll > position.x && begin_iter->get_direction_position() + 255ll < position.x) //if vector is sorted from low to high
+					auto tmp_data = begin_data_iter + 1ll;
+					if (tmp->get_last_item_direction_position(direction, segment_end_direction, *tmp_data) - 255ll > position.x && begin_iter->get_direction_position(segment_end_direction) + 255ll < position.x) //if vector is sorted from low to high
 						return belt_utility::find_closest_item_group_result<std::vector<item_32>::iterator>{ find_closest_item_group_return_result::new_group_after_iter, begin_iter };
-					if (begin_iter->get_last_item_direction_position() - 255ll > position.x && tmp->get_direction_position() + 255ll < position.x) //if vector is sorted from high to low
+					if (begin_iter->get_last_item_direction_position(direction, segment_end_direction, *begin_data_iter) - 255ll > position.x && tmp->get_direction_position(segment_end_direction) + 255ll < position.x) //if vector is sorted from high to low
 						return belt_utility::find_closest_item_group_result<std::vector<item_32>::iterator>{ find_closest_item_group_return_result::new_group_before_iter, tmp };
 				}
 				//begin_iter = tmp;

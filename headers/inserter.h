@@ -4,6 +4,8 @@
 #include <utility>
 
 #include "const_data.h"
+#include "belt_segment_shared.h"
+#include "belt_segment_shared.inl"
 
 #include "vectors.h"
 #include "single_list.h"
@@ -184,20 +186,20 @@ public:
 		is_sleeping = sleep_timer == 0;
 		return is_sleeping;
 	};
-	constexpr void update() noexcept
+	constexpr void update(belt_utility::belt_direction direction, long long segment_end_direction, long long segment_y_direction, belt_segment* segment_ptr) noexcept
 	{
 		if (item_group)
 		{
 			long long last_item_position = 0;
 			while (true)
 			{
-				if (item_group->object.get_position().x < position.x)
+				if (item_group->object.get_position(segment_end_direction, segment_y_direction).x < position.x)
 				{
 					item_group = nullptr;
 					return;
 				}
 
-				last_item_position = item_group->object.get_last_item_direction_position();
+				last_item_position = item_group->object.get_last_item_direction_position(direction, segment_end_direction);
 				if (last_item_position > position.x)
 				{
 					if (item_group->prev)
@@ -218,7 +220,7 @@ public:
 			if (last_item_position <= position.x)
 			{
 				auto found_index = item_group->object.get_first_item_of_type(get_item_type(0));
-				if (found_index != -1 && item_group->object.get_item_direction_position(found_index) == position.x)
+				if (found_index != -1 && item_group->object.get_item_direction_position(direction, found_index) == position.x)
 				{
 					grab_item(item_group->object.get(found_index));
 					item_group->object.remove_item(found_index);

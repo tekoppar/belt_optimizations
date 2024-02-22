@@ -1,14 +1,17 @@
 #pragma once
 
+#include <vector>
+
 #include "macros.h"
+#include "item_32.h"
+#include "item_256.h"
+#include "mem_vector.h"
 
 //#define _SIMPLE_MEMORY_LEAK_DETECTION
 #ifdef _DEBUG
 //#define _BOUNDS_CHECKING_
 #endif
 
-#include "item_32.h"
-#include "item_256.h"
 
 #define __BELT_SWITCH__ 3
 
@@ -18,9 +21,6 @@ using item_groups_data_type = item_32_data;
 #elif __BELT_SWITCH__ == 4
 using item_groups_type = item_256;
 #endif
-
-#include <vector>
-#include "mem_vector.h"
 
 #define __BELT_SEGMENT_VECTOR_ITERATORS__
 #define __BELT_SEGMENT_VECTOR_TYPE__

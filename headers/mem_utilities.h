@@ -1,9 +1,11 @@
 #pragma once
 
 #include <intrin.h>
+#include <limits>
+#include <vadefs.h>
+#include <type_traits>
 
 #include "math_utility.h"
-#include <limits>
 
 namespace mem
 {
@@ -92,7 +94,8 @@ namespace mem
 	template<typename T>
 	constexpr inline std::size_t cache_lines_for() noexcept
 	{
-		return expr::max<std::size_t>((sizeof(T) / 64ull), 1ull);
+		if constexpr (sizeof(T) >= 64ull) return expr::max<std::size_t>((sizeof(T) / 64ull), 1ull);
+		else return expr::max<std::size_t>(64ull / (sizeof(T)), 1ull);
 	};
 
 	template<long long n>

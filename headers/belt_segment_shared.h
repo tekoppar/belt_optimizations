@@ -4,8 +4,15 @@ namespace belt_segment_helpers
 {
 	template<typename owner_ptr, typename group_ptr, typename group_data_ptr>
 	static __forceinline constexpr void item_group_has_zero_count(owner_ptr* b_ptr, group_ptr* ptr, group_data_ptr* data_ptr) noexcept;
-	template<typename owner_ptr, typename group_ptr>
-	static __forceinline constexpr void item_group_has_reached_goal(owner_ptr* b_ptr, group_ptr* ptr) noexcept;
+	template<typename owner_ptr, typename group_ptr, typename item_groups_data_type>
+	static __forceinline constexpr void item_group_has_reached_goal(owner_ptr* b_ptr, group_ptr* ptr, item_groups_data_type& item_data) noexcept;
+	template<typename owner_ptr>
+	static __forceinline constexpr long long get_end_distance_direction(owner_ptr* b_ptr) noexcept;
+	template<typename owner_ptr>
+	static __forceinline constexpr long long get_direction_y_value(owner_ptr* b_ptr) noexcept;
+
+	template<typename item_groups_data_type, typename owner_ptr>
+	static __forceinline constexpr item_groups_data_type& get_item_data_group(owner_ptr* b_ptr, std::size_t i) noexcept;
 };
 
 #include "belt_segment_shared.inl"

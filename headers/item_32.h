@@ -1,10 +1,9 @@
 #pragma once
 
-#include "belt_segment_shared.h"
-
 #include <immintrin.h>
 #include <type_traits>
 
+#include "belt_segment_shared.h"
 #include "type_conversion.h"
 #include "mem_utilities.h"
 
@@ -186,6 +185,145 @@ public:
 	};
 };
 
+namespace item_data_utility
+{
+	constexpr static inline void shift_arrays_left(int item_count, item_32_data& item_data) noexcept
+	{
+		if (std::is_constant_evaluated())
+		{
+			for (long long i = item_count - 1ll; i >= 0ll; --i)
+			{
+				item_data.contains_item[i + 1] = item_data.contains_item[i];
+				item_data.item_distance[i + 1] = item_data.item_distance[i];
+				item_data.items[i + 1] = item_data.items[i];
+			}
+		}
+		else
+		{
+			belt_utility::_mm256_slli_si256__p<1>((__m256i*) & item_data.contains_item[0]);
+			belt_utility::_mm256_slli_si256__p<1>((__m256i*) & item_data.item_distance[0]);
+			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.items[0]);
+#ifdef _SIMPLE_MEMORY_LEAK_DETECTION
+			detect_memory_leak(this);
+#endif
+		}
+	};
+	constexpr static inline void forced_shift_arrays_left(int item_count, item_32_data& item_data) noexcept
+	{
+		for (long long i = item_count - 1ll; i >= 0ll; --i)
+		{
+			item_data.contains_item[i + 1] = item_data.contains_item[i];
+			item_data.item_distance[i + 1] = item_data.item_distance[i];
+			item_data.items[i + 1] = item_data.items[i];
+		}
+	};
+	constexpr static inline void shift_arrays_left_from_index(int item_count, item_32_data& item_data, long long index) noexcept
+	{
+		for (long long i = item_count - 1ll; i >= index; --i)
+		{
+			item_data.contains_item[i + 1] = item_data.contains_item[i];
+			item_data.item_distance[i + 1] = item_data.item_distance[i];
+			item_data.items[i + 1] = item_data.items[i];
+		}
+	};
+	constexpr static inline void forced_shift_arrays_right(int item_count, item_32_data& item_data) noexcept
+	{
+		bool previous_b_x = item_data.contains_item[item_count - 1], current_b_x = false;
+		unsigned char previous_c_x = item_data.item_distance[item_count - 1], current_c_x = 0;
+		belt_item previous_i_x = item_data.items[item_count - 1], current_i_x = {};
+#ifdef __BELT_SEGMENT_VECTOR_TYPE__
+		for (long long i = expr::max(tc::widen<long long>(item_count), 31ll, 32ll); i >= 0; --i)
+#else
+		for (long long i = item_count; i >= 0; --i)
+#endif
+		{
+			current_b_x = item_data.contains_item[i];
+			item_data.contains_item[i] = previous_b_x;
+			previous_b_x = current_b_x;
+
+			current_c_x = item_data.item_distance[i];
+			item_data.item_distance[i] = previous_c_x;
+			previous_c_x = current_c_x;
+
+			current_i_x = item_data.items[i];
+			item_data.items[i] = previous_i_x;
+			previous_i_x = current_i_x;
+		}
+		if (item_count > 0)
+		{
+			item_data.contains_item[item_count - 1] = false;
+			item_data.item_distance[item_count - 1] = 0;
+		}
+	};
+	constexpr static inline void shift_arrays_right(int item_count, item_32_data& item_data) noexcept
+	{
+		if (std::is_constant_evaluated())
+		{
+			bool previous_b_x = item_data.contains_item[item_count - 1], current_b_x = false;
+			unsigned char previous_c_x = item_data.item_distance[item_count - 1], current_c_x = 0;
+			belt_item previous_i_x = item_data.items[item_count - 1], current_i_x = {};
+#ifdef __BELT_SEGMENT_VECTOR_TYPE__
+			for (long long i = expr::max(tc::widen<long long>(item_count), 31ll, 32ll); i >= 0; --i)
+#else
+			for (long long i = item_count; i >= 0; --i)
+#endif
+			{
+				current_b_x = item_data.contains_item[i];
+				item_data.contains_item[i] = previous_b_x;
+				previous_b_x = current_b_x;
+
+				current_c_x = item_data.item_distance[i];
+				item_data.item_distance[i] = previous_c_x;
+				previous_c_x = current_c_x;
+
+				current_i_x = item_data.items[i];
+				item_data.items[i] = previous_i_x;
+				previous_i_x = current_i_x;
+			}
+			if (item_count > 0)
+			{
+				item_data.contains_item[item_count - 1] = false;
+				item_data.item_distance[item_count - 1] = 0;
+			}
+		}
+		else
+		{
+			belt_utility::_mm256_srli_si256__p<1>((__m256i*) & item_data.contains_item[0]);
+			belt_utility::_mm256_srli_si256__p<1>((__m256i*) & item_data.item_distance[0]);
+			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.items[0]);
+			item_data.contains_item[item_count - 1] = false;
+			item_data.item_distance[item_count - 1] = 0;
+#ifdef _SIMPLE_MEMORY_LEAK_DETECTION
+			detect_memory_leak(this);
+#endif
+		}
+	};
+	constexpr static inline void shift_arrays_right_from_index(int item_count, item_32_data& item_data, long long index) noexcept
+	{
+		bool previous_b_x = item_data.contains_item[item_count - 1], current_b_x = false;
+		unsigned char previous_c_x = item_data.item_distance[item_count - 1], current_c_x = 0;
+		belt_item previous_i_x = item_data.items[item_count - 1], current_i_x = {};
+#ifdef __BELT_SEGMENT_VECTOR_TYPE__
+		for (long long i = expr::max(tc::widen<long long>(item_count), 31ll, 32ll); i >= index; --i)
+#else
+		for (long long i = item_count; i >= index; --i)
+#endif
+		{
+			current_b_x = item_data.contains_item[i];
+			item_data.contains_item[i] = previous_b_x;
+			previous_b_x = current_b_x;
+
+			current_c_x = item_data.item_distance[i];
+			item_data.item_distance[i] = previous_c_x;
+			previous_c_x = current_c_x;
+
+			current_i_x = item_data.items[i];
+			item_data.items[i] = previous_i_x;
+			previous_i_x = current_i_x;
+		}
+	};
+};
+
 class item_32
 {
 	constexpr static short single_belt_length = 128;
@@ -195,182 +333,119 @@ public:
 	constexpr static long long belt_item_size = 32;
 	constexpr static unsigned char max_distance_between_items = 255u;
 
-	static void detect_memory_leak(item_32* ptr)
-	{
-		if (ptr->item_count > 32 || ptr->item_position_y != 0) throw std::runtime_error("");
-	};
-
-public:
-	long long item_position_y{ 0 }; //0-7
-	long long item_position_x{ 0 }; //8-15
+private:
 	long long item_goal_distance{ 0 }; //16-23
-	const belt_utility::belt_direction direction{ belt_utility::belt_direction::left_right }; //24-27
-	int last_distance_to_item{ 0 }; //28-31
-	alignas(8) long long item_count{ 0 }; //32-39
+	//int last_distance_to_item{ 0 }; //28-31
 	belt_utility::belt_update_mode active_mode{ belt_utility::belt_update_mode::free }; //40-43
-	alignas(8) belt_segment* owner_ptr { nullptr }; //43-51
-	alignas(8) item_32_data* item_data { nullptr };
-	/*__declspec(align(32)) bool contains_item[32]{
-		false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
-		false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false
-	};
-	__declspec(align(32)) unsigned char item_distance[32]{
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-	};
-	__declspec(align(64)) belt_item items[32];*/
+	int item_count{ 0 }; //32-39
+	//alignas(8) item_32_data* item_data { nullptr };
 
 	constexpr static belt_utility::belt_color color{ belt_utility::belt_color::gray };
 public:
 	constexpr item_32() noexcept
 	{};
-	constexpr item_32(const belt_utility::belt_direction dir, item_32_data* item_ptr) noexcept :
-		direction{ dir },
-		item_data{ item_ptr }
-	{};
-	constexpr item_32(const belt_utility::belt_direction dir, long long goal_position, item_32_data* item_ptr) noexcept :
-		item_goal_distance{ goal_position },
-		direction{ dir },
-		item_data{ item_ptr }
+	constexpr item_32(long long goal_position) noexcept :
+		item_goal_distance{ goal_position }
 	{};
 	constexpr ~item_32() noexcept
 	{};
 
 	constexpr item_32(const item_32& o) noexcept :
-		item_position_y{ o.item_position_y },
-		item_position_x{ o.item_position_x },
 		item_goal_distance{ o.item_goal_distance },
-		direction{ o.direction },
-		last_distance_to_item{ o.last_distance_to_item },
+		//last_distance_to_item{ o.last_distance_to_item },
 		item_count{ o.item_count },
-		active_mode{ o.active_mode },
-		owner_ptr{ o.owner_ptr },
-		item_data{ o.item_data }
+		active_mode{ o.active_mode }
 	{};
 	constexpr item_32(item_32&& o) noexcept :
-		item_position_y{ o.item_position_y },
-		item_position_x{ o.item_position_x },
 		item_goal_distance{ o.item_goal_distance },
-		direction{ o.direction },
-		last_distance_to_item{ o.last_distance_to_item },
+		//last_distance_to_item{ o.last_distance_to_item },
 		item_count{ o.item_count },
-		active_mode{ o.active_mode },
-		owner_ptr{ o.owner_ptr },
-		item_data{ std::move(o.item_data) }
+		active_mode{ o.active_mode }
 	{};
 	constexpr item_32& operator=(const item_32& o) noexcept
 	{
-		item_position_y = o.item_position_y;
-		item_position_x = o.item_position_x;
 		item_goal_distance = o.item_goal_distance;
-		last_distance_to_item = o.last_distance_to_item;
+		//last_distance_to_item = o.last_distance_to_item;
 		item_count = o.item_count;
 		active_mode = o.active_mode;
-		owner_ptr = o.owner_ptr;
-		item_data = o.item_data;
 
 		return *this;
 	};
 	constexpr item_32& operator=(item_32&& o) noexcept
 	{
-		item_position_y = o.item_position_y;
-		item_position_x = o.item_position_x;
 		item_goal_distance = o.item_goal_distance;
-		last_distance_to_item = o.last_distance_to_item;
+		//last_distance_to_item = o.last_distance_to_item;
 		item_count = o.item_count;
 		active_mode = o.active_mode;
-		owner_ptr = o.owner_ptr;
-		item_data = std::move(o.item_data);
 
 		return *this;
 	};
 
-	constexpr item_uint operator[](long long i) noexcept
+	constexpr long long get_direction_position(long long segment_end_direction) const noexcept
 	{
-#ifdef _BOUNDS_CHECKING_
-		if (i < item_count)
-#endif
-			return { item_data->items[i].type, vec2_uint{item_position_x + get_distance_to_item(i), item_position_y} };
+		return (segment_end_direction - item_goal_distance);
 	};
-	constexpr const item_uint operator[](long long i) const noexcept
+
+	/*inline constexpr item_uint get(long long segment_end_direction, long long segment_y_direction, item_32_data& item_data, long long i) noexcept
 	{
 #ifdef _BOUNDS_CHECKING_
 		if (i < item_count)
 #endif
-			return { item_data->items[i].type, vec2_uint{item_position_x - get_distance_to_item(i), item_position_y} };
-	};
-	inline constexpr item_uint get(long long i) noexcept
+			return { item_data.items[i].type, vec2_uint{get_direction_position(segment_end_direction) - get_distance_to_item(item_data, i), segment_y_direction} };
+#ifdef _BOUNDS_CHECKING_
+		else
+			return {};
+#endif
+	};*/
+	inline constexpr const item_uint get(long long segment_end_direction, long long segment_y_direction, item_32_data& item_data, long long i) const noexcept
 	{
 #ifdef _BOUNDS_CHECKING_
 		if (i < item_count)
 #endif
-			return { item_data->items[i].type, vec2_uint{item_position_x - get_distance_to_item(i), item_position_y} };
+			return { item_data.items[i].type, vec2_uint{get_direction_position(segment_end_direction) - get_distance_to_item(item_data, i), segment_y_direction} };
 #ifdef _BOUNDS_CHECKING_
 		else
 			return {};
 #endif
 	};
-	inline constexpr const item_uint get(long long i) const noexcept
+	inline constexpr item_uint get_first_item(long long segment_end_direction, long long segment_y_direction, item_32_data& item_data) const noexcept
 	{
 #ifdef _BOUNDS_CHECKING_
 		if (i < item_count)
 #endif
-			return { item_data->items[i].type, vec2_uint{item_position_x - get_distance_to_item(i), item_position_y} };
-#ifdef _BOUNDS_CHECKING_
-		else
-			return {};
-#endif
-	};
-	inline constexpr item_uint get_first_item() const noexcept
-	{
-#ifdef _BOUNDS_CHECKING_
-		if (i < item_count)
-#endif
-			return { item_data->items[0ll].type, vec2_uint{item_position_x, item_position_y} };
+			return { item_data.items[0ll].type, vec2_uint{get_direction_position(segment_end_direction), segment_y_direction} };
 #ifdef _BOUNDS_CHECKING_
 		else
 			return {};
 #endif
 	};
 
-	inline constexpr vec2_uint get_position() const noexcept
+	inline constexpr vec2_uint get_position(long long segment_end_direction, long long segment_y_direction) const noexcept
 	{
-		return { item_position_x, item_position_y };
+		return { get_direction_position(segment_end_direction), segment_y_direction };
 	};
-	inline constexpr long long get_direction_position() const noexcept
+	inline constexpr long long get_item_direction_position(belt_utility::belt_direction direction, const long long segment_end_direction, item_32_data& item_data, short index) const noexcept
 	{
 		switch (direction)
 		{
 			default:
 			case belt_utility::belt_direction::null:
-			case belt_utility::belt_direction::left_right: return item_position_x;
-			case belt_utility::belt_direction::right_left: return item_position_x;
-			case belt_utility::belt_direction::top_bottom: return item_position_y;
-			case belt_utility::belt_direction::bottom_top: return item_position_y;
+			case belt_utility::belt_direction::left_right: return get_direction_position(segment_end_direction) - get_distance_to_item(item_data, index);
+			case belt_utility::belt_direction::right_left: return get_direction_position(segment_end_direction) + get_distance_to_item(item_data, index);
+			case belt_utility::belt_direction::top_bottom: return get_direction_position(segment_end_direction) - get_distance_to_item(item_data, index);
+			case belt_utility::belt_direction::bottom_top: return get_direction_position(segment_end_direction) + get_distance_to_item(item_data, index);
 		}
 	};
-	inline constexpr long long get_item_direction_position(short index) const noexcept
+	inline constexpr long long get_last_item_direction_position(belt_utility::belt_direction direction, const long long segment_end_direction, item_32_data& item_data) const noexcept
 	{
 		switch (direction)
 		{
 			default:
 			case belt_utility::belt_direction::null:
-			case belt_utility::belt_direction::left_right: return item_position_x - get_distance_to_item(index);
-			case belt_utility::belt_direction::right_left: return item_position_x + get_distance_to_item(index);
-			case belt_utility::belt_direction::top_bottom: return item_position_y - get_distance_to_item(index);
-			case belt_utility::belt_direction::bottom_top: return item_position_y + get_distance_to_item(index);
-		}
-	};
-	inline constexpr long long get_last_item_direction_position() const noexcept
-	{
-		switch (direction)
-		{
-			default:
-			case belt_utility::belt_direction::null:
-			case belt_utility::belt_direction::left_right: return item_position_x - get_distance_to_last_item();
-			case belt_utility::belt_direction::right_left: return item_position_x + get_distance_to_last_item();
-			case belt_utility::belt_direction::top_bottom: return item_position_y - get_distance_to_last_item();
-			case belt_utility::belt_direction::bottom_top: return item_position_y + get_distance_to_last_item();
+			case belt_utility::belt_direction::left_right: return get_direction_position(segment_end_direction) - get_distance_to_last_item(item_data);
+			case belt_utility::belt_direction::right_left: return get_direction_position(segment_end_direction) + get_distance_to_last_item(item_data);
+			case belt_utility::belt_direction::top_bottom: return get_direction_position(segment_end_direction) - get_distance_to_last_item(item_data);
+			case belt_utility::belt_direction::bottom_top: return get_direction_position(segment_end_direction) + get_distance_to_last_item(item_data);
 		}
 	};
 	inline constexpr long long get_goal() const noexcept
@@ -392,14 +467,6 @@ public:
 	inline constexpr void set_active_mode(belt_utility::belt_update_mode new_mode) noexcept
 	{
 		active_mode = new_mode;
-	};
-	inline constexpr void set_owner_ptr(belt_segment* owner) noexcept
-	{
-		owner_ptr = owner;
-	};
-	inline constexpr void set_item_data_ptr(item_32_data* data_ptr) noexcept
-	{
-		item_data = data_ptr;
 	};
 private:
 	constexpr long long fast_distance_to_last_item(const unsigned char* ch) const noexcept
@@ -441,92 +508,86 @@ private:
 		return ll1 + ll2;
 	};
 public:
-	constexpr long long get_distance_to_last_item() const noexcept
+	constexpr long long get_distance_to_last_item(item_32_data& item_data) const noexcept
 	{
-		return last_distance_to_item;// fast_distance_to_last_item(item_data->item_distance);
+		fast_distance_to_last_item(item_data.item_distance);//return last_distance_to_item;//
 		const auto local_item_count = item_count;
 		if (local_item_count == 0) return 0;
 		long long total_distance = 0;
-		for (long long i = 0; i < local_item_count; ++i)
+		for (long long i = 1; i < local_item_count; ++i)
 		{
-			total_distance += static_cast<long long>(item_data->item_distance[i]);
+			total_distance += static_cast<long long>(item_data.item_distance[i]);
 		}
 
 		return total_distance;
 	};
-	constexpr long long get_distance_to_item(long long item_index) const noexcept
+	constexpr long long get_distance_to_item(item_32_data& item_data, long long item_index) const noexcept
 	{
 		if (item_index >= item_count) return 0;
 		long long total_distance = 0;
 		const long long l = item_index + 1;
-		for (long long i = 0; i < l; ++i)
+		for (long long i = 1; i < l; ++i)
 		{
-			total_distance += tc::widen<long long>(item_data->item_distance[i]);
+			total_distance += tc::widen<long long>(item_data.item_distance[i]);
 		}
 
 		return total_distance;
 	};
 
-	constexpr bool can_add_item(vec2_uint new_item_position) const noexcept
+	constexpr bool can_add_item(const long long segment_end_direction, item_32_data& item_data, vec2_uint new_item_position) const noexcept
 	{
-		if (new_item_position.x >= item_position_x + 32 && item_goal_distance >= 32u) return true;
+		if (item_goal_distance >= 32ll) return true;
+		if (new_item_position.x >= get_direction_position(segment_end_direction) + 32ll) return true;
 
-		const long long distance_to_last_item = (new_item_position.x - get_distance_to_last_item());
-		if (get_direction_position() - get_distance_to_last_item() > new_item_position.x && distance_to_last_item <= 255u) return true;
+		const long long distance_to_last_item = (new_item_position.x - get_distance_to_last_item(item_data));
+		if (get_direction_position(segment_end_direction) - get_distance_to_last_item(item_data) > new_item_position.x && distance_to_last_item <= 255u) return true;
 
 		const long long l = count() - 1;
 		for (long long i = 0; i < l; ++i)
 		{
-			if (new_item_position.x > get_direction_position() - get_distance_to_item(i + 1) && item_data->item_distance[i + 1] >= 32) return true;
+			if (new_item_position.x > get_direction_position(segment_end_direction) - get_distance_to_item(item_data, i + 1) && item_data.item_distance[i + 1] >= 32ll) return true;
 		}
 		return false;
-
-		//return new_item_position.x - tc::narrow<long long>(get_distance_to_last_item()) <= 255u;
-		//(new_item_position.x - get_last_item_direction_position()) > 32;
 	};
-	constexpr short add_item(const belt_item& new_item, vec2_uint new_item_position) noexcept
+	constexpr short add_item(const long long segment_end_direction, item_32_data& item_data, const belt_item& new_item, vec2_uint new_item_position) noexcept
 	{
 		if (item_count == 0ll)
 		{
-			item_position_x = new_item_position.x;
-			item_position_y = new_item_position.y;
 			item_goal_distance -= new_item_position.x;
 			++item_count;
-			item_data->contains_item[item_count - 1] = true;
-			item_data->item_distance[item_count - 1] = static_cast<unsigned char>(0);
-			item_data->items[item_count - 1] = new_item;
+			item_data.contains_item[item_count - 1] = true;
+			item_data.item_distance[item_count - 1] = static_cast<unsigned char>(0);
+			item_data.items[item_count - 1] = new_item;
 			return 0;
 		}
 		//if we should add before the first item
 		//checks if the new item position is greater then the current item position + 32
 		//and that there's still space to fit the item before the goal
-		if (new_item_position.x >= item_position_x + 32 && item_goal_distance >= 32u)
+		if (new_item_position.x >= get_direction_position(segment_end_direction) + 32 && item_goal_distance >= 32u)
 		{
-			const long long new_distance = new_item_position.x - item_position_x;
+			const long long new_distance = new_item_position.x - get_direction_position(segment_end_direction);
 			item_goal_distance -= new_distance;
-			shift_arrays_left();
-			item_position_x = new_item_position.x;
-			item_position_y = new_item_position.y;
+			item_data_utility::shift_arrays_left(item_count, item_data);
 			++item_count;
-			item_data->contains_item[0] = true;
-			item_data->item_distance[0] = static_cast<unsigned char>(0);
-			item_data->item_distance[1] = static_cast<unsigned char>(new_distance);
-			item_data->items[0] = new_item;
-			last_distance_to_item += item_data->item_distance[1];
+			item_data.contains_item[0] = true;
+			item_data.item_distance[0] = static_cast<unsigned char>(0);
+			item_data.item_distance[1] = static_cast<unsigned char>(new_distance);
+			item_data.items[0] = new_item;
+			//last_distance_to_item += item_data->item_distance[1];
 			return 0;
 		}
 
 		//if we should add after the last item
 		//it does this by comparing that the last items position is greater then the new item
 		//and then checks if the distance between the last item and the new item is less than 256
-		const long long distance_to_last_item = (new_item_position.x - get_distance_to_last_item());
-		if (get_direction_position() - get_distance_to_last_item() > new_item_position.x && distance_to_last_item <= 255u)
+		const long long distance_to_last_item = (new_item_position.x - get_distance_to_last_item(item_data));
+		if (get_direction_position(segment_end_direction) - get_distance_to_last_item(item_data) > new_item_position.x && distance_to_last_item <= 255u)
 		{
 			++item_count;
-			item_data->contains_item[item_count - 1] = true;
-			item_data->item_distance[item_count - 1] = static_cast<unsigned char>(distance_to_last_item);
-			item_data->items[item_count - 1] = new_item;
-			last_distance_to_item += item_data->item_distance[item_count - 1];
+			item_data.contains_item[item_count - 1] = true;
+			item_data.item_distance[item_count - 1] = static_cast<unsigned char>(distance_to_last_item);
+			item_data.items[item_count - 1] = new_item;
+			//last_distance_to_item += item_data->item_distance[item_count - 1];
 			return item_count - 1;
 		}
 
@@ -534,315 +595,139 @@ public:
 		const long long l = count() - 1ll;
 		for (long long i = 0; i < l; ++i)
 		{
-			if (new_item_position.x > get_direction_position() - get_distance_to_item(i + 1) && item_data->item_distance[i + 1] >= 64)
+			if (new_item_position.x > get_direction_position(segment_end_direction) - get_distance_to_item(item_data, i + 1) && item_data.item_distance[i + 1] >= 64)
 			{
-				shift_arrays_right_from_index(i + 1);
+				item_data_utility::shift_arrays_right_from_index(item_count, item_data, i + 1);
 				++item_count;
-				item_data->contains_item[i + 1] = true;
-				item_data->item_distance[i + 1] = static_cast<unsigned char>(new_item_position.x - get_distance_to_item(i + 1));
-				item_data->items[i + 1] = new_item;
-				last_distance_to_item += item_data->item_distance[i + 1];
+				item_data.contains_item[i + 1] = true;
+				item_data.item_distance[i + 1] = static_cast<unsigned char>(new_item_position.x - get_distance_to_item(item_data, i + 1));
+				item_data.items[i + 1] = new_item;
+				//last_distance_to_item += item_data->item_distance[i + 1];
 				return tc::narrow<short>(i) + 1;
 			}
 		}
 
 		return -1;
 	};
-	constexpr bool remove_item(const short index) noexcept
+	constexpr bool remove_item(belt_segment* segment_ptr, item_32_data& item_data, const short index) noexcept
 	{
 		long long new_goal_distance = 0;
 		if (item_count > 1ll)
 		{
 			if (index == 0)
 			{
-				new_goal_distance = item_count >= 2ll ? get_distance_to_item(1) : 0;
-				item_data->contains_item[index] = false;
-				item_data->item_distance[index] = 0;
-				shift_arrays_right();
+				new_goal_distance = item_count >= 2ll ? get_distance_to_item(item_data, 1ll) : 0ll;
+				item_data.contains_item[index] = false;
+				item_data.item_distance[index] = 0;
+				item_data_utility::shift_arrays_right(item_count, item_data);
 				item_goal_distance += new_goal_distance;
-				item_position_x -= new_goal_distance;
-				last_distance_to_item -= new_goal_distance;
+				//last_distance_to_item -= new_goal_distance;
 				--item_count;
 			}
 			else
 			{
-				const unsigned char removed_distance = item_data->item_distance[index];
-				item_data->contains_item[index] = false;
-				item_data->item_distance[index] = 0;
-				item_data->items[index] = belt_item{};
-				shift_arrays_right_from_index(index);
-				item_data->item_distance[index] += removed_distance;
-				last_distance_to_item -= removed_distance;
+				const unsigned char removed_distance = item_data.item_distance[index];
+				item_data.contains_item[index] = false;
+				item_data.item_distance[index] = 0;
+				item_data.items[index] = belt_item{};
+				item_data_utility::shift_arrays_right_from_index(item_count, item_data, index);
+				item_data.item_distance[index] += removed_distance;
+				//last_distance_to_item -= removed_distance;
 				--item_count;
 			}
 		}
 		else
 		{
-			last_distance_to_item = 0;
+			//last_distance_to_item = 0;
 			item_goal_distance = 0;
 			--item_count;
-			item_data->contains_item[index] = false;
-			item_data->item_distance[index] = 0;
-			item_data->items[index] = belt_item{};
-			belt_segment_helpers::item_group_has_zero_count(owner_ptr, this, item_data);
-
-			//item_position_x = 0;
-
-			//reinterpret_cast<mem::single_list_block_node<item_32>*>(((&item_position_y) - 8))->erase();
-			//TODO at this point the item_32 should be removed since it no longer contains any items nor a goal
+			item_data.contains_item[index] = false;
+			item_data.item_distance[index] = 0;
+			item_data.items[index] = belt_item{};
+			belt_segment_helpers::item_group_has_zero_count(segment_ptr, this, &item_data);
 		}
 
 		return true;
 	};
-	constexpr bool remove_first_item() noexcept
+	constexpr bool remove_first_item(belt_segment* segment_ptr, item_32_data& item_data) noexcept
 	{
 		if (item_count > 1ll)
 		{
-			long long new_goal_distance = item_count >= 2ll ? item_data->item_distance[1ll] : 0ll;
-			item_data->contains_item[0ll] = false;
-			item_data->item_distance[0ll] = 0;
-			shift_arrays_right();
+			long long new_goal_distance = item_count >= 2ll ? item_data.item_distance[1ll] : 0ll;
+			item_data.contains_item[0ll] = false;
+			item_data.item_distance[0ll] = 0;
+			item_data_utility::shift_arrays_right(item_count, item_data);
 			item_goal_distance += new_goal_distance;
-			item_position_x -= new_goal_distance;
-			last_distance_to_item -= new_goal_distance;
+			//last_distance_to_item -= new_goal_distance;
 			--item_count;
 		}
 		else
 		{
-			last_distance_to_item = 0;
+			//last_distance_to_item = 0;
 			item_goal_distance = 0;
 			--item_count;
-			item_data->contains_item[0ll] = false;
-			item_data->item_distance[0ll] = 0;
-			item_data->items[0ll] = belt_item{};
-			belt_segment_helpers::item_group_has_zero_count(owner_ptr, this, item_data);
+			item_data.contains_item[0ll] = false;
+			item_data.item_distance[0ll] = 0;
+			item_data.items[0ll] = belt_item{};
+			belt_segment_helpers::item_group_has_zero_count(segment_ptr, this, &item_data);
 		}
 
 		return true;
 	};
-	constexpr short get_first_item_of_type(item_type type) const noexcept
+	constexpr short get_first_item_of_type(item_type type, item_32_data& item_data) const noexcept
 	{
 		for (long long i = 0ll; i < item_count; ++i)
 		{
-			if (item_data->items[i].type == type) return tc::narrow<short>(i);
+			if (item_data.items[i].type == type) return tc::narrow<short>(i);
 		}
 
 		return -1;
 	};
-	constexpr short get_first_item_of_type_before_position(item_type type, vec2_uint pos) const noexcept
+	constexpr short get_first_item_of_type_before_position(belt_utility::belt_direction direction, const long long segment_end_direction, item_32_data& item_data, item_type type, vec2_uint pos) const noexcept
 	{
 		for (long long i = 0ll; i < item_count; ++i)
 		{
-			if (item_data->items[i].type == type && get_item_direction_position(tc::narrow<short>(i)) <= pos.x) return tc::narrow<short>(i);
+			if (item_data.items[i].type == type && get_item_direction_position(direction, segment_end_direction, item_data, tc::narrow<short>(i)) <= pos.x) return tc::narrow<short>(i);
 		}
 
 		return -1;
 	};
-	constexpr void recalculate_distance(short from_index, unsigned char added_distance) noexcept
+	constexpr void recalculate_distance(item_32_data& item_data, short from_index, unsigned char added_distance) const noexcept
 	{
 		for (long long i = from_index; i < item_count; ++i)
 		{
-			if (tc::widen<unsigned long long>(item_data->item_distance[tc::unsign(i)]) + added_distance > 255) return;
+			if (tc::widen<unsigned long long>(item_data.item_distance[tc::unsign(i)]) + added_distance > 255) return;
 
-			item_data->item_distance[tc::unsign(i)] += added_distance;
+			item_data.item_distance[tc::unsign(i)] += added_distance;
 		}
 	};
-	constexpr void recalculate_distance(const vec2_uint& old_position, const vec2_uint new_position) noexcept
+	constexpr void recalculate_distance(item_32_data& item_data, const vec2_uint& old_position, const vec2_uint new_position) const noexcept
 	{
 		const unsigned char new_distance = tc::narrow<unsigned char>(new_position.x - old_position.x);
 		for (long long i = 0ll; i < item_count; ++i)
 		{
-			item_data->item_distance[tc::unsign(i)] += new_distance;
+			item_data.item_distance[tc::unsign(i)] += new_distance;
 		}
 	};
-	constexpr void shift_arrays_left() noexcept
-	{
-		if (std::is_constant_evaluated())
-		{
-			for (long long i = item_count - 1ll; i >= 0ll; --i)
-			{
-				item_data->contains_item[i + 1] = item_data->contains_item[i];
-				item_data->item_distance[i + 1] = item_data->item_distance[i];
-				item_data->items[i + 1] = item_data->items[i];
-			}
-		}
-		else
-		{
-			belt_utility::_mm256_slli_si256__p<1>((__m256i*) & item_data->contains_item[0]);
-			belt_utility::_mm256_slli_si256__p<1>((__m256i*) & item_data->item_distance[0]);
-			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data->items[0]);
-#ifdef _SIMPLE_MEMORY_LEAK_DETECTION
-			detect_memory_leak(this);
-#endif
-		}
-	};
-	constexpr void forced_shift_arrays_left() noexcept
-	{
-		for (long long i = item_count - 1ll; i >= 0ll; --i)
-		{
-			item_data->contains_item[i + 1] = item_data->contains_item[i];
-			item_data->item_distance[i + 1] = item_data->item_distance[i];
-			item_data->items[i + 1] = item_data->items[i];
-		}
-	};
-	constexpr void shift_arrays_left_from_index(long long index) noexcept
-	{
-		for (long long i = item_count - 1ll; i >= index; --i)
-		{
-			item_data->contains_item[i + 1] = item_data->contains_item[i];
-			item_data->item_distance[i + 1] = item_data->item_distance[i];
-			item_data->items[i + 1] = item_data->items[i];
-		}
-	};
-	constexpr void forced_shift_arrays_right() noexcept
-	{
-		bool previous_b_x = item_data->contains_item[item_count - 1], current_b_x = false;
-		unsigned char previous_c_x = item_data->item_distance[item_count - 1], current_c_x = 0;
-		belt_item previous_i_x = item_data->items[item_count - 1], current_i_x = {};
-#ifdef __BELT_SEGMENT_VECTOR_TYPE__
-		for (long long i = expr::max(tc::widen<long long>(item_count), 31ll, 32ll); i >= 0; --i)
-#else
-		for (long long i = item_count; i >= 0; --i)
-#endif
-		{
-			current_b_x = item_data->contains_item[i];
-			item_data->contains_item[i] = previous_b_x;
-			previous_b_x = current_b_x;
-
-			current_c_x = item_data->item_distance[i];
-			item_data->item_distance[i] = previous_c_x;
-			previous_c_x = current_c_x;
-
-			current_i_x = item_data->items[i];
-			item_data->items[i] = previous_i_x;
-			previous_i_x = current_i_x;
-		}
-		/*belt_item previous_i_x = item_data->items[item_count - 1], current_i_x = {};
-		bool previous_b_x = item_data->contains_item[item_count - 1], current_b_x = false;
-		unsigned char previous_c_x = item_data->item_distance[item_count - 1], current_c_x = 0;
-		for (long long i = item_count; i >= 0; --i)
-		{
-			current_b_x = item_data->contains_item[i];
-			item_data->contains_item[i] = previous_b_x;
-			previous_b_x = current_b_x;
-
-			current_c_x = item_data->item_distance[i];
-			item_data->item_distance[i] = previous_c_x;
-			previous_c_x = current_c_x;
-
-			current_i_x = item_data->items[i];
-			item_data->items[i] = previous_i_x;
-			previous_i_x = current_i_x;
-		}*/
-		if (item_count > 0)
-		{
-			item_data->contains_item[item_count - 1] = false;
-			item_data->item_distance[item_count - 1] = 0;
-		}
-	};
-	constexpr void shift_arrays_right() noexcept
-	{
-		if (std::is_constant_evaluated())
-		{
-			bool previous_b_x = item_data->contains_item[item_count - 1], current_b_x = false;
-			unsigned char previous_c_x = item_data->item_distance[item_count - 1], current_c_x = 0;
-			belt_item previous_i_x = item_data->items[item_count - 1], current_i_x = {};
-#ifdef __BELT_SEGMENT_VECTOR_TYPE__
-			for (long long i = expr::max(tc::widen<long long>(item_count), 31ll, 32ll); i >= 0; --i)
-#else
-			for (long long i = item_count; i >= 0; --i)
-#endif
-			{
-				current_b_x = item_data->contains_item[i];
-				item_data->contains_item[i] = previous_b_x;
-				previous_b_x = current_b_x;
-
-				current_c_x = item_data->item_distance[i];
-				item_data->item_distance[i] = previous_c_x;
-				previous_c_x = current_c_x;
-
-				current_i_x = item_data->items[i];
-				item_data->items[i] = previous_i_x;
-				previous_i_x = current_i_x;
-			}
-			/*belt_item previous_i_x = item_data->items[item_count - 1], current_i_x = {};
-			bool previous_b_x = item_data->contains_item[item_count - 1], current_b_x = false;
-			unsigned char previous_c_x = item_data->item_distance[item_count - 1], current_c_x = 0;
-			for (long long i = item_count; i >= 0; --i)
-			{
-				current_b_x = item_data->contains_item[i];
-				item_data->contains_item[i] = previous_b_x;
-				previous_b_x = current_b_x;
-
-				current_c_x = item_data->item_distance[i];
-				item_data->item_distance[i] = previous_c_x;
-				previous_c_x = current_c_x;
-
-				current_i_x = item_data->items[i];
-				item_data->items[i] = previous_i_x;
-				previous_i_x = current_i_x;
-			}*/
-			if (item_count > 0)
-			{
-				item_data->contains_item[item_count - 1] = false;
-				item_data->item_distance[item_count - 1] = 0;
-			}
-		}
-		else
-		{
-			belt_utility::_mm256_srli_si256__p<1>((__m256i*) & item_data->contains_item[0]);
-			belt_utility::_mm256_srli_si256__p<1>((__m256i*) & item_data->item_distance[0]);
-			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data->items[0]);
-			item_data->contains_item[item_count - 1] = false;
-			item_data->item_distance[item_count - 1] = 0;
-#ifdef _SIMPLE_MEMORY_LEAK_DETECTION
-			detect_memory_leak(this);
-#endif
-		}
-	};
-	constexpr void shift_arrays_right_from_index(long long index) noexcept
-	{
-		bool previous_b_x = item_data->contains_item[item_count - 1], current_b_x = false;
-		unsigned char previous_c_x = item_data->item_distance[item_count - 1], current_c_x = 0;
-		belt_item previous_i_x = item_data->items[item_count - 1], current_i_x = {};
-#ifdef __BELT_SEGMENT_VECTOR_TYPE__
-		for (long long i = expr::max(tc::widen<long long>(item_count), 31ll, 32ll); i >= index; --i)
-#else
-		for (long long i = item_count; i >= index; --i)
-#endif
-		{
-			current_b_x = item_data->contains_item[i];
-			item_data->contains_item[i] = previous_b_x;
-			previous_b_x = current_b_x;
-
-			current_c_x = item_data->item_distance[i];
-			item_data->item_distance[i] = previous_c_x;
-			previous_c_x = current_c_x;
-
-			current_i_x = item_data->items[i];
-			item_data->items[i] = previous_i_x;
-			previous_i_x = current_i_x;
-		}
-	};
-	inline constexpr bool outside_belt(vec2_uint pos) const noexcept
+	/*inline constexpr bool outside_belt(vec2_uint pos) const noexcept
 	{
 		switch (direction)
 		{
 			default:
 			case belt_utility::belt_direction::null:
-			case belt_utility::belt_direction::left_right: return pos.x >= item_position_x + belt_length;
-			case belt_utility::belt_direction::right_left: return pos.x <= item_position_x;
-			case belt_utility::belt_direction::top_bottom: return pos.y >= item_position_y + belt_length;
-			case belt_utility::belt_direction::bottom_top: return pos.y <= item_position_y;
+			case belt_utility::belt_direction::left_right: return pos.x >= get_direction_position() + belt_length;
+			case belt_utility::belt_direction::right_left: return pos.x <= get_direction_position();
+			case belt_utility::belt_direction::top_bottom: return pos.y >= get_direction_position() + belt_length;
+			case belt_utility::belt_direction::bottom_top: return pos.y <= get_direction_position();
 		}
-	};
-	constexpr void try_to_remove_item() noexcept
+	};*/
+	constexpr void try_to_remove_item(belt_segment* segment_ptr, item_32_data& item_data) noexcept
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			if (item_data->item_distance[belt_item_size - 1] == 0 && item_data->contains_item[belt_item_size - 1])
+			if (item_data.item_distance[belt_item_size - 1] == 0 && item_data.contains_item[belt_item_size - 1])
 			{
-				if (!remove_item(belt_item_size - 1))
+				if (!remove_item(segment_ptr, item_data, belt_item_size - 1))
 				{
 					active_mode = belt_utility::belt_update_mode::first_stuck;//is_stuck = true;
 				}
@@ -852,24 +737,27 @@ public:
 		{
 			if (item_goal_distance == 0)
 			{
-				if (remove_item(belt_item_size - 1)) active_mode = belt_utility::belt_update_mode::free;// is_stuck = false;
+				if (remove_item(segment_ptr, item_data, belt_item_size - 1)) active_mode = belt_utility::belt_update_mode::free;// is_stuck = false;
 			}
 		}
 	};
-	__forceinline constexpr void update_belt() noexcept
+	__forceinline constexpr void update_belt(belt_segment* segment_ptr, item_32_data& item_data) noexcept
 	{
-		//if (active_mode == belt_utility::belt_update_mode::free)
-		//{
-			//if (std::is_constant_evaluated() == false) items_moved_per_frame += count();
+		/*if (std::is_constant_evaluated() == false) items_moved_per_frame += count();
+		if (std::is_constant_evaluated() == false)--item_goal_distance;
+		else item_goal_distance = item_goal_distance > 0 ? item_goal_distance - 1 : 0ll;
+		items_stuck_update(item_data);*/
 
-		++item_position_x;
-		--item_goal_distance;
-		if (item_goal_distance == 0ll) belt_segment_helpers::item_group_has_reached_goal(owner_ptr, this);
-		/*}
+		if (active_mode == belt_utility::belt_update_mode::free)
+		{
+			if (std::is_constant_evaluated() == false) items_moved_per_frame += count();
+			--item_goal_distance;
+			//if (item_goal_distance == 0ll) belt_segment_helpers::item_group_has_reached_goal(segment_ptr, this, item_data);
+		}
 		else if (belt_utility::belt_update_mode::first_stuck == active_mode)
 		{
-			items_stuck_update();
-		}*/
+			items_stuck_update(item_data);
+		}
 	};
 	/*
 	* continue incrementing the item_distance until they are all at 32
@@ -877,73 +765,33 @@ public:
 	* the principle is the same here as on the normal update
 	* moving one item moves all item behind it too.
 	*/
-	constexpr void items_stuck_update() noexcept
+	constexpr void items_stuck_update(item_32_data& item_data) noexcept
 	{
 		long long moved_items = 0;
 		for (long long i = 1; i < item_count; ++i)
 		{
-			if (item_data->item_distance[i] > 32)
+			if (item_data.item_distance[i] > 32)
 			{
-				--item_data->item_distance[i];
+				--item_data.item_distance[i];
 				moved_items = item_count - i;
 			}
 		}
 
-		if (moved_items == 0) active_mode = belt_utility::belt_update_mode::all_stuck;//is_all_stuck = true;
+		if (moved_items == 0) active_mode = belt_utility::belt_update_mode::all_stuck; //is_all_stuck = true;
 		if (std::is_constant_evaluated() == false) items_moved_per_frame += moved_items;
 	};
+	/*
+	auto sub_mask = _mm256_and_si256(_mm256_cmpgt_epi8(*(__m256i*) & item_data.item_distance, _mm256_set1_epi8(32)), _mm256_set1_epi8(1));
+			sub_mask = _mm256_and_si256(sub_mask, _mm256_set1_epi8(item_goal_distance > 0ll ? 0ll : 1ll));
+			_mm256_store_si256((__m256i*)&item_data.item_distance, _mm256_sub_epi8(*(__m256i*) & item_data.item_distance, sub_mask));
+
+			auto temp1 = _mm256_or_si256(*(__m256i*) & item_data.item_distance, _mm256_add_epi8(*(__m256i*) & item_data.item_distance, _mm256_set1_epi8(255)));
+			belt_utility::_mm256_slli_si256__p<1>(&temp1);
+			auto comp_replace = _mm256_and_si256(temp1, _mm256_set1_epi8(1));
+			_mm256_store_si256((__m256i*) & item_data.item_distance, _mm256_sub_epi8(*(__m256i*) & item_data.item_distance, comp_replace));
+	*/
 	inline constexpr bool is_goal_distance_zero() const noexcept
 	{
 		return item_goal_distance == 0;
 	};
 };
-/*constexpr bool test_item_iterator() noexcept
-{
-	std::vector<item_32> items;
-	items.emplace_back(belt_utility::belt_direction::left_right, 500ll);
-	items.emplace_back(belt_utility::belt_direction::left_right, 500ll);
-	items.emplace_back(belt_utility::belt_direction::left_right, 500ll);
-	items.emplace_back(belt_utility::belt_direction::left_right, 500ll);
-	items.emplace_back(belt_utility::belt_direction::left_right, 500ll);
-
-	auto begin_iter = items.begin();
-
-	begin_iter->add_item({ item_type::log }, vec2_uint{ 0, 0 });
-	begin_iter->add_item({ item_type::log }, vec2_uint{ 64, 0 });
-	begin_iter->add_item({ item_type::log }, vec2_uint{ 128, 0 });
-
-	item_uint new_item{ item_type::log, vec2_uint{256, 0} };
-
-	auto iter = belt_utility::find_closest_item_group(items, new_item.position);
-	if (belt_utility::find_closest_item_group_return_result::insert_into_group == iter.scan)
-	{
-		if (iter.result == items.end()) throw std::runtime_error("");
-
-		if (iter.result->count() >= 32) //need to split item_group into 2
-		{
-			throw std::runtime_error("");
-			return false;
-		}
-		else
-		{
-			const short added_index = iter.result->add_item(new_item, new_item.position);
-			if (added_index != -1)
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-
-	auto last_iter = items.end();
-	--last_iter;
-
-	while (begin_iter != last_iter)
-	{
-		++begin_iter;
-	}
-
-	return true;
-};
-static_assert(test_item_iterator() == true, "no");*/

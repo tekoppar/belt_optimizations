@@ -1,9 +1,7 @@
 #pragma once
 
-#include <iterator>
 #include <type_traits>
-#include <utility>
-#include <xmemory>
+#include <memory>
 
 namespace mem
 {

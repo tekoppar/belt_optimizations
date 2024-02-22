@@ -1,13 +1,8 @@
 #pragma once
 
-#include <numbers>
 #include <limits>
 #include <type_traits>
-#include <algorithm>
-#include <utility>
-#include <stdexcept>
 #include <source_location>
-#include <string>
 
 namespace tc
 {

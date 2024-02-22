@@ -12,9 +12,6 @@
 #include "index_inserter.h"
 #include "item.h"
 
-#include "belt.h"
-#include "belt_8.h"
-#include "belt_32.h"
 #include "item_32.h"
 #include "item_256.h"
 #include "belt_segment.h"
@@ -84,6 +81,16 @@ std::size_t second_test_get_total_items_on_belts()
 
 void second_belt_test()
 {
+	__m256i values = _mm256_set1_epi8(96);
+	values.m256i_i8[0] = 0;
+	values.m256i_i8[1] = 1;
+	values.m256i_i8[2] = 14;
+
+	auto temp1 = _mm256_or_si256(values, _mm256_add_epi8(values, _mm256_set1_epi8(255)));
+	belt_utility::_mm256_slli_si256__p<1>(&temp1);
+	auto comp_replace = _mm256_and_si256(temp1, _mm256_set1_epi8(1));
+	_mm256_store_si256(&values, _mm256_sub_epi8(values, comp_replace));
+
 	second_test_belt_setup();
 
 	std::size_t moved_items_per_second = 0;

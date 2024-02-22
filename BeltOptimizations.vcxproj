@@ -157,18 +157,18 @@
     <ClInclude Include="headers\belt_segment_shared.inl">
       <FileType>Document</FileType>
     </ClInclude>
-    <ClCompile Include="headers\cpu_info.h" />
-    <ClCompile Include="x64\alignment_testing.cpp" />
+    <ClCompile Include="headers\cpu_info.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="x64\alignment_testing.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="x64\BeltOptimizations.cpp" />
     <ClCompile Include="x64\second_test.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="headers\belt.h" />
-    <ClInclude Include="headers\belt_32.h" />
-    <ClInclude Include="headers\belt_8.h" />
     <ClInclude Include="headers\belt_intrinsics.h" />
     <ClInclude Include="headers\belt_segment.h" />
-    <ClInclude Include="headers\belt_segment_mc.h" />
     <ClInclude Include="headers\belt_segment_shared.h" />
     <ClInclude Include="headers\belt_utility.h" />
     <ClInclude Include="headers\belt_utility_concepts.h" />
@@ -178,7 +178,9 @@
     <ClInclude Include="headers\const_data.h" />
     <ClInclude Include="headers\index_inserter.h" />
     <ClInclude Include="headers\index_iterator.h" />
-    <ClInclude Include="headers\inserter.h" />
+    <ClInclude Include="headers\inserter.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="headers\item.h" />
     <ClInclude Include="headers\item_256.h" />
     <ClInclude Include="headers\item_32.h" />
@@ -192,7 +194,9 @@
     <ClInclude Include="headers\single_list.h" />
     <ClInclude Include="headers\type_conversion.h" />
     <ClInclude Include="headers\vectors.h" />
-    <ClInclude Include="x64\alignment_testing.h" />
+    <ClInclude Include="x64\alignment_testing.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="x64\second_test.h" />
   </ItemGroup>
   <ItemGroup>

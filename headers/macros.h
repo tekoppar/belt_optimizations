@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 #define WHAT_MM_SHUFFLE(fp0,fp1,fp2,fp3) (((fp3) << 6) | ((fp2) << 4) | ((fp1) << 2) | ((fp0)))
 
 #define __ASSUME__(__expr) (((__expr) || (assert(__expr), (__expr))), __assume(__expr))
