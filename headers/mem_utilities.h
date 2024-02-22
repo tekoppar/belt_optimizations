@@ -188,7 +188,7 @@ namespace mem
 	};
 
 	template<typename T, long long objects_to_pre_fetch = 32ll, int prefetch_hint = 0, typename in_T = T>
-	__forceinline static void pre_fetch_cachelines(in_T* ptr)
+	__forceinline static void pre_fetch_cachelines(in_T* ptr) noexcept
 	{
 		if constexpr (sizeof(T) > 64ull)
 		{
@@ -206,7 +206,7 @@ namespace mem
 		}
 	};
 	template<typename T, long long objects_to_pre_fetch = 32ll, int prefetch_hint = 0, typename in_T = T>
-	__forceinline static void pre_fetch_cacheline_ptrs(in_T* ptr)
+	__forceinline static void pre_fetch_cacheline_ptrs(in_T* ptr) noexcept
 	{
 		if constexpr (static_cast<long long>(sizeof(in_T)) > 64ll)
 		{
@@ -224,30 +224,31 @@ namespace mem
 		}
 	};
 
-	constexpr static long long find_cache_index(long long byte_ptr)
+	constexpr static long long find_cache_index(long long byte_ptr) noexcept
 	{
 		return byte_ptr / 64ll;
 	};
-	constexpr static long long find_cache_set(long long byte_ptr)
+	constexpr static long long find_cache_set(long long byte_ptr) noexcept
 	{
 		return find_cache_index(byte_ptr) % 64ll;
 	};
-	static long long find_cache_index(void* ptr)
+	static long long find_cache_index(void* ptr) noexcept
 	{
 		return ((long long)ptr / 64ll);
 	};
-	static long long find_cache_set(void* ptr)
+	static long long find_cache_set(void* ptr) noexcept
 	{
 		return find_cache_index(ptr) % 64ll;
 	};
 
-	constexpr static set_loops_before_info find_loops_before_set_collision(long long object_size, long long step_size = 1ll)
+	constexpr static set_loops_before_info find_loops_before_set_collision(long long object_size, long long step_size = 1ll) noexcept
 	{
 		if (object_size < 1ll) return { -1ll, -1ll };
 		long long byte_ptr = 0ll;
 		long long active_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		for (int i = 0, l = mem::cpu_info::l1d_info.cache_number_of_sets; i < l; ++i) counter.set_counter[i] = 0;
+		const int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[active_set];
 		long long loop_counter{ 0ll };
@@ -255,7 +256,7 @@ namespace mem
 		while (true)
 		{
 			byte_ptr += object_size * step_size;
-			auto bytes_that_can_be_read = byte_ptr % 64ll;
+			const auto bytes_that_can_be_read = byte_ptr % 64ll;
 			long long hit_set = mem::find_cache_set(byte_ptr);
 			if (bytes_that_can_be_read < 0ll || object_size * step_size > 64ll && active_set == hit_set || active_set != hit_set)
 			{
@@ -275,15 +276,16 @@ namespace mem
 	static_assert(mem::find_loops_before_set_collision(192ll, 1ll).loops == 63ll, "fewest collisions should be 63 loops");
 	static_assert(mem::find_loops_before_set_collision(8ll, 1ll).loops == 511ll, "fewest collisions should be 63 loops");
 
-	constexpr static set_loops_before_info find_loops_before_set_eviction(long long object_size, long long step_size = 1ll)
+	constexpr static set_loops_before_info find_loops_before_set_eviction(long long object_size, long long step_size = 1ll) noexcept
 	{
 		if (object_size < 1ll) return { -1ll, -1ll };
-		auto ret_val = mem::find_loops_before_set_collision(object_size, step_size);
+		const auto ret_val = mem::find_loops_before_set_collision(object_size, step_size);
 		return { ((ret_val.loops + 1) * 7ll) + ret_val.loops, ret_val.smallest_bytes_that_can_be_read };
 		long long byte_ptr = 0ll;
 		long long active_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		for (int i = 0, l = mem::cpu_info::l1d_info.cache_number_of_sets; i < l; ++i) counter.set_counter[i] = 0;
+		const int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[active_set];
 		long long loop_counter{ 0ll };
@@ -291,7 +293,7 @@ namespace mem
 		while (true)
 		{
 			byte_ptr += object_size * step_size;
-			auto bytes_that_can_be_read = byte_ptr % 64ll;
+			const auto bytes_that_can_be_read = byte_ptr % 64ll;
 			long long hit_set = mem::find_cache_set(byte_ptr);
 			if (bytes_that_can_be_read < 0ll || object_size * step_size > 64ll && active_set == hit_set || active_set != hit_set)
 			{
@@ -313,10 +315,11 @@ namespace mem
 	constexpr static set_loop_step_info find_step_rate_with_fewest_collisions(long long object_size, long long max_step_rate = 16ll)
 	{
 		if (object_size < 1ll) return { -1ll, -1ll };
-		long long byte_ptr = 0ll;
+		const long long byte_ptr = 0ll;
 		long long first_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		for (int i = 0, l = mem::cpu_info::l1d_info.cache_number_of_sets; i < l; ++i) counter.set_counter[i] = 0;
+		const int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[first_set];
 		set_loops_before_info loop_counter{ 0ll };
@@ -339,10 +342,11 @@ namespace mem
 	constexpr static set_loop_step_info find_step_rate_with_fewest_evictions(long long object_size, long long max_step_rate = 16ll)
 	{
 		if (object_size < 1ll) return { -1ll, -1ll };
-		long long byte_ptr = 0ll;
+		const long long byte_ptr = 0ll;
 		long long first_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		for (int i = 0, l = mem::cpu_info::l1d_info.cache_number_of_sets; i < l; ++i) counter.set_counter[i] = 0;
+		const int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[first_set];
 		set_loops_before_info loop_counter{ 0ll };

@@ -68,7 +68,7 @@ namespace expr
 	inline constexpr auto round_div(auto lhs, auto rhs) noexcept
 		requires(std::is_integral_v<decltype(lhs)> && std::is_integral_v<decltype(rhs)>)
 	{
-		double cast = static_cast<double>(lhs) / rhs;
+		const double cast = static_cast<double>(lhs) / rhs;
 		return cast > lhs / rhs + 0.5 ? static_cast<decltype(lhs)>(lhs / rhs + 1.0) : static_cast<decltype(lhs)>(lhs / rhs);
 	};
 	static_assert(round_div(258ll, 8ll) == 32ll);
@@ -101,10 +101,10 @@ namespace expr
 	};
 	constexpr div_rem<long long> divide_with_remainder(long long i, const long long division)
 	{
-		long long tmp = i;
-		long long tmp_div = division;
-		double double_div = (double)tmp / (double)tmp_div;
-		long long div = double_div == (long long)double_div ? double_div : (long long)double_div;
+		const long long tmp = i;
+		const long long tmp_div = division;
+		const double double_div = (double)tmp / (double)tmp_div;
+		const long long div = double_div == (long long)double_div ? double_div : (long long)double_div;
 		if (div * tmp_div == i) return { div };
 		else return { div, i - (div * tmp_div) };
 	};
@@ -123,12 +123,12 @@ namespace expr
 
 	constexpr div_rem<long long> multiply_division_with_remainder(const long long i, const long long multi, const long long division)
 	{
-		long long tmp = i;
-		long long tmp_div = division;
-		long long tmp_mul = multi;
-		double double_div = (double)tmp / (double)tmp_div;
-		double double_mul = double_div * (double)tmp_mul;
-		long long div = double_div == (long long)double_div ? double_div : (long long)double_div;
+		const long long tmp = i;
+		const long long tmp_div = division;
+		const long long tmp_mul = multi;
+		const double double_div = (double)tmp / (double)tmp_div;
+		const double double_mul = double_div * (double)tmp_mul;
+		const long long div = double_div == (long long)double_div ? double_div : (long long)double_div;
 		if (div * tmp_div * tmp_mul == double_mul) return { div * tmp_div };
 		else return { div * tmp_div * tmp_mul, ((long long)tmp * tmp_mul) - (div * tmp_div * tmp_mul) };
 	};

@@ -18,7 +18,7 @@ static auto ____test_incrementing_if_some_are_stuck(std::size_t return_index) no
 		first_segment.update();
 	}
 
-	return first_segment.get_item_group(0).count();
+	return first_segment.get_item_group(0).count(&first_segment.get_item_data_group(0).contains_item[0]);
 	//return first_segment.get_item(0ull).get(1ull).position.x;
 };
 

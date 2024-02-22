@@ -1,6 +1,7 @@
 #pragma once
 
 #include <immintrin.h>
+#include <intrin.h>
 #include <type_traits>
 
 #include "belt_segment_shared.h"
@@ -334,9 +335,8 @@ public:
 	constexpr static unsigned char max_distance_between_items = 255u;
 
 private:
-	long long item_goal_distance{ 0 }; //16-23
+	int item_goal_distance{ 0 }; //16-23
 	//int last_distance_to_item{ 0 }; //28-31
-	belt_utility::belt_update_mode active_mode{ belt_utility::belt_update_mode::free }; //40-43
 	int item_count{ 0 }; //32-39
 	//alignas(8) item_32_data* item_data { nullptr };
 
@@ -345,7 +345,7 @@ public:
 	constexpr item_32() noexcept
 	{};
 	constexpr item_32(long long goal_position) noexcept :
-		item_goal_distance{ goal_position }
+		item_goal_distance{ static_cast<decltype(item_goal_distance)>(goal_position) }
 	{};
 	constexpr ~item_32() noexcept
 	{};
@@ -353,21 +353,18 @@ public:
 	constexpr item_32(const item_32& o) noexcept :
 		item_goal_distance{ o.item_goal_distance },
 		//last_distance_to_item{ o.last_distance_to_item },
-		item_count{ o.item_count },
-		active_mode{ o.active_mode }
+		item_count{ o.item_count }
 	{};
 	constexpr item_32(item_32&& o) noexcept :
 		item_goal_distance{ o.item_goal_distance },
 		//last_distance_to_item{ o.last_distance_to_item },
-		item_count{ o.item_count },
-		active_mode{ o.active_mode }
+		item_count{ o.item_count }
 	{};
 	constexpr item_32& operator=(const item_32& o) noexcept
 	{
 		item_goal_distance = o.item_goal_distance;
 		//last_distance_to_item = o.last_distance_to_item;
 		item_count = o.item_count;
-		active_mode = o.active_mode;
 
 		return *this;
 	};
@@ -376,7 +373,6 @@ public:
 		item_goal_distance = o.item_goal_distance;
 		//last_distance_to_item = o.last_distance_to_item;
 		item_count = o.item_count;
-		active_mode = o.active_mode;
 
 		return *this;
 	};
@@ -452,65 +448,75 @@ public:
 	{
 		return item_goal_distance;
 	};
-	inline constexpr long long count() const noexcept
+	inline constexpr long long count(const bool*) const noexcept
 	{
 		return item_count;
 	};
+	/*inline constexpr long long count(const bool* item_data) const noexcept
+	{
+		if (std::is_constant_evaluated() == false)
+		{
+			auto count1 = __popcnt64(*(std::size_t*)&item_data[0]);
+			auto count2 = __popcnt64(*(std::size_t*)&item_data[8]);
+			auto count3 = __popcnt64(*(std::size_t*)&item_data[16]);
+			auto count4 = __popcnt64(*(std::size_t*)&item_data[24]);
+			return count1 + count2 + count3 + count4;
+		}
+		else
+		{
+			for (int i = 0; i < 32; ++i)
+			{
+				if (item_data[i] == false) return i;
+			}
+		}
+	};*/
 	inline constexpr bool can_add_item() const noexcept
 	{
 		return item_count < belt_item_size;
 	};
-	inline constexpr belt_utility::belt_update_mode get_active_mode() const noexcept
-	{
-		return active_mode;
-	};
-	inline constexpr void set_active_mode(belt_utility::belt_update_mode new_mode) noexcept
-	{
-		active_mode = new_mode;
-	};
 private:
 	constexpr long long fast_distance_to_last_item(const unsigned char* ch) const noexcept
 	{
-		auto c1 = ch[0] + ch[1];
-		auto c2 = ch[2] + ch[3];
-		auto c3 = ch[4] + ch[5];
-		auto c4 = ch[6] + ch[7];
-		auto c5 = ch[8] + ch[9];
-		auto c6 = ch[10] + ch[11];
-		auto c7 = ch[12] + ch[13];
-		auto c8 = ch[14] + ch[15];
+		const auto c1 = static_cast<short>(ch[0]) + ch[1];
+		const auto c2 = static_cast<short>(ch[2]) + ch[3];
+		const auto c3 = static_cast<short>(ch[4]) + ch[5];
+		const auto c4 = static_cast<short>(ch[6]) + ch[7];
+		const auto c5 = static_cast<short>(ch[8]) + ch[9];
+		const auto c6 = static_cast<short>(ch[10]) + ch[11];
+		const auto c7 = static_cast<short>(ch[12]) + ch[13];
+		const auto c8 = static_cast<short>(ch[14]) + ch[15];
 
-		auto c9 = ch[16] + ch[17];
-		auto c10 = ch[18] + ch[19];
-		auto c11 = ch[20] + ch[21];
-		auto c12 = ch[22] + ch[23];
-		auto c13 = ch[24] + ch[25];
-		auto c14 = ch[26] + ch[27];
-		auto c15 = ch[28] + ch[29];
-		auto c16 = ch[30] + ch[31];
+		const auto c9 = static_cast<short>(ch[16]) + ch[17];
+		const auto c10 = static_cast<short>(ch[18]) + ch[19];
+		const auto c11 = static_cast<short>(ch[20]) + ch[21];
+		const auto c12 = static_cast<short>(ch[22]) + ch[23];
+		const auto c13 = static_cast<short>(ch[24]) + ch[25];
+		const auto c14 = static_cast<short>(ch[26]) + ch[27];
+		const auto c15 = static_cast<short>(ch[28]) + ch[29];
+		const auto c16 = static_cast<short>(ch[30]) + ch[31];
 
-		int i1 = c1 + c2;
-		int i2 = c3 + c4;
-		int i3 = c5 + c6;
-		int i4 = c7 + c8;
-		int i5 = c9 + c10;
-		int i6 = c11 + c12;
-		int i7 = c13 + c14;
-		int i8 = c15 + c16;
+		const int i1 = static_cast<int>(c1) + c2;
+		const int i2 = static_cast<int>(c3) + c4;
+		const int i3 = static_cast<int>(c5) + c6;
+		const int i4 = static_cast<int>(c7) + c8;
+		const int i5 = static_cast<int>(c9) + c10;
+		const int i6 = static_cast<int>(c11) + c12;
+		const int i7 = static_cast<int>(c13) + c14;
+		const int i8 = static_cast<int>(c15) + c16;
 
-		long l1 = i1 + i2;
-		long l2 = i3 + i4;
-		long l3 = i5 + i6;
-		long l4 = i7 + i8;
+		const long long l1 = static_cast<long long>(i1) + i2;
+		const long long l2 = static_cast<long long>(i3) + i4;
+		const long long l3 = static_cast<long long>(i5) + i6;
+		const long long l4 = static_cast<long long>(i7) + i8;
 
-		long long ll1 = l1 + l2;
-		long long ll2 = l3 + l4;
+		const long long ll1 = l1 + l2;
+		const long long ll2 = l3 + l4;
 		return ll1 + ll2;
 	};
 public:
 	constexpr long long get_distance_to_last_item(item_32_data& item_data) const noexcept
 	{
-		fast_distance_to_last_item(item_data.item_distance);//return last_distance_to_item;//
+		fast_distance_to_last_item(&item_data.item_distance[0]);//return last_distance_to_item;//
 		const auto local_item_count = item_count;
 		if (local_item_count == 0) return 0;
 		long long total_distance = 0;
@@ -520,6 +526,11 @@ public:
 		}
 
 		return total_distance;
+	};
+	constexpr long long get_item_distance(item_32_data item_data, long long item_index) const noexcept
+	{
+		if (item_index >= item_count) return 0;
+		return item_data.item_distance[item_index];
 	};
 	constexpr long long get_distance_to_item(item_32_data& item_data, long long item_index) const noexcept
 	{
@@ -542,7 +553,7 @@ public:
 		const long long distance_to_last_item = (new_item_position.x - get_distance_to_last_item(item_data));
 		if (get_direction_position(segment_end_direction) - get_distance_to_last_item(item_data) > new_item_position.x && distance_to_last_item <= 255u) return true;
 
-		const long long l = count() - 1;
+		const long long l = count(&item_data.contains_item[0]) - 1;
 		for (long long i = 0; i < l; ++i)
 		{
 			if (new_item_position.x > get_direction_position(segment_end_direction) - get_distance_to_item(item_data, i + 1) && item_data.item_distance[i + 1] >= 32ll) return true;
@@ -592,7 +603,7 @@ public:
 		}
 
 		//if we should add in between items
-		const long long l = count() - 1ll;
+		const long long l = count(&item_data.contains_item[0]) - 1ll;
 		for (long long i = 0; i < l; ++i)
 		{
 			if (new_item_position.x > get_direction_position(segment_end_direction) - get_distance_to_item(item_data, i + 1) && item_data.item_distance[i + 1] >= 64)
@@ -653,7 +664,7 @@ public:
 	{
 		if (item_count > 1ll)
 		{
-			long long new_goal_distance = item_count >= 2ll ? item_data.item_distance[1ll] : 0ll;
+			const long long new_goal_distance = item_count >= 2ll ? item_data.item_distance[1ll] : 0ll;
 			item_data.contains_item[0ll] = false;
 			item_data.item_distance[0ll] = 0;
 			item_data_utility::shift_arrays_right(item_count, item_data);
@@ -727,37 +738,21 @@ public:
 		{
 			if (item_data.item_distance[belt_item_size - 1] == 0 && item_data.contains_item[belt_item_size - 1])
 			{
-				if (!remove_item(segment_ptr, item_data, belt_item_size - 1))
-				{
-					active_mode = belt_utility::belt_update_mode::first_stuck;//is_stuck = true;
-				}
+				remove_item(segment_ptr, item_data, belt_item_size - 1);
 			}
 		}
 		else
 		{
 			if (item_goal_distance == 0)
 			{
-				if (remove_item(segment_ptr, item_data, belt_item_size - 1)) active_mode = belt_utility::belt_update_mode::free;// is_stuck = false;
+				remove_item(segment_ptr, item_data, belt_item_size - 1);
 			}
 		}
 	};
 	__forceinline constexpr void update_belt(belt_segment* segment_ptr, item_32_data& item_data) noexcept
 	{
-		/*if (std::is_constant_evaluated() == false) items_moved_per_frame += count();
-		if (std::is_constant_evaluated() == false)--item_goal_distance;
-		else item_goal_distance = item_goal_distance > 0 ? item_goal_distance - 1 : 0ll;
-		items_stuck_update(item_data);*/
-
-		if (active_mode == belt_utility::belt_update_mode::free)
-		{
-			if (std::is_constant_evaluated() == false) items_moved_per_frame += count();
-			--item_goal_distance;
-			//if (item_goal_distance == 0ll) belt_segment_helpers::item_group_has_reached_goal(segment_ptr, this, item_data);
-		}
-		else if (belt_utility::belt_update_mode::first_stuck == active_mode)
-		{
-			items_stuck_update(item_data);
-		}
+		if (std::is_constant_evaluated() == false) items_moved_per_frame += count(&item_data.contains_item[0]);
+		--item_goal_distance;
 	};
 	/*
 	* continue incrementing the item_distance until they are all at 32
@@ -765,7 +760,7 @@ public:
 	* the principle is the same here as on the normal update
 	* moving one item moves all item behind it too.
 	*/
-	constexpr void items_stuck_update(item_32_data& item_data) noexcept
+	constexpr void items_stuck_update(item_32_data& item_data) const noexcept
 	{
 		long long moved_items = 0;
 		for (long long i = 1; i < item_count; ++i)
@@ -773,11 +768,10 @@ public:
 			if (item_data.item_distance[i] > 32)
 			{
 				--item_data.item_distance[i];
-				moved_items = item_count - i;
+				++moved_items;
 			}
 		}
 
-		if (moved_items == 0) active_mode = belt_utility::belt_update_mode::all_stuck; //is_all_stuck = true;
 		if (std::is_constant_evaluated() == false) items_moved_per_frame += moved_items;
 	};
 	/*

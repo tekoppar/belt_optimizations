@@ -185,7 +185,8 @@ public:
 			return true;
 		}
 
-		for (int i = 0, l = count(arr_index) - 1; i < l; ++i)
+		const long long l = static_cast<long long>(count(arr_index)) - 1ll;
+		for (long long i = 0; i < l; ++i)
 		{
 			if (new_item_position.x < get_distance_to_item(arr_index, i) && item_distance[arr_index][i + 1] > 63)
 			{
@@ -256,9 +257,9 @@ public:
 		}
 		else
 		{
-			belt_utility::_mm256_slli_si256__p<1>((__m256i*)contains_item[arr_index]);
-			belt_utility::_mm256_slli_si256__p<1>((__m256i*)item_distance[arr_index]);
-			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*)items[arr_index]);
+			belt_utility::_mm256_slli_si256__p<1>((__m256i*)&contains_item[arr_index]);
+			belt_utility::_mm256_slli_si256__p<1>((__m256i*)&item_distance[arr_index]);
+			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*)&items[arr_index]);
 		}
 	};
 	constexpr void shift_arrays_left_from_index(std::size_t arr_index, std::size_t index) noexcept
@@ -293,9 +294,9 @@ public:
 		}
 		else
 		{
-			belt_utility::_mm256_srli_si256__p<1>((__m256i*)contains_item[arr_index]);
-			belt_utility::_mm256_srli_si256__p<1>((__m256i*)item_distance[arr_index]);
-			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*)items[arr_index]);
+			belt_utility::_mm256_srli_si256__p<1>((__m256i*)&contains_item[arr_index]);
+			belt_utility::_mm256_srli_si256__p<1>((__m256i*)&item_distance[arr_index]);
+			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*)&items[arr_index]);
 		}
 	};
 	constexpr void shift_arrays_right_from_index(std::size_t arr_index, std::size_t index) noexcept
@@ -359,8 +360,8 @@ public:
 				items_moved_per_frame += count(i);
 
 #ifdef optimization_comp
-			belt_utility::_mm256_add64_si256__p((__m256i*)item_position_x, _mm256_set1_epi64x(1));
-			belt_utility::_mm256_sub64_si256__p((__m256i*)item_goal_distance, _mm256_set1_epi64x(1));
+			belt_utility::_mm256_add64_si256__p((__m256i*)&item_position_x[0], _mm256_set1_epi64x(1));
+			belt_utility::_mm256_sub64_si256__p((__m256i*)&item_goal_distance[0], _mm256_set1_epi64x(1));
 
 			for (int i = 0, l = 8; i < l; ++i)
 			{

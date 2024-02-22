@@ -172,7 +172,7 @@ namespace tc
 		}
 
 		//if (std::is_constant_evaluated() == false) throw std::runtime_error(std::string(location.file_name()) + "(" + std::to_string(location.line()) + "," + std::to_string(location.column()) + "): " + location.function_name() + " warning: missing return value");
-		return (std::numeric_limits<std::size_t>::max)();
+		return (std::numeric_limits<return_type>::max)();
 	};
 	template<typename input_type>
 	constexpr std::make_unsigned_t<input_type> unsign(input_type value, const std::source_location location = std::source_location::current())

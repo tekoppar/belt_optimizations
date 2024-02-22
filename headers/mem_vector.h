@@ -4,6 +4,8 @@
 #include <ppl.h>
 #endif
 
+#include <limits>
+#include <version>
 #include <array>
 #include <iterator>
 #include <memory>
@@ -108,7 +110,7 @@ namespace mem
 		reverse
 	};
 
-	enum Allocating_Type
+	enum class Allocating_Type
 	{
 		NEW,
 		CONCURRENCY,
@@ -146,16 +148,21 @@ namespace mem
 		using value_type = typename Object::value_type;
 		using difference_type = typename Object::difference_type;
 		using pointer = typename Object::pointer;
-		using reference = value_type&;
+		using reference = typename Object::reference;
+		using const_reference = typename Object::const_reference;
 
 		constexpr iterator() = default;
-		constexpr iterator(pointer ptr) noexcept :
+		explicit constexpr iterator(pointer ptr) noexcept :
 			m_ptr(ptr)
 		{};
 
-		[[nodiscard]] constexpr reference operator*() const noexcept
+		[[nodiscard]] constexpr reference operator*() noexcept
 		{
-			return *this->m_ptr;
+			return *m_ptr;
+		};
+		[[nodiscard]] constexpr const reference operator*() const noexcept
+		{
+			return const_cast<reference>(*m_ptr);
 		};
 		[[nodiscard]] constexpr reference operator*(iterator iter) const noexcept
 		{
@@ -163,22 +170,22 @@ namespace mem
 		};
 		[[nodiscard]] constexpr pointer operator->() const noexcept
 		{
-			return this->m_ptr;
+			return m_ptr;
 		};
 		//pointer operator&() const noexcept = delete;
 
 		[[nodiscard]] constexpr reference operator[](const std::size_t& index) const noexcept
 		{
-			return *(this->m_ptr + index);
+			return *(m_ptr + index);
 		};
 		[[nodiscard]] constexpr reference operator[](const difference_type& index) const noexcept
 		{
-			return *(this->m_ptr + index);
+			return *(m_ptr + index);
 		};
 
 		constexpr iterator& operator++() noexcept
 		{
-			++this->m_ptr;
+			++m_ptr;
 			return *this;
 		};
 		constexpr iterator operator++(int) noexcept
@@ -189,7 +196,7 @@ namespace mem
 		};
 		constexpr iterator& operator+=(const difference_type& offset) noexcept
 		{
-			this->m_ptr += offset;
+			m_ptr += offset;
 			return *this;
 		};
 		constexpr iterator operator+(const difference_type& offset) noexcept
@@ -198,20 +205,20 @@ namespace mem
 			tmp.m_ptr += offset;
 			return tmp;
 		};
-		constexpr friend iterator operator+(const iterator& lhs, const difference_type& offset) noexcept
+		inline constexpr friend iterator operator+(const iterator& lhs, const difference_type& offset) noexcept
 		{
 			iterator tmp = lhs;
 			tmp.m_ptr += offset;
 			return tmp;
 		};
-		constexpr friend iterator operator+(const difference_type& offset, const iterator& lhs) noexcept
+		inline constexpr friend iterator operator+(const difference_type& offset, const iterator& lhs) noexcept
 		{
 			return lhs + offset;
 		};
 
 		constexpr iterator& operator--() noexcept
 		{
-			--this->m_ptr;
+			--m_ptr;
 			return *this;
 		};
 		constexpr iterator operator--(int) noexcept
@@ -222,7 +229,7 @@ namespace mem
 		};
 		constexpr iterator& operator-=(const difference_type& offset) noexcept
 		{
-			this->m_ptr -= offset;
+			m_ptr -= offset;
 			return *this;
 		};
 		constexpr iterator operator-(const difference_type& offset) noexcept
@@ -231,24 +238,40 @@ namespace mem
 			tmp.m_ptr -= offset;
 			return tmp;
 		};
-		constexpr friend iterator operator-(const iterator& lhs, const difference_type& offset) noexcept
+		inline constexpr friend iterator operator-(const iterator& lhs, const difference_type& offset) noexcept
 		{
 			iterator tmp = lhs;
 			tmp.m_ptr -= offset;
 			return tmp;
 		};
-		constexpr friend iterator operator-(const difference_type& offset, const iterator& lhs) noexcept
+		inline constexpr friend iterator operator-(const difference_type& offset, const iterator& lhs) noexcept
 		{
-			return lhs - offset;
+			return iterator{ lhs - offset };
 		};
 
-		constexpr friend difference_type operator+(const iterator& lhs, const iterator& rhs)
+		inline constexpr friend difference_type operator+(const iterator& lhs, const iterator& rhs)
 		{
 			return lhs.m_ptr + rhs.m_ptr;
 		};
-		constexpr friend difference_type operator-(const iterator& lhs, const iterator& rhs)
+		inline constexpr friend difference_type operator-(const iterator& lhs, const iterator& rhs)
 		{
 			return lhs.m_ptr - rhs.m_ptr;
+		};
+		inline constexpr friend difference_type operator+(const iterator& lhs, const pointer& rhs)
+		{
+			return lhs.m_ptr + rhs;
+		};
+		inline constexpr friend difference_type operator-(const iterator& lhs, const pointer& rhs)
+		{
+			return lhs.m_ptr - rhs;
+		};
+		inline constexpr friend difference_type operator+(const pointer& lhs, const iterator& rhs)
+		{
+			return lhs + rhs.m_ptr;
+		};
+		inline constexpr friend difference_type operator-(const pointer& lhs, const iterator& rhs)
+		{
+			return lhs - rhs.m_ptr;
 		};
 
 		inline constexpr friend bool operator==(const iterator& lhs, const iterator& rhs)
@@ -258,6 +281,14 @@ namespace mem
 		inline constexpr friend bool operator!=(const iterator& lhs, const iterator& rhs)
 		{
 			return lhs.m_ptr != rhs.m_ptr;
+		};
+		inline constexpr friend bool operator==(const iterator& lhs, const pointer& rhs)
+		{
+			return lhs.m_ptr == rhs;
+		};
+		inline constexpr friend bool operator!=(const iterator& lhs, const pointer& rhs)
+		{
+			return lhs.m_ptr != rhs;
 		};
 		constexpr friend bool operator<(const iterator& lhs, const iterator& rhs)
 		{
@@ -280,6 +311,22 @@ namespace mem
 		constexpr auto GetValueType() const noexcept
 		{
 			return value_type{};
+		};
+		constexpr value_type GetValue() noexcept
+		{
+			return *m_ptr;
+		};
+		constexpr const value_type GetValue() const noexcept
+		{
+			return *m_ptr;
+		};
+		constexpr reference GetRef() noexcept
+		{
+			return *m_ptr;
+		};
+		constexpr const reference GetConstRef() const noexcept
+		{
+			return const_cast<reference>(*m_ptr);
 		};
 
 	private:
@@ -381,12 +428,12 @@ namespace mem
 			}
 		};
 	public:
-		__declspec(allocator) [[nodiscard]] constexpr value_type* allocate(const std::size_t count) const
+		__declspec(allocator, restrict) [[nodiscard]] constexpr value_type* allocate(const std::size_t count) const
 		{
 #ifdef _DEBUG
 			if (count == 0 || count > bad_arr_length) throw std::bad_array_new_length();
 #endif
-			if (std::is_constant_evaluated()) return ::new Object[count]{};
+			if (std::is_constant_evaluated()) return ::new value_type[count]{};
 			else return static_cast<value_type*>(this->_allocate(size_of_value_type * count));
 		};
 
@@ -432,6 +479,8 @@ namespace mem
 		using difference_type = _Difference_type;
 		using pointer = _Pointer;
 		using const_pointer = _Const_pointer;
+		using reference = _Reference;
+		using const_reference = _Const_reference;
 	};
 
 	template <class _Value_type>
@@ -443,6 +492,8 @@ namespace mem
 		using difference_type = std::ptrdiff_t;
 		using pointer = value_type*;
 		using const_pointer = const value_type*;
+		using reference = _Value_type&;
+		using const_reference = const _Value_type&;
 	};
 
 	template <class value_types>
@@ -454,21 +505,8 @@ namespace mem
 		using difference_type = typename value_types::difference_type;
 		using pointer = typename value_types::pointer;
 		using const_pointer = typename value_types::const_pointer;
-		using reference = value_type&;
-		using const_reference = const value_type&;
-
-		alignas(8) pointer first
-		{
-			nullptr
-		}; // pointer to beginning of array
-		alignas(8) pointer last
-		{
-			nullptr
-		}; // pointer to current end of sequence
-		alignas(8) pointer end
-		{
-			nullptr
-		}; // pointer to end of array
+		using reference = typename value_types::reference;
+		using const_reference = typename value_types::const_reference;
 
 		constexpr vector_value() = default;
 		constexpr vector_value(pointer first_, size_type capacity) noexcept :
@@ -539,6 +577,10 @@ namespace mem
 		{
 			return static_cast<std::size_t>(end - first);
 		};
+
+		alignas(8) pointer first { nullptr }; // pointer to beginning of array
+		alignas(8) pointer last { nullptr }; // pointer to current end of sequence
+		alignas(8) pointer end { nullptr }; // pointer to end of array
 	};
 
 	/*static_assert(mem::concepts::is_allocator_requirements_v<mem::allocator<int>, int> == true);
@@ -584,7 +626,7 @@ namespace mem
 
 	public:
 		using iterator = mem::iterator<scary_val>;
-		static_assert(std::random_access_iterator<iterator>);
+		//static_assert(std::random_access_iterator<iterator>);
 
 		scary_val values{ nullptr, nullptr, nullptr };
 
@@ -607,7 +649,7 @@ namespace mem
 						}
 					}
 				}
-				_Alty MemoryAllocator{};
+				const _Alty MemoryAllocator{};
 				MemoryAllocator.deallocate(this->values.first);// , this->usize());
 			}
 		};
@@ -761,7 +803,7 @@ namespace mem
 		{
 			scary_val oldContainer{ this->values };
 			long long old_size = oldContainer.size();
-			_Alty MemoryAllocator{};
+			const _Alty MemoryAllocator{};
 			this->values = scary_val{ MemoryAllocator.allocate(static_cast<std::size_t>(newSize)), static_cast<std::size_t>(newSize) };
 
 			for (long long i = 0; i < old_size; ++i)
@@ -919,17 +961,18 @@ namespace mem
 		{
 			if constexpr (mem::use_memcpy::force_checks_off == memcpy_check || mem::use_memcpy::check_based_on_type == memcpy_check && mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
-				auto new_size = oldContainer.get_ucapacity() * 2ull;
-				auto old_size = oldContainer.usize();
+				const auto new_size = oldContainer.get_ucapacity() * 2ull;
+				const auto old_size = oldContainer.usize();
 				constexpr const size_t type_size = sizeof(Object);
-				std::size_t type_arr_size = type_size * old_size;
-				_Alty MemoryAllocator{};
+				const std::size_t type_arr_size = type_size * old_size;
+				const _Alty MemoryAllocator{};
 				this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
 
 				if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll))
 				{
 					if constexpr (sizeof(Object) == 32ll) SIMDMemCopy256_32<value_type, true>((void*)values.first, (void*)oldContainer.first, old_size);
-					else SIMDMemCopy256_16<value_type, false>((void*)values.first, (void*)oldContainer.first, old_size);
+					else if constexpr (sizeof(Object) == 16ll) SIMDMemCopy256_16<value_type, false>((void*)values.first, (void*)oldContainer.first, old_size);
+					else if constexpr (sizeof(Object) == 8ll) SIMDMemCopy256_8<value_type, false>((void*)values.first, (void*)oldContainer.first, old_size);
 				}
 				else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
 					SIMDMemCopy256((void*)this->values.first, (void*)oldContainer.first, DivideByMultiple(type_arr_size, 16));
@@ -1001,7 +1044,7 @@ namespace mem
 				}
 		};
 
-		inline constexpr void push_back(const mem::vector<value_type, allocating_type>& val) noexcept
+		inline constexpr void push_back(const mem::vector<Object, allocating_type, Allocator, memcpy_check>& val) noexcept
 			requires (mem::concepts::vector_has_method<value_type> == false)
 		{
 			if (this->needs_resize(val.size()))
@@ -1030,7 +1073,7 @@ namespace mem
 				}
 		};
 
-		inline constexpr void push_back(mem::vector<value_type, allocating_type>&& val) noexcept
+		inline constexpr void push_back(mem::vector<Object, allocating_type, Allocator, memcpy_check>&& val) noexcept
 			requires (mem::concepts::vector_has_method<value_type> == false)
 		{
 			if (this->needs_resize(val.size())) this->increase_capacity(val.size());
@@ -1217,7 +1260,7 @@ namespace mem
 
 			for (iterator* iterator : iterators)
 			{
-				if (*iterator >= this->values.first && *iterator < this->values.end)
+				if (iterator->operator->() >= this->values.first && iterator->operator->() < this->values.end)
 				{
 					const auto ptr_diff = (iterator->operator->() - this->values.first);
 					iterator_indexes.push_back(static_cast<long long>(ptr_diff));
@@ -1303,8 +1346,8 @@ namespace mem
 
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
-				const iterator tmp_start = iterator{ start };
-				const iterator new_right_start = this->values.last + (count + 1);
+				const iterator tmp_start{ start };
+				const iterator new_right_start{ this->values.last + (count + 1) };
 				const auto right_size = this->values.last - start;
 				if (right_size > 0)
 					std::memmove(new_right_start.operator->(), tmp_start.operator->(), sizeof(value_type) * right_size);
@@ -1314,11 +1357,11 @@ namespace mem
 			else
 			{
 				//are we not inserting at the end, move right side by count
-				if (start <= this->values.last)
+				if (start.operator->() <= this->values.last)
 				{
 					iterator tmp_start = iterator{ this->values.last };
-					iterator new_right_start = this->values.last + (count + 1);
-					const auto right_size = this->values.last - start;
+					iterator new_right_start{ this->values.last + (count + 1) };
+					const difference_type right_size{ this->values.last - start };
 
 					for (long long i = 0; i < right_size; ++i)
 					{
@@ -1351,21 +1394,21 @@ namespace mem
 				std::size_t begin_index{ -1 };
 				std::size_t end_index{ -1 };
 
-				if (this->values.begin > begin && this->values.end > begin) //begin is from this and will be invalidated
+				if (values.begin > begin && values.end > begin) //begin is from this and will be invalidated
 					begin_index = this->values.end - begin;
 
-				if (this->values.begin > end && this->values.end > end) //end is from this and will be invalidated
+				if (values.begin > end && values.end > end) //end is from this and will be invalidated
 					end_index = this->values.end - end;
 
 				this->increase_capacity(min_size);
 
-				start = iterator{ this->values.start + start_index };
+				start = iterator{ values.start + start_index };
 
 				if (begin_index != -1) //begin is from this and will be invalidated
-					begin = iterator{ this->values.start + begin_index };
+					begin = iterator{ values.start + begin_index };
 
 				if (end_index != -1) //begin is from this and will be invalidated
-					end = iterator{ this->values.start + end_index };
+					end = iterator{ values.start + end_index };
 			}
 
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
@@ -1408,7 +1451,8 @@ namespace mem
 			{
 				const iterator first = (start + 1);
 				std::memmove(start.operator->(), first.operator->(), sizeof(value_type) * static_cast<std::ptrdiff_t>(this->values.last - first)); //shift right side by one
-				_Alty_traits::destroy(this->MemoryAllocator, (this->values.last));
+				_Alty MemoryAllocator{};
+				_Alty_traits::destroy(MemoryAllocator, this->values.last);
 			}
 			else
 			{
@@ -1443,7 +1487,7 @@ namespace mem
 			}
 
 			this->values.last = this->values.last - count;
-			return { this->values.last };
+			return iterator{ this->values.last };
 		};
 		constexpr iterator erase(iterator start, const iterator end) noexcept
 			requires(mem::concepts::get_is_trivially_copyable_v<value_type> == false)
@@ -1538,7 +1582,7 @@ namespace mem
 		auto indice_iter{ delete_iterators.begin() };
 		typename __vector::iterator writer_iter = indice_iter->item_groups_iter;
 		typename __vector::iterator reader_iter{ writer_iter };
-		typename __vector::iterator last_iter{ data.last() };
+		const typename __vector::iterator last_iter{ data.last() };
 
 		auto data_writer_iter = indice_iter->item_groups_data_iter;
 		auto data_reader_iter{ data_writer_iter };
@@ -1552,7 +1596,7 @@ namespace mem
 					const long long initial_count = (indice_iter != delete_iterators.end() ? (indice_iter->item_groups_iter) - reader_iter : last_iter - reader_iter);
 					if (initial_count > 0ll)
 					{
-						if constexpr (mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type && (sizeof(vector_type) == 32ll || sizeof(vector_type) == 16ll))
+						if constexpr (mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type && (sizeof(vector_type) == 32ll || sizeof(vector_type) == 16ll) || sizeof(vector_type) == 8ll)
 						{
 							if constexpr (sizeof(vector_type) == 32ll)
 							{
@@ -1563,6 +1607,11 @@ namespace mem
 							{
 								SIMDMemCopy256_16<vector_type, false>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
 								SIMDMemCopy256_16<vector_type, false>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+							}
+							else if constexpr (sizeof(vector_type) == 8ll)
+							{
+								SIMDMemCopy256_8<vector_type, false>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
+								SIMDMemCopy256_8<vector_type, false>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
 							}
 
 							writer_iter += initial_count;
@@ -1667,7 +1716,7 @@ namespace mem
 		auto indice_iter{ indicesToDelete.begin() };
 		auto writer_iter{ data.begin() + (*indice_iter) };
 		auto reader_iter{ writer_iter };
-		auto last_iter{ data.last() };
+		const auto last_iter{ data.last() };
 
 		std::size_t reader_index{ (*indice_iter) };
 		if (writer_iter != last_iter)
@@ -1774,7 +1823,7 @@ namespace mem
 		{
 			if constexpr (std::is_trivially_move_constructible_v<value_type> == true)
 			{
-				std::size_t old_max_cap = n;
+				const std::size_t old_max_cap = n;
 				std::size_t new_size = n > 0ull ? n * 2ull : 2ull;
 				current_container = mem::allocate_ptr<value_type>(new_size);
 
@@ -1786,7 +1835,7 @@ namespace mem
 			}
 		}
 
-		std::size_t old_max_cap = n;
+		const std::size_t old_max_cap = n;
 		std::size_t new_size = n > 0ull ? n * 2ull : 2ull;
 		current_container = mem::allocate_ptr<value_type>(new_size);
 
@@ -1934,8 +1983,8 @@ namespace mem
 		std::vector<std::size_t> is{ 2, 4 };
 		if (v[is[0]] != 2) return -15ll;
 		if (v[is[1]] != 4) return -16ll;
-		auto erase_iter = mem::erase_indices(v, is);
-		auto new_last = v.erase(erase_iter, v.end());
+		const auto erase_iter = mem::erase_indices(v, is);
+		const auto new_last = v.erase(erase_iter, v.end());
 		//if (new_last != v.begin() + 3ll) return -17ll;
 		auto tmp_iter = v.begin();
 		auto tmp_iter1 = tmp_iter + 1ll;
@@ -1981,4 +2030,62 @@ namespace mem
 	};
 	constexpr auto vector_erase_indices_val = test_vector();
 	static_assert(test_vector() == 3ll, "no");
+
+	constexpr static auto test_mem_vector_empty(int insert_count)
+	{
+		mem::vector<int> test{ 4 };
+		for (int i = 0; i < insert_count; ++i) test.emplace_back(i);
+		return test.empty();
+	};
+	static_assert(test_mem_vector_empty(0) == true, "vector is not empty");
+	static_assert(!test_mem_vector_empty(4) == true, "vector is not empty");
+
+
+	constexpr static auto test_mem_vector_begin_last(int insert_count)
+	{
+		mem::vector<int> test{ 4 };
+		for (int i = 0; i < insert_count; ++i) test.emplace_back(i);
+
+		int calc = 0;
+		auto begin_iter = test.begin();
+		const auto last_iter = test.last();
+		while (begin_iter != last_iter)
+		{
+			calc += *begin_iter;
+			++begin_iter;
+		}
+
+		return calc;
+	};
+	static_assert(test_mem_vector_begin_last(0) == 0, "vector is not empty");
+	static_assert(test_mem_vector_begin_last(4) == 6, "vector is not empty");
+
+	struct ice_struct
+	{
+		mem::iterator<mem::vector_value<mem::simple_types<int>>> first{ nullptr };
+		mem::iterator<mem::vector_value<mem::simple_types<int>>> second{ nullptr };
+	};
+	constexpr auto test_mem_vector_ice(int insert_count)
+	{
+		mem::vector<int> ice{ 4 };
+		mem::vector<ice_struct> test{ 4 };
+		auto field = &ice_struct::first;
+		for (int i = 0; i < insert_count; ++i) ice.emplace_back(i);
+		for (int i = 0; i < insert_count; ++i) test.emplace_back((ice.begin() + i), (ice.begin() + i));
+
+		int calc = 0;
+		if (!test.empty())
+		{
+			auto begin_iter = test.begin();
+			const auto last_iter = test.last();
+
+			auto& field_1 = begin_iter.operator*();
+			auto field_val = *(begin_iter.GetValue().*field);
+			calc += field_val;
+			++begin_iter;
+		}
+		return calc;
+	};
+	static_assert(test_mem_vector_ice(0) == 0, "vector is not empty");
+	static_assert(test_mem_vector_ice(4) == 0, "vector is not empty");
 };

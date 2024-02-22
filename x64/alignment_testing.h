@@ -9,6 +9,7 @@
 #include <intrin.h>
 
 #include "math_utility.h"
+#include <vector>
 
 namespace cache_test
 {
@@ -207,7 +208,7 @@ namespace cache_test
 		// Print the execution time (in clock ticks) and cleanup resources
 		//======================================================================
 
-		double executionTime = (double)(t2 - t1) / CLOCKS_PER_SEC;
+		double executionTime = ((double)(t2) - t1) / CLOCKS_PER_SEC;
 		std::cout << "EXECUTION TIME: " << executionTime << "s" << std::endl;
 
 		return set_counter;

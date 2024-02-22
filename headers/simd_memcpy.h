@@ -40,6 +40,24 @@ inline void SIMDCacheLineCopy(std::size_t InitialQuadwordCount, void* __restrict
 			break;
 	}
 };
+inline void SIMDCacheLineCopy_8(std::size_t InitialDoublewordCount, void* __restrict _Dest, const void* __restrict _Source) noexcept
+{
+	__m256i* __restrict s_Dest = (__m256i * __restrict)_Dest;
+	const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
+
+	switch (InitialDoublewordCount)
+	{
+		case 7: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[3], (s_Source + 1)->m256i_i64[3]); [[fallthrough]];	 // Fall through
+		case 6: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[2], (s_Source + 1)->m256i_i64[2]); [[fallthrough]];	 // Fall through
+		case 5: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[1], (s_Source + 1)->m256i_i64[1]); [[fallthrough]];	 // Fall through
+		case 4: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[0], (s_Source + 1)->m256i_i64[0]); [[fallthrough]];	 // Fall through
+		case 3: _mm_stream_si64x(&s_Dest->m256i_i64[3], s_Source->m256i_i64[3]); [[fallthrough]];	 // Fall through
+		case 2: _mm_stream_si64x(&s_Dest->m256i_i64[2], s_Source->m256i_i64[2]); [[fallthrough]];	 // Fall through
+		case 1: _mm_stream_si64x(&s_Dest->m256i_i64[1], s_Source->m256i_i64[1]); [[fallthrough]];	 // Fall through
+		default:
+			break;
+	}
+};
 
 inline void SIMDRemainingCacheLine(std::size_t NumQuadwords, void* __restrict _Dest, const void* __restrict _Source) noexcept
 {
@@ -52,6 +70,25 @@ inline void SIMDRemainingCacheLine(std::size_t NumQuadwords, void* __restrict _D
 		case 3: _mm_stream_si128(s_Dest + 2, _mm_load_si128(s_Source + 2)); [[fallthrough]];	 // Fall through
 		case 2: _mm_stream_si128(s_Dest + 1, _mm_load_si128(s_Source + 1)); [[fallthrough]];	 // Fall through
 		case 1: _mm_stream_si128(s_Dest + 0, _mm_load_si128(s_Source + 0)); [[fallthrough]];	 // Fall through
+		default:
+			break;
+	}
+};
+inline void SIMDRemainingCacheLine_8(std::size_t NumDoublewords, void* __restrict _Dest, const void* __restrict _Source) noexcept
+{
+	__m256i* __restrict s_Dest = (__m256i * __restrict)_Dest;
+	const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
+
+	// Copy the remaining quadwords
+	switch (NumDoublewords & 7)
+	{
+		case 7: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[3], (s_Source + 1)->m256i_i64[3]); [[fallthrough]];	 // Fall through
+		case 6: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[2], (s_Source + 1)->m256i_i64[2]); [[fallthrough]];	 // Fall through
+		case 5: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[1], (s_Source + 1)->m256i_i64[1]); [[fallthrough]];	 // Fall through
+		case 4: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[0], (s_Source + 1)->m256i_i64[0]); [[fallthrough]];	 // Fall through
+		case 3: _mm_stream_si64x(&s_Dest->m256i_i64[3], s_Source->m256i_i64[3]); [[fallthrough]];	 // Fall through
+		case 2: _mm_stream_si64x(&s_Dest->m256i_i64[2], s_Source->m256i_i64[2]); [[fallthrough]];	 // Fall through
+		case 1: _mm_stream_si64x(&s_Dest->m256i_i64[1], s_Source->m256i_i64[1]); [[fallthrough]];	 // Fall through
 		default:
 			break;
 	}
@@ -86,7 +123,7 @@ __forceinline void SIMDMemCopy(void* __restrict _Dest, const void* __restrict _S
 	Source += InitialQuadwordCount;
 	NumQuadwords -= InitialQuadwordCount;
 
-	std::size_t CacheLines = NumQuadwords >> 2;
+	const std::size_t CacheLines = NumQuadwords >> 2;
 
 	switch (CacheLines)
 	{
@@ -316,8 +353,8 @@ __forceinline void SIMDMemCopy256_16(void* __restrict _Dest, const void* __restr
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			assert(IsAligned(_Dest, 16));
-			assert(IsAligned(_Source, 16));
+			assert(IsAligned(_Dest, sizeof(T)));
+			assert(IsAligned(_Source, sizeof(T)));
 
 			// Discover how many quadwords precede a cache line boundary.  Copy them separately.
 			std::size_t InitialQuadwordCount = ((std::size_t)Dest % 64) / 16;
@@ -380,6 +417,85 @@ __forceinline void SIMDMemCopy256_16(void* __restrict _Dest, const void* __restr
 	}
 
 	if constexpr (is_ptr_aligned == false) SIMDRemainingCacheLine(NumQuadwords, Dest, Source);
+	_mm_sfence();
+};
+template<typename T, bool is_ptr_aligned>
+__forceinline void SIMDMemCopy256_8(void* __restrict _Dest, const void* __restrict _Source, std::size_t objects_to_copy) noexcept
+{
+	static_assert(mem::aligned_by<T, 8ull>() == 0ull, "type is not 8 byte aligned");
+	std::size_t NumDoublewords = DivideByMultiple(sizeof(T) * objects_to_copy, 8ull);
+
+	__m128i* __restrict Dest = (__m128i * __restrict)_Dest;
+	const __m128i* __restrict Source = (const __m128i * __restrict)_Source;
+
+	if constexpr (is_ptr_aligned == false)
+	{
+		if (std::is_constant_evaluated() == false)
+		{
+			assert(IsAligned(_Dest, sizeof(T)));
+			assert(IsAligned(_Source, sizeof(T)));
+
+			// Discover how many doublewords precede a cache line boundary.  Copy them separately.
+			std::size_t InitialDoublewordCount = 8 - (((std::size_t)Dest % 64) / 8);
+			if (InitialDoublewordCount > NumDoublewords)
+				InitialDoublewordCount = NumDoublewords;
+
+			SIMDCacheLineCopy_8(InitialDoublewordCount, _Dest, _Source);
+			if (NumDoublewords == InitialDoublewordCount) return;
+
+			Dest = (__m128i*)(((long long*)Dest) + InitialDoublewordCount);
+			Source = (__m128i*)(((long long*)Source) + InitialDoublewordCount);
+			NumDoublewords -= InitialDoublewordCount;
+		}
+	}
+
+	const std::size_t CacheLines = NumDoublewords / 8;
+	constexpr std::size_t cachelines_per_object = mem::cache_lines_for<T>();
+	constexpr std::size_t cache_lines_for_t = 10ull / cachelines_per_object;
+	constexpr std::size_t objects_to_prefetch = 4ll;
+	constexpr auto __m256i_in_t = mem::types_in_ptr<T, __m128i>();
+	mem::pre_fetch_cachelines<T, objects_to_prefetch* cachelines_per_object, _MM_HINT_NTA>(Source);
+
+	if (IsAligned(Source, 32) && IsAligned(Dest, 32))
+	{
+		// Do four quadwords per loop to minimize stalls.
+		for (std::size_t i = CacheLines; i > 0; --i)
+		{
+			// If this is a large copy, start prefetching future cache lines.  This also prefetches the
+			// trailing quadwords that are not part of a whole cache line.
+			//if (i >= objects_to_prefetch * cachelines_per_object) _mm_prefetch((char const*)(Source + (objects_to_prefetch * cachelines_per_object)), _MM_HINT_NTA);
+
+			/*__m256i tmp_a = _mm256_stream_load_si256((__m256i*)(Source + 0));
+			__m256i tmp_b = _mm256_stream_load_si256((__m256i*)(Source + 2));
+			_mm256_stream_si256((__m256i*)Dest, tmp_a);
+			_mm256_stream_si256((__m256i*)(Dest + 2), tmp_b);*/
+			_mm256_stream_si256((__m256i*)Dest, _mm256_stream_load_si256((__m256i*)(Source + 0)));
+			_mm256_stream_si256((__m256i*)(Dest + 2), _mm256_stream_load_si256((__m256i*)(Source + 2)));
+			//_mm256_store_si256((__m256i*)(Dest + 0), _mm256_load_si256((__m256i*)(Source + 0)));
+			//_mm256_store_si256((__m256i*)(Dest + 2), _mm256_load_si256((__m256i*)(Source + 2)));
+
+			Dest += objects_to_prefetch;
+			Source += objects_to_prefetch;
+		}
+	}
+	else
+	{
+		// Do four quadwords per loop to minimize stalls.
+		for (std::size_t i = CacheLines; i > 0; --i)
+		{
+			// If this is a large copy, start prefetching future cache lines.  This also prefetches the
+			// trailing quadwords that are not part of a whole cache line.
+			if (i >= objects_to_prefetch * cache_lines_for_t) _mm_prefetch((char const*)(Source + (objects_to_prefetch * cache_lines_for_t * 2)), _MM_HINT_NTA);
+
+			_mm256_stream_si256((__m256i*)(Dest + 0), _mm256_loadu_si256((__m256i*)(Source + 0)));
+			_mm256_stream_si256((__m256i*)(Dest + 2), _mm256_loadu_si256((__m256i*)(Source + 2)));
+
+			Dest += objects_to_prefetch;
+			Source += objects_to_prefetch;
+		}
+	}
+
+	if constexpr (is_ptr_aligned == false) SIMDRemainingCacheLine_8(NumDoublewords, Dest, Source);
 	_mm_sfence();
 };
 template<typename T, std::size_t alignment, std::size_t objects_to_copy>

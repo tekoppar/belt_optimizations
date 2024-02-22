@@ -36,6 +36,18 @@ namespace belt_utility
 		else if constexpr (16 < shift_right && shift_right < 32) _mm256_store_si256(a, _mm256_srli_si256(_mm256_permute2x128_si256(_mm256_load_si256(a), _mm256_load_si256(a), _MM_SHUFFLE(2, 0, 0, 1)), shift_right - 16));
 	};
 
+	template<std::size_t shift_left>
+	static constexpr void _mm256_slli_bit__p(__m256i* a)
+	{
+		_rotl64(a->m256i_i64[0], shift_left);
+		_rotl64(a->m256i_i64[1], shift_left);
+		_rotl64(a->m256i_i64[2], shift_left);
+		_rotl64(a->m256i_i64[3], shift_left);
+		auto tmp = a->m256i_i64[3];
+
+		_mm256_store_si256(a, _mm256_slli_si256(_mm256_permute2x128_si256(_mm256_load_si256(a), _mm256_load_si256(a), _MM_SHUFFLE(0, 0, 2, 0)), shift_left - 16));
+	};
+
 	template<std::size_t i>
 	static constexpr __m256i _mm256_slli_si256__(__m256i a)
 	{

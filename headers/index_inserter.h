@@ -225,7 +225,9 @@ public:
 					set_linked_list_data(direction, segment_end_direction, segment_ptr, item_group - item_group_offset);
 					return item_group_scan::same; //means were in between the item group
 				}
-				if (0 < (position.x - (*(item_group - item_group_offset)).get_direction_position(segment_end_direction)) && (position.x - (*(item_group - item_group_offset)).get_direction_position(segment_end_direction)) < 255ll && (*(item_group - item_group_offset)).count() > 0)
+				if (0 < (position.x - (*(item_group - item_group_offset)).get_direction_position(segment_end_direction)) &&
+					(position.x - (*(item_group - item_group_offset)).get_direction_position(segment_end_direction)) < 255ll &&
+					(*(item_group - item_group_offset)).count(&belt_segment_helpers::get_item_data_group<item_groups_data_type>(segment_ptr, (item_group - item_group_offset)).contains_item[0]) > 0)
 				{
 					set_linked_list_data(direction, segment_end_direction, segment_ptr, item_group - item_group_offset);
 					return item_group_scan::same;
@@ -244,7 +246,9 @@ public:
 
 		if ((*item_group).get_last_item_direction_position(direction, segment_end_direction, belt_segment_helpers::get_item_data_group<item_groups_data_type>(segment_ptr, item_group.get_index())) <= position.x &&
 			(*item_group).get_direction_position(segment_end_direction) >= position.x) return item_group_scan::same; //means were in between the current item group
-		if (0 < (position.x - (*item_group).get_direction_position(segment_end_direction)) && (position.x - (*item_group).get_direction_position(segment_end_direction)) < 255ll && (*item_group).count() > 0) return item_group_scan::same;
+		if (0 < (position.x - (*item_group).get_direction_position(segment_end_direction)) &&
+			(position.x - (*item_group).get_direction_position(segment_end_direction)) < 255ll &&
+			(*item_group).count(&belt_segment_helpers::get_item_data_group<item_groups_data_type>(segment_ptr, item_group.get_index()).contains_item[0]) > 0) return item_group_scan::same;
 		if (item_group.is_next_valid() &&
 			(*(item_group + 1)).get_direction_position(segment_end_direction) > position.x &&
 			(*(item_group + 1)).get_last_item_direction_position(direction, segment_end_direction, belt_segment_helpers::get_item_data_group<item_groups_data_type>(segment_ptr, (item_group + 1).get_index())) > position.x &&
@@ -296,7 +300,7 @@ public:
 		}
 		if ((*next_iter).get_direction_position(segment_end_direction) < position.x) //scan forward
 		{
-			auto vector_size = next_iter.get_vector_size();
+			const auto vector_size = next_iter.get_vector_size();
 			auto current_index = next_iter.get_index();
 			for (; current_index < vector_size; ++current_index)
 			{

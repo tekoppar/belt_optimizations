@@ -39,6 +39,7 @@ public:
 #ifdef __BELT_SEGMENT_VECTOR_TYPE__
 	_data_vector item_groups_data{ 4 };
 	_vector item_groups{ 4 };
+	active_mode_vector stuck_pair_item_groups{ 4 };
 #else
 	_vector item_groups;
 #endif
@@ -144,6 +145,11 @@ public:
 		return inserters[i];
 	};
 
+	inline constexpr bool has_stuck_item_groups() const noexcept
+	{
+		return !stuck_pair_item_groups.empty();
+	};
+
 	inline constexpr long long count_item_groups() const noexcept
 	{
 		return item_groups.size();
@@ -154,7 +160,7 @@ public:
 #ifdef _BOUNDS_CHECKING_
 		ASSERT_NOT_CONSTEXPR(i < item_groups.size());
 #endif
-		return item_groups[i].count();
+		return item_groups[i].count(&item_groups_data[i].contains_item[0]);
 	};
 
 	inline constexpr long long count_all_items() const noexcept
@@ -165,26 +171,20 @@ public:
 			const long long initial_count = item_groups.size();
 			const auto loops = expr::divide_with_remainder(initial_count, 4ll);
 			auto begin_iter = item_groups.begin();
-			//mem::pre_fetch_cacheline_ptrs<item_groups_type, 16ll, _MM_HINT_NTA>(begin_iter.operator->());
+			auto begin_data_iter = item_groups_data.begin();
 			long long tmp1{ 0ll }, tmp2{ 0ll }, tmp3{ 0ll }, tmp4{ 0ll };
 			for (long long i = loops.div; i > 0ll; --i)
 			{
-				//if (i - (4ll * 3ll) > 0ll) mem::pre_fetch_cacheline_ptrs<item_groups_type, 4ll, _MM_HINT_NTA>(begin_iter.operator->() + (4ll * 3ll));
-				//mem::prefetch_offset<4ll - 1ll, 4ll - 1ll, 192ll, item_groups_type, _MM_HINT_NTA>{}.___mm_prefetch___(((item_groups_type*)(begin_iter + iter_offset)));
-				//_mm_prefetch((const char*)(begin_iter + iter_offset), _MM_HINT_NTA);
-				//_mm_prefetch((const char*)(begin_iter + iter_offset + 24), _MM_HINT_NTA);
-				//_mm_prefetch((const char*)(begin_iter + iter_offset + 48), _MM_HINT_NTA);
-				//_mm_prefetch((const char*)(begin_iter + iter_offset + 72), _MM_HINT_NTA);
-				tmp1 = tmp1 + begin_iter.operator->()->count();
-				tmp2 = tmp2 + (begin_iter.operator->() + 1)->count();
-				tmp3 = tmp3 + (begin_iter.operator->() + 2)->count();
-				tmp4 = tmp4 + (begin_iter.operator->() + 3)->count();
+				tmp1 = tmp1 + begin_iter.operator->()->count(&begin_data_iter->contains_item[0]);
+				tmp2 = tmp2 + (begin_iter.operator->() + 1)->count(&(begin_data_iter + 1)->contains_item[0]);
+				tmp3 = tmp3 + (begin_iter.operator->() + 2)->count(&(begin_data_iter + 2)->contains_item[0]);
+				tmp4 = tmp4 + (begin_iter.operator->() + 3)->count(&(begin_data_iter + 3)->contains_item[0]);
 				begin_iter += 4ll;
 			}
 			total = tmp1 + tmp2 + tmp3 + tmp4;
 			for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
 			{
-				total += item_groups[i].count();
+				total += item_groups[i].count(&item_groups_data[i].contains_item[0]);
 			}
 			return total;
 		}
@@ -196,7 +196,7 @@ public:
 #ifdef _BOUNDS_CHECKING_
 				ASSERT_NOT_CONSTEXPR(i < item_groups.size());
 #endif
-				total += item_groups[i].count();
+				total += item_groups[i].count(&item_groups_data[i].contains_item[0]);
 			}
 		}
 		return total;
@@ -219,45 +219,48 @@ public:
 	{
 		switch (segment_direction)
 		{
-			case belt_utility::belt_direction::left_right: return start_of_segment.y;
-			case belt_utility::belt_direction::right_left: return start_of_segment.y;
-			case belt_utility::belt_direction::top_bottom: return start_of_segment.x;
-			case belt_utility::belt_direction::bottom_top: return start_of_segment.x;
-			case belt_utility::belt_direction::null: return 0;
+		default:
+		case belt_utility::belt_direction::left_right: return start_of_segment.y;
+		case belt_utility::belt_direction::right_left: return start_of_segment.y;
+		case belt_utility::belt_direction::top_bottom: return start_of_segment.x;
+		case belt_utility::belt_direction::bottom_top: return start_of_segment.x;
+		case belt_utility::belt_direction::null: return 0;
 		}
 	};
 	inline constexpr long long get_start_direction_value() const noexcept
 	{
 		switch (segment_direction)
 		{
-			case belt_utility::belt_direction::left_right: return start_of_segment.x;
-			case belt_utility::belt_direction::right_left: return start_of_segment.x;
-			case belt_utility::belt_direction::top_bottom: return start_of_segment.y;
-			case belt_utility::belt_direction::bottom_top: return start_of_segment.y;
-			case belt_utility::belt_direction::null: return 0;
+		default:
+		case belt_utility::belt_direction::left_right: return start_of_segment.x;
+		case belt_utility::belt_direction::right_left: return start_of_segment.x;
+		case belt_utility::belt_direction::top_bottom: return start_of_segment.y;
+		case belt_utility::belt_direction::bottom_top: return start_of_segment.y;
+		case belt_utility::belt_direction::null: return 0;
 		}
 	};
 	inline constexpr long long get_end_distance() const noexcept
 	{
 		switch (segment_direction)
 		{
-			case belt_utility::belt_direction::left_right: return end_of_segment.x - start_of_segment.x;
-			case belt_utility::belt_direction::right_left: return start_of_segment.x - end_of_segment.x;
-			case belt_utility::belt_direction::top_bottom: return end_of_segment.y - start_of_segment.y;
-			case belt_utility::belt_direction::bottom_top: return start_of_segment.y - end_of_segment.y;
-			case belt_utility::belt_direction::null: return 0;
+		default:
+		case belt_utility::belt_direction::left_right: return end_of_segment.x - start_of_segment.x;
+		case belt_utility::belt_direction::right_left: return start_of_segment.x - end_of_segment.x;
+		case belt_utility::belt_direction::top_bottom: return end_of_segment.y - start_of_segment.y;
+		case belt_utility::belt_direction::bottom_top: return start_of_segment.y - end_of_segment.y;
+		case belt_utility::belt_direction::null: return 0;
 		}
 	};
 	inline constexpr long long get_end_distance_direction() const noexcept
 	{
 		switch (segment_direction)
 		{
-			case belt_utility::belt_direction::left_right: return end_of_segment.x;
-			case belt_utility::belt_direction::right_left: return end_of_segment.x;
-			case belt_utility::belt_direction::top_bottom: return end_of_segment.y;
-			case belt_utility::belt_direction::bottom_top: return end_of_segment.y;
-			default:
-			case belt_utility::belt_direction::null: return 0;
+		case belt_utility::belt_direction::left_right: return end_of_segment.x;
+		case belt_utility::belt_direction::right_left: return end_of_segment.x;
+		case belt_utility::belt_direction::top_bottom: return end_of_segment.y;
+		case belt_utility::belt_direction::bottom_top: return end_of_segment.y;
+		default:
+		case belt_utility::belt_direction::null: return 0;
 		}
 	};
 
@@ -290,12 +293,56 @@ public:
 				if (segment_ptr->add_item(ptr->get_first_item(get_end_distance_direction(), get_direction_y_value(), item_data)))
 				{
 					ptr->remove_first_item(this, item_data);
+
+					auto comp_lambda = [](auto& lhs, auto rhs) -> bool {
+						return lhs.some_stuck.operator->() == rhs;
+						};
+					if (belt_utility::contains(stuck_pair_item_groups, ptr, comp_lambda))
+					{
+						auto found_index = belt_utility::find_index(stuck_pair_item_groups, ptr, comp_lambda);
+						if (found_index != -1ll)
+						{
+							stuck_pair_item_groups.remove(found_index);
+						}
+					}
+
 					item_was_removed = true;
 					break;
 				}
 			}
 		}
-		else ptr->set_active_mode(belt_utility::belt_update_mode::first_stuck);
+		else
+		{
+			if (stuck_pair_item_groups.empty())
+			{
+				stuck_pair_item_groups.emplace_back(_vector::iterator{ ptr }, item_groups.last());
+			}
+			else
+			{
+				auto comp_lambda = [](auto& lhs, auto rhs) -> bool {
+					return lhs.some_stuck.operator->() == rhs;
+					};
+				if (!belt_utility::contains(stuck_pair_item_groups, ptr, comp_lambda))
+				{
+					auto result = belt_utility::find_closest_active_mode(segment_direction, get_end_distance_direction(), stuck_pair_item_groups, ptr, item_data);
+					if (belt_utility::find_closest_active_mode_return_result::new_active_mode_before_iter == result.scan)
+					{
+						stuck_pair_item_groups.emplace(result.result, _vector::iterator{ ptr }, result.result->some_stuck + 1);
+					}
+					if (belt_utility::find_closest_active_mode_return_result::new_active_mode_after_iter == result.scan)
+					{
+						if (result.result + 1 == stuck_pair_item_groups.last())
+						{
+							stuck_pair_item_groups.emplace_back(_vector::iterator{ ptr }, item_groups.last());
+						}
+						else
+						{
+							stuck_pair_item_groups.emplace(result.result + 1, _vector::iterator{ ptr }, (result.result - 1)->some_stuck + 1);
+						}
+					}
+				}
+			}
+		}
 	};
 
 	constexpr void item_groups_removal() noexcept
@@ -369,7 +416,34 @@ public:
 
 	constexpr void update_item_removed() noexcept
 	{
-		if (item_groups.size() > 256ll)
+		auto begin_iter = item_groups.begin();
+		auto last_iter = item_groups.last();
+		auto begin_data_iter = item_groups_data.begin();
+		if (!stuck_pair_item_groups.empty())
+		{
+			auto begin_stuck_iter = stuck_pair_item_groups.begin();
+			auto last_stuck_iter = stuck_pair_item_groups.last();
+			while (begin_stuck_iter != last_stuck_iter)
+			{
+				while (begin_iter != begin_stuck_iter->some_stuck)
+				{
+					begin_iter->update_belt(this, *begin_data_iter);
+					++begin_iter;
+					++begin_data_iter;
+				}
+
+				begin_stuck_iter->some_stuck->items_stuck_update(*begin_data_iter);
+				begin_iter = begin_stuck_iter->first_free;
+				++begin_stuck_iter;
+			}
+		}
+		while (begin_iter != item_groups.last())
+		{
+			begin_iter->update_belt(this, *begin_data_iter);
+			++begin_iter;
+			++begin_data_iter;
+		}
+		/*if (item_groups.size() > 256ll)
 		{
 			const auto loops = expr::divide_with_remainder(item_groups.size(), 4ll);
 			for (long long i = loops.div, i_loop = 0ll; i > 0ll; --i)
@@ -404,12 +478,40 @@ public:
 				++begin_iter;
 				++begin_data_iter;
 			}
-		}
+		}*/
 	};
 
 	__declspec(noinline) constexpr void update_item() noexcept
 	{
-		if (item_groups.size() > 256ll)
+		auto begin_iter = item_groups.begin();
+		auto last_iter = item_groups.last();
+		auto begin_data_iter = item_groups_data.begin();
+		if (!stuck_pair_item_groups.empty())
+		{
+			auto begin_stuck_iter = stuck_pair_item_groups.begin();
+			auto last_stuck_iter = stuck_pair_item_groups.last();
+			while (begin_stuck_iter != last_stuck_iter)
+			{
+				while (begin_iter != begin_stuck_iter->some_stuck)
+				{
+					begin_iter->update_belt(this, *begin_data_iter);
+					++begin_iter;
+					++begin_data_iter;
+				}
+
+				begin_stuck_iter->some_stuck->items_stuck_update(*begin_data_iter);
+				begin_iter = begin_stuck_iter->first_free;
+				++begin_stuck_iter;
+			}
+		}
+		while (begin_iter != item_groups.last())
+		{
+			begin_iter->update_belt(this, *begin_data_iter);
+			++begin_iter;
+			++begin_data_iter;
+		}
+
+		/*if (item_groups.size() > 256ll)
 		{
 			auto begin_iter = item_groups.begin();
 			auto begin_data_iter = item_groups_data.begin();
@@ -440,7 +542,7 @@ public:
 				++begin_iter;
 				++begin_data_iter;
 			}
-		}
+		}*/
 	};
 
 	constexpr void update() noexcept
@@ -546,7 +648,7 @@ public:
 #endif
 			if (belt_utility::find_closest_item_group_return_result::insert_into_group == iter.scan)
 			{
-				if (iter.result->count() >= 32) return false; //need to split item_group into 2
+				if (iter.result->count(&item_groups_data[index_ptr_temp].contains_item[0]) >= 32) return false; //need to split item_group into 2
 				else
 				{
 					auto index_ptr = iter.result - item_groups.begin();
@@ -735,8 +837,8 @@ CONSTEXPR_VAR auto test_removing_item_group(std::size_t return_index) noexcept
 		second_segment.update();
 	}
 
-	if (return_index == 0) return first_segment.get_item_group(0).count();
-	else return second_segment.get_item_group(0).count();
+	if (return_index == 0) return first_segment.get_item_group(0).count(&first_segment.get_item_data_group(0).contains_item[0]);
+	else return second_segment.get_item_group(0).count(&first_segment.get_item_data_group(0).contains_item[0]);
 };
 #ifdef CONSTEXPR_ASSERTS
 static_assert(test_removing_item_group(0) == 2, "item did not jump to the second segment");
@@ -810,14 +912,14 @@ static_assert(test_item_distance(1) == 128, "item distance is incorrect");
 
 CONSTEXPR_VAR auto test_inserter_item() noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{400, 0} };
+	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{400ll, 0ll} };
 
-	first_segment.add_inserter(index_inserter{ vec2_uint{256 + 64, 32} });
+	first_segment.add_inserter(index_inserter{ vec2_uint{320ll, 32ll} });
 	first_segment.get_inserter(0).set_item_type(item_type::stone);
 
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 288ll - 278ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 288ll - 128ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 288ll - 64ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
 	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
 
 	for (int i = 0, l = 128 + 32; i < l; ++i)

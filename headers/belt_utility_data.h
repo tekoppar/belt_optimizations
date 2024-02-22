@@ -118,4 +118,19 @@ namespace belt_utility
 		find_closest_item_group_return_result scan{ find_closest_item_group_return_result::invalid_value };
 		object result = object{};
 	};
+
+	enum class find_closest_active_mode_return_result
+	{
+		inbetween,
+		new_active_mode_before_iter,
+		new_active_mode_after_iter,
+		invalid_value
+	};
+
+	template<typename object>
+	struct find_closest_active_mode_result
+	{
+		find_closest_active_mode_return_result scan{ find_closest_active_mode_return_result::invalid_value };
+		object result = object{};
+	};
 };
