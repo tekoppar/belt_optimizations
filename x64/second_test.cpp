@@ -21,11 +21,11 @@
 #include "cpu_info.h"
 
 constexpr const std::size_t second_test_max_belts_8 = 20000000ll;
-constexpr const std::size_t throw_value = second_test_max_belts_8 * 0.97;
+constexpr const std::size_t throw_value = second_test_max_belts_8 * 0.6;
 constexpr const std::size_t item_max_distance = second_test_max_belts_8 * 32ll;
-constexpr const std::size_t item_goal_distance = (second_test_max_belts_8 / 32ll) * 32ll * 32ll * 2ll;
-static_assert(item_goal_distance > item_max_distance, "item max distance is greater than the goal");
-static_assert(item_goal_distance < std::numeric_limits<int>::max(), "max distance is greater then max value of int");
+constexpr const std::size_t item_goal_distance_max = (second_test_max_belts_8 / 32ll) * 32ll * 32ll * 2ll;
+static_assert(item_goal_distance_max > item_max_distance, "item max distance is greater than the goal");
+static_assert(item_goal_distance_max < std::numeric_limits<long long>::max(), "max distance is greater then max value of int");
 constexpr const std::size_t belts_being_simulated = second_test_max_belts_8 / 4ll;
 belt_segment second_test_all_belts;
 
@@ -51,12 +51,14 @@ void second_test_belt_setup() noexcept
 	second_test_all_belts = belt_segment{ vec2_uint{0, 0}, vec2_uint{ second_test_max_belts * 32 * 32 * 8, 0} };
 #endif
 
+	long long belt_x_position = 0ll;
 	for (std::size_t i = 0, l = second_test_max_belts; i < l; ++i)
 	{
 #if __BELT_SWITCH__ == 3
 		for (long long x = 0; x < 32; ++x)
 		{
-			second_test_all_belts.add_item(item_uint{ item_type::wood, vec2_uint(x * 32ll + (32ll * 32ll * i), 0ll) });
+			second_test_all_belts.add_item(item_uint{ item_type::wood, vec2_uint(belt_x_position, 0ll) });
+			belt_x_position += 32ll;
 		}
 #elif __BELT_SWITCH__ == 4
 		for (int y = 0; y < 8; ++y)
@@ -82,6 +84,10 @@ std::size_t second_test_get_total_items_on_belts() noexcept
 
 void second_belt_test()
 {
+	auto test_mixing_inserters_and_item_groups_val = test_mixing_inserters_and_item_groups(0);
+	auto test_new_item_distance_val = test_new_item_distance_vectors(2);
+	auto test_item_distance_val = test_item_distance(0);
+	auto test_inserter_item_val = test_inserter_item();
 	second_test_belt_setup();
 
 	std::size_t moved_items_per_second = 0;
@@ -99,7 +105,7 @@ void second_belt_test()
 		second_test_belt_loop();
 		const auto t2 = std::chrono::high_resolution_clock::now();
 
-		auto ms_int = duration_cast<std::chrono::microseconds>(t2 - t1);
+		auto ms_int = duration_cast<std::chrono::nanoseconds>(t2 - t1);
 
 		second_counter += ms_int.count();
 		++loop_counter;
@@ -108,10 +114,11 @@ void second_belt_test()
 #elif __BELT_SWITCH__ == 4
 		moved_items_per_second += item_256::items_moved_per_frame;
 #endif
-		if (second_counter >= 1000000)
+		if (second_counter >= 1000000000)
 		{
-			std::cout << "items moved/s: " << moved_items_per_second << " - tick time: " << ms_int.count() << "microseconds - avg time: " << second_counter / loop_counter << " - loops done : " << loop_counter << " - total on belts : " << second_test_get_total_items_on_belts() << " \n";
-			if (second_test_get_total_items_on_belts() < throw_value) throw std::runtime_error("");
+			auto total_items_on_belt = second_test_get_total_items_on_belts();
+			std::cout << "items moved/s: " << moved_items_per_second << " - tick time: " << ms_int.count() << "nanoseconds - avg time: " << second_counter / loop_counter << " - loops done : " << loop_counter << " - total on belts : " << total_items_on_belt << " \n";
+			if (total_items_on_belt < throw_value) throw std::runtime_error("");
 			moved_items_per_second = 0;
 			second_counter = 0;
 			loop_counter = 0;

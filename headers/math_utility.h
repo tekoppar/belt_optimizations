@@ -41,6 +41,14 @@ namespace expr
 
 		return f < 0 ? -f : f;
 	};
+	template<typename type>
+	inline constexpr type negate(type f) noexcept
+	{
+		if (f == 0)
+			return -0;
+
+		return f > 0 ? -f : f;
+	};
 
 	template<typename type>
 	inline constexpr type max(type lhs, type rhs) noexcept

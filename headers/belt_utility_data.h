@@ -133,4 +133,17 @@ namespace belt_utility
 		find_closest_active_mode_return_result scan{ find_closest_active_mode_return_result::invalid_value };
 		object result = object{};
 	};
+
+	enum class need_new_slot_result
+	{
+		update_pointer_to_new_index = 0,
+		object_is_between_slots = 1,
+		need_new_slot = 2
+	};
+
+	enum class item_update_state
+	{
+		adding,
+		removing
+	};
 };

@@ -83,19 +83,19 @@ namespace mem
 	template<typename T, long long alignment>
 	static inline bool is_aligned(const void* ptr) noexcept
 	{
-		return (std::uintptr_t)ptr % alignment == 0ull;
+		return (std::uintptr_t)ptr % alignment == 0ll;
 	};
-	template<typename T, std::size_t alignment>
-	constexpr inline std::size_t aligned_by() noexcept
+	template<typename T, long long alignment>
+	constexpr inline long long aligned_by() noexcept
 	{
 		constexpr double align = sizeof(T) % alignment;
-		return align == 0.0 ? static_cast<std::size_t>(align) : 1ull;
+		return align == 0.0 ? static_cast<long long>(align) : 1ll;
 	};
 	template<typename T>
-	constexpr inline std::size_t cache_lines_for() noexcept
+	constexpr inline long long cache_lines_for() noexcept
 	{
-		if constexpr (sizeof(T) >= 64ull) return expr::max<std::size_t>((sizeof(T) / 64ull), 1ull);
-		else return expr::max<std::size_t>(64ull / (sizeof(T)), 1ull);
+		if constexpr (sizeof(T) >= 64ll) return expr::max<long long>((sizeof(T) / 64ll), 1ll);
+		else return expr::max<long long>(64ll / (sizeof(T)), 1ll);
 	};
 
 	template<long long n>
@@ -190,7 +190,7 @@ namespace mem
 	template<typename T, long long objects_to_pre_fetch = 32ll, int prefetch_hint = 0, typename in_T = T>
 	__forceinline static void pre_fetch_cachelines(in_T* ptr) noexcept
 	{
-		if constexpr (sizeof(T) > 64ull)
+		if constexpr (sizeof(T) > 64ll)
 		{
 			constexpr long long cache_lines_per_object = expr::max<long long>(static_cast<long long>(sizeof(T) / 64ll), 1ll);
 			constexpr long long prefetch_calls = objects_to_pre_fetch * cache_lines_per_object;
@@ -217,7 +217,7 @@ namespace mem
 		}
 		else
 		{
-			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= 64ll ? (sizeof(T) == 64ull ? 1ll : (64ll / sizeof(T)) * sizeof(T)) : mem::types_in_ptr<T, char>()), 1ll);
+			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= 64ll ? (sizeof(T) == 64ll ? 1ll : (64ll / sizeof(T)) * sizeof(T)) : mem::types_in_ptr<T, char>()), 1ll);
 			constexpr long long prefetch_calls = expr::max<long long>(sizeof(T) <= 64ll ? objects_to_pre_fetch / objects_per_cache_line : objects_to_pre_fetch, 1ll);
 
 			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, objects_per_cache_line, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);

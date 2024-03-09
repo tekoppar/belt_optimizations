@@ -207,9 +207,7 @@ namespace mem
 		};
 		inline constexpr friend iterator operator+(const iterator& lhs, const difference_type& offset) noexcept
 		{
-			iterator tmp = lhs;
-			tmp.m_ptr += offset;
-			return tmp;
+			return iterator(lhs.m_ptr + offset);
 		};
 		inline constexpr friend iterator operator+(const difference_type& offset, const iterator& lhs) noexcept
 		{
@@ -238,13 +236,15 @@ namespace mem
 			tmp.m_ptr -= offset;
 			return tmp;
 		};
-		inline constexpr friend iterator operator-(const iterator& lhs, const difference_type& offset) noexcept
+		template<typename T = Object>
+		inline constexpr friend iterator operator-(const iterator<T>& lhs, const difference_type& offset) noexcept
 		{
-			iterator tmp = lhs;
+			iterator tmp{ lhs.m_ptr };
 			tmp.m_ptr -= offset;
 			return tmp;
 		};
-		inline constexpr friend iterator operator-(const difference_type& offset, const iterator& lhs) noexcept
+		template<typename T = Object>
+		inline constexpr friend iterator operator-(const difference_type& offset, const iterator<T>& lhs) noexcept
 		{
 			return iterator{ lhs - offset };
 		};
@@ -274,6 +274,23 @@ namespace mem
 			return lhs - rhs.m_ptr;
 		};
 
+		inline constexpr bool operator<(const iterator& rhs)
+		{
+			return m_ptr < rhs.m_ptr;
+		};
+		inline constexpr bool operator>(const iterator& rhs)
+		{
+			return rhs.m_ptr < m_ptr;
+		};
+		inline constexpr bool operator<=(const iterator& rhs)
+		{
+			return m_ptr <= rhs.m_ptr;
+		};
+		inline constexpr bool operator>=(const iterator& rhs)
+		{
+			return m_ptr >= rhs.m_ptr;
+		};
+
 		inline constexpr friend bool operator==(const iterator& lhs, const iterator& rhs)
 		{
 			return lhs.m_ptr == rhs.m_ptr;
@@ -290,19 +307,20 @@ namespace mem
 		{
 			return lhs.m_ptr != rhs;
 		};
-		constexpr friend bool operator<(const iterator& lhs, const iterator& rhs)
+		inline constexpr friend bool operator<(const iterator& lhs, const iterator& rhs)
 		{
 			return lhs.m_ptr < rhs.m_ptr;
 		};
-		constexpr friend bool operator>(const iterator& lhs, const iterator& rhs)
+		inline constexpr friend bool operator>(const iterator& lhs, const iterator& rhs)
 		{
 			return rhs.m_ptr < lhs.m_ptr;
 		};
-		constexpr friend bool operator>=(const iterator& lhs, const iterator& rhs)
+		inline constexpr friend bool operator>=(const iterator& lhs, const iterator& rhs)
 		{
-			return lhs.m_ptr >= rhs.m_ptr;
+			static_assert(std::is_same_v<decltype(lhs), decltype(rhs)>, "not same type");
+			return std::addressof(lhs.m_ptr) >= std::addressof(rhs.m_ptr);
 		};
-		constexpr friend bool operator<=(const iterator& lhs, const iterator& rhs)
+		inline constexpr friend bool operator<=(const iterator& lhs, const iterator& rhs)
 		{
 			return lhs.m_ptr <= rhs.m_ptr;
 		};
@@ -619,16 +637,23 @@ namespace mem
 
 		static_assert(mem::concepts::is_allocator_v<Allocator, Object>);
 		static_assert(mem::concepts::is_allocator_requirements_v<_Alty, Object>);
+		static_assert(mem::concepts::is_simple_alloc_v<_Alty> == true, "is not a simple alloc");
 
 	private:
 		using scary_val = mem::vector_value<std::conditional_t<mem::concepts::is_simple_alloc_v<_Alty>, mem::simple_types<Object>,
 			mem::vector_iterator_types<Object, size_type, difference_type, pointer, const_pointer, Object&, const Object&>>>;
 
+		static_assert(std::is_same_v<Object, scary_val::value_type> == true, "not same type");
+
 	public:
 		using iterator = mem::iterator<scary_val>;
+
+		static_assert(std::is_same_v<Object, iterator::value_type> == true, "not same type");
+		static_assert(std::is_same_v<mem::iterator<mem::vector_value<mem::simple_types<Object>>>, iterator> == true, "not same iterator type");
 		//static_assert(std::random_access_iterator<iterator>);
 
 		scary_val values{ nullptr, nullptr, nullptr };
+		bool is_dead{ false };
 
 		inline constexpr vector() = default;
 		inline constexpr vector(long long capacity, _Alty allocator = _Alty{}) noexcept : //requires(mem::is_allocator_v<Allocator, Object>&& mem::is_allocator_requirements_v<_Alty, Object>)
@@ -637,6 +662,7 @@ namespace mem
 		inline constexpr ~vector() noexcept
 			//requires (vector_has_method<Object> == false)
 		{
+			is_dead = true;
 			if (this->values.first != nullptr && this->get_capacity() > 0)
 			{
 				if constexpr (std::is_trivially_destructible_v<Object> == false)
@@ -672,6 +698,29 @@ namespace mem
 			this->values = std::exchange(o.values, scary_val{ nullptr, nullptr, nullptr });
 
 			return *this;
+		};
+
+		inline constexpr bool validate_vector() const noexcept
+		{
+			auto logic_check = values.first <= values.last && values.first < values.end && values.last <= values.end;
+			if (logic_check == false) throw std::runtime_error("");
+			return logic_check;
+		};
+		template<typename validation_ptr>
+		inline constexpr bool validate_pointer(validation_ptr ptr) const noexcept
+			requires(std::is_same_v<validation_ptr, pointer>&& std::is_convertible_v<validation_ptr, pointer>)
+		{
+			auto logic_check = (values.first) >= ptr && ptr <= (values.last) && ptr < (values.end);
+			if (logic_check == false) throw std::runtime_error("");
+			return logic_check;
+		};
+		template<typename validation_iter>
+		inline constexpr bool validate_pointer(validation_iter iter) const noexcept
+			requires(std::is_same_v<validation_iter, iterator>)
+		{
+			auto logic_check = values.first >= iter.operator->() && iter.operator->() < values.last && iter.operator->() <= values.end;
+			if (logic_check == false) throw std::runtime_error("");
+			return logic_check;
 		};
 
 		template<typename type_size>
@@ -774,7 +823,8 @@ namespace mem
 
 		inline constexpr bool needs_resize(long long min_size) const noexcept
 		{
-			return (this->values.last + min_size) >= (this->values.end - 1);
+			return min_size >= get_capacity();
+			return (this->values.last + min_size) >= (this->values.end - 1ll);
 		};
 
 		inline constexpr void check_increase_capacity() noexcept
@@ -795,7 +845,8 @@ namespace mem
 		inline constexpr void resize() noexcept
 			requires (mem::concepts::vector_has_method<value_type> == false)
 		{
-			this->reallocate(std::move(this->values));
+			scary_val oldContainer{ this->values };
+			this->reallocate(oldContainer);
 		};
 
 		inline constexpr void resize(long long newSize) noexcept
@@ -854,9 +905,12 @@ namespace mem
 		{
 			__ASSUME__(values.first != nullptr);
 
-			this->reallocate(std::move(this->values));
-			new (this->values.last) value_type{ std::forward<Types>(args)... };
-			++this->values.last;
+			this->reallocate(std::move(values));
+			if (std::is_constant_evaluated() == false)
+				new (values.last) value_type{ std::forward<Types>(args)... };
+			else
+				*values.last = value_type{ std::forward<Types>(args)... };
+			++values.last;
 		};
 
 		inline constexpr void emplace_resize(const value_type& object) noexcept
@@ -891,8 +945,8 @@ namespace mem
 		inline constexpr void emplace_resize_vector(const vector_other& vector) noexcept
 			requires (mem::concepts::vector_has_method<vector_other> == true)
 		{
-			__ASSUME__(values.first != nullptr);
-			__ASSUME__(values.first != 0);
+			//__ASSUME__(values.first != nullptr);
+			//__ASSUME__(values.first != 0);
 
 			if (this->values.first && !this->empty()) this->clear();
 
@@ -903,17 +957,19 @@ namespace mem
 				this->values = scary_val{ MemoryAllocator.allocate(new_capacity), vector.get_ucapacity() };
 			}
 
-			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
+			if (std::is_constant_evaluated() == false)
 			{
-				std::memcpy(this->values.first, vector.values.first, sizeof(value_type) * vector.size());
-				this->values.last = this->values.first + vector.size();
-			}
-			else
-			{
-				for (long long i = 0; i < vector.size(); ++i)
+				if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 				{
-					this->values.first[i] = vector.values.first[i];
+					std::memcpy(this->values.first, vector.values.first, sizeof(value_type) * vector.size());
+					this->values.last = this->values.first + vector.size();
+					return;
 				}
+			}
+
+			for (long long i = 0; i < vector.size(); ++i)
+			{
+				this->values.first[i] = vector.values.first[i];
 			}
 		};
 
@@ -957,79 +1013,88 @@ namespace mem
 			vector.values = nullptr;
 		};
 
-		inline constexpr void reallocate(scary_val oldContainer) noexcept
+	private:
+		inline void reallocate_m(scary_val old_container) noexcept
 		{
-			if constexpr (mem::use_memcpy::force_checks_off == memcpy_check || mem::use_memcpy::check_based_on_type == memcpy_check && mem::concepts::get_is_trivially_copyable_v<value_type> == true)
-			{
-				const auto new_size = oldContainer.get_ucapacity() * 2ull;
-				const auto old_size = oldContainer.usize();
-				constexpr const size_t type_size = sizeof(Object);
-				const std::size_t type_arr_size = type_size * old_size;
-				const _Alty MemoryAllocator{};
-				this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
+			const auto new_size = old_container.get_ucapacity() * 2ull;
+			const auto old_size = old_container.usize();
+			constexpr const size_t type_size = sizeof(Object);
+			const std::size_t type_arr_size = type_size * old_size;
+			const _Alty MemoryAllocator{};
+			this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
 
-				if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll))
+			if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll))
+			{
+				if constexpr (sizeof(Object) == 32ll) SIMDMemCopy256_32<value_type, true>((void*)values.first, (void*)old_container.first, old_size);
+				else if constexpr (sizeof(Object) == 16ll) SIMDMemCopy256_16<value_type, false>((void*)values.first, (void*)old_container.first, old_size);
+				else if constexpr (sizeof(Object) == 8ll) SIMDMemCopy256_8<value_type, false>((void*)values.first, (void*)old_container.first, old_size);
+			}
+			else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
+				SIMDMemCopy256((void*)this->values.first, (void*)old_container.first, DivideByMultiple(type_arr_size, 16));
+			else
+				std::memcpy(this->values.first, old_container.first, type_arr_size);
+			MemoryAllocator.deallocate(old_container.first);
+			this->values.last = this->values.first + old_size;
+		};
+		inline constexpr void reallocate_cm(scary_val old_container) noexcept
+		{
+			auto new_size = old_container.get_ucapacity() * 2ull;
+			auto old_size = old_container.size();
+			_Alty MemoryAllocator{};
+			this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
+
+			if (old_size > 256ll)
+			{
+				long long initial_count = old_size;
+				auto loops = expr::divide_with_remainder(initial_count, 4ll);
+				for (long long i = 0ll, i_loop = 0ll; i < loops.div; ++i)
 				{
-					if constexpr (sizeof(Object) == 32ll) SIMDMemCopy256_32<value_type, true>((void*)values.first, (void*)oldContainer.first, old_size);
-					else if constexpr (sizeof(Object) == 16ll) SIMDMemCopy256_16<value_type, false>((void*)values.first, (void*)oldContainer.first, old_size);
-					else if constexpr (sizeof(Object) == 8ll) SIMDMemCopy256_8<value_type, false>((void*)values.first, (void*)oldContainer.first, old_size);
+					/*if (std::is_constant_evaluated() == false)
+					{
+						auto tmp = old_container.first;
+						mem::pre_fetch_cachelines<Object, 4ll, _MM_HINT_NTA>(tmp + (i_loop + 4ll));
+						//auto tmp2 = values.first;
+						//pre_fetch_cachelines<Object, 4ll>(tmp2 + (i_loop + 4ll));
+					}*/
+					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 1ll));
+					this->values.first[i_loop] = std::move(old_container.first[i_loop]);
+
+					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 2ll));
+					this->values.first[i_loop + 1ll] = std::move(old_container.first[i_loop + 1ll]);
+
+					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 3ll));
+					this->values.first[i_loop + 2ll] = std::move(old_container.first[i_loop + 2ll]);
+
+					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 4ll));
+					this->values.first[i_loop + 3ll] = std::move(old_container.first[i_loop + 3ll]);
+					i_loop += 4ll;
 				}
-				else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
-					SIMDMemCopy256((void*)this->values.first, (void*)oldContainer.first, DivideByMultiple(type_arr_size, 16));
-				else
-					std::memcpy(this->values.first, oldContainer.first, type_arr_size);
-				MemoryAllocator.deallocate(oldContainer.first);
-				this->values.last = this->values.first + old_size;
+				for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
+				{
+					this->values.first[i] = std::move(old_container.first[i]);
+				}
 			}
 			else
 			{
-				auto new_size = oldContainer.get_ucapacity() * 2ull;
-				auto old_size = oldContainer.size();
-				_Alty MemoryAllocator{};
-				this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
-
-				if (old_size > 256ll)
+				for (long long i = 0; i < old_size; ++i)
 				{
-					long long initial_count = old_size;
-					auto loops = expr::divide_with_remainder(initial_count, 4ll);
-					for (long long i = 0ll, i_loop = 0ll; i < loops.div; ++i)
-					{
-						/*if (std::is_constant_evaluated() == false)
-						{
-							auto tmp = oldContainer.first;
-							mem::pre_fetch_cachelines<Object, 4ll, _MM_HINT_NTA>(tmp + (i_loop + 4ll));
-							//auto tmp2 = values.first;
-							//pre_fetch_cachelines<Object, 4ll>(tmp2 + (i_loop + 4ll));
-						}*/
-						//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(oldContainer.first + (i_loop + 1ll));
-						this->values.first[i_loop] = std::move(oldContainer.first[i_loop]);
-
-						//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(oldContainer.first + (i_loop + 2ll));
-						this->values.first[i_loop + 1ll] = std::move(oldContainer.first[i_loop + 1ll]);
-
-						//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(oldContainer.first + (i_loop + 3ll));
-						this->values.first[i_loop + 2ll] = std::move(oldContainer.first[i_loop + 2ll]);
-
-						//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(oldContainer.first + (i_loop + 4ll));
-						this->values.first[i_loop + 3ll] = std::move(oldContainer.first[i_loop + 3ll]);
-						i_loop += 4ll;
-					}
-					for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
-					{
-						this->values.first[i] = std::move(oldContainer.first[i]);
-					}
+					//if (std::is_constant_evaluated() == false && i + 1 > old_size) _mm_prefetch((char const*)(&old_container.first[i + 1]), _MM_HINT_NTA);
+					this->values.first[i] = std::move(old_container.first[i]);
 				}
-				else
-				{
-					for (long long i = 0; i < old_size; ++i)
-					{
-						//if (std::is_constant_evaluated() == false && i + 1 > old_size) _mm_prefetch((char const*)(&oldContainer.first[i + 1]), _MM_HINT_NTA);
-						this->values.first[i] = std::move(oldContainer.first[i]);
-					}
-				}
-				MemoryAllocator.deallocate(oldContainer.first);
-				this->values.last = this->values.first + old_size;
 			}
+			MemoryAllocator.deallocate(old_container.first);
+			this->values.last = this->values.first + old_size;
+		};
+
+	public:
+		inline constexpr void reallocate(scary_val old_container) noexcept
+		{
+			if constexpr (mem::use_memcpy::force_checks_off == memcpy_check || mem::use_memcpy::check_based_on_type == memcpy_check && mem::concepts::get_is_trivially_copyable_v<value_type> == true)
+			{
+				if (std::is_constant_evaluated() == false) reallocate_m(old_container);
+				else reallocate_cm(old_container);
+			}
+			else reallocate_cm(old_container);
 		};
 
 		inline constexpr void push_back(const value_type& val) noexcept
@@ -1304,25 +1369,30 @@ namespace mem
 				if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 				{
 					const iterator tmp_start = iterator{ iter_position + 1ll };
-					const iterator _end = last();
-					const std::size_t count = iter_position - _end;
+					iterator _end = last();
+					const std::size_t count = iter_position < _end ? _end - iter_position : static_cast<std::size_t>(-1);
+					if (count == std::numeric_limits<std::size_t>::max()) throw std::runtime_error("");
 
-					std::memmove(tmp_start.operator->(), iter_position.operator->(), sizeof(value_type) * count);
+					if (count > 0ull)
+						std::memmove(tmp_start.operator->(), iter_position.operator->(), sizeof(value_type) * count);
 					this->values.last = this->values.last + 1ll;
 					iter_position.operator*() = value_type{ std::forward<Types>(args)... };
-					return iterator{ values.first + (values.first - iter_position) };
+					return iterator{ values.first + (iter_position - values.first) };
 				}
 			}
 
-			iterator _start = iterator{ last() };
-			iterator _begin = iterator{ last() - 1ll };
-			const iterator _end = iter_position;
-
-			while (_begin != _end)
+			if (size() > 0ll)
 			{
-				(*_start) = std::move(*_begin);
-				--_start;
-				--_begin;
+				iterator _start = iterator{ last() };
+				iterator _begin = iterator{ last() - 1ll };
+				const iterator _end = iter_position;
+
+				while (_begin > _end)
+				{
+					(*_start) = std::move(*_begin);
+					--_start;
+					--_begin;
+				}
 			}
 			*(iter_position + 1ll) = value_type{ std::forward<Types>(args)... };
 			this->values.last = this->values.last + 1ll;
@@ -1478,10 +1548,10 @@ namespace mem
 
 			iterator first = start;
 			const iterator _end = this->end();
+			_Alty MemoryAllocator{};
 			while (first != end)
 			{
-				if constexpr (std::is_trivially_destructible_v<Object> == false)
-					_Alty_traits::destroy(this->MemoryAllocator, first.operator->());
+				if constexpr (std::is_trivially_destructible_v<Object> == false) _Alty_traits::destroy(MemoryAllocator, first.operator->());
 				++first;
 				++count;
 			}
@@ -1492,14 +1562,21 @@ namespace mem
 		constexpr iterator erase(iterator start, const iterator end) noexcept
 			requires(mem::concepts::get_is_trivially_copyable_v<value_type> == false)
 		{
+			iterator first = start;
+			const iterator _end = this->end();
+			_Alty MemoryAllocator{};
 			if constexpr (std::is_trivially_destructible_v<Object> == false)
 			{
-				iterator first = start;
-				const iterator _end = this->end();
 				while (first != end)
 				{
-					_Alty MemoryAllocator{};
 					_Alty_traits::destroy(MemoryAllocator, first.operator->());
+					++first;
+				}
+			}
+			else
+			{
+				while (first != end)
+				{
 					++first;
 				}
 			}
@@ -1576,48 +1653,102 @@ namespace mem
 		};
 	};
 
-	template <typename vector_type, class __vector, typename delete_vector_type>
-	__declspec(noinline) constexpr delete_vector_type erase_indices(__vector& data, std::vector<delete_vector_type>& delete_iterators) noexcept
+	template<typename iter_type>
+	constexpr void update_goal_pointer_iters(iter_type iter, iter_type last_iter, long long offset) noexcept
+	{
+		while (iter != last_iter)
+		{
+			(*iter).offset_ptr(offset);
+			++iter;
+		}
+	};
+
+	template <typename vector_type, class __vector, typename delete_vector_type, typename vector_goal_pointer_type, typename vector_distances_between>
+	constexpr delete_vector_type erase_indices(__vector& data, std::vector<delete_vector_type>& delete_iterators, vector_goal_pointer_type& goal_vector, vector_distances_between& distances_between_vector) noexcept
 	{
 		auto indice_iter{ delete_iterators.begin() };
 		typename __vector::iterator writer_iter = indice_iter->item_groups_iter;
-		typename __vector::iterator reader_iter{ writer_iter };
+		typename __vector::iterator reader_iter{ writer_iter + 1 };
 		const typename __vector::iterator last_iter{ data.last() };
+		const typename __vector::iterator first_iter{ data.begin() };
 
 		auto data_writer_iter = indice_iter->item_groups_data_iter;
-		auto data_reader_iter{ data_writer_iter };
+		auto data_reader_iter{ data_writer_iter + 1 };
 
+		auto dist_writer_iter = indice_iter->item_groups_dist_iter;
+		auto dist_reader_iter{ dist_writer_iter + 1 };
+
+		auto goal_dist_writer_iter = indice_iter->item_groups_goal_dist_iter;
+		auto prev_dist_iter = dist_writer_iter;
+
+		if (writer_iter != first_iter) prev_dist_iter = prev_dist_iter - 1;
+		//*goal_dist_writer_iter = prev_dist_iter.operator->();
+		//++goal_dist_writer_iter;
+		//update_goal_pointer_iters(goal_dist_writer_iter, goal_vector);
+		long long indice_iter_index = 0ll;
 		if (writer_iter != last_iter)
 		{
 			if (data.size() > 256ll)
 			{
-				while (reader_iter != last_iter)
+				while (reader_iter != last_iter && indice_iter != delete_iterators.end())
 				{
-					const long long initial_count = (indice_iter != delete_iterators.end() ? (indice_iter->item_groups_iter) - reader_iter : last_iter - reader_iter);
+					long long initial_count = 0ll;
+					if (indice_iter != delete_iterators.end())
+					{
+						if (delete_iterators.size() > 1)
+						{
+							if (indice_iter + 1 != delete_iterators.end()) initial_count = (((indice_iter + 1)->item_groups_iter - 1ll) - (indice_iter->item_groups_iter + 1ll));
+							else initial_count = data.last() - (indice_iter->item_groups_iter);
+						}
+						else initial_count = (indice_iter->item_groups_iter) - reader_iter;
+					}
+					else initial_count = last_iter - reader_iter;
 					if (initial_count > 0ll)
 					{
-						if constexpr (mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type && (sizeof(vector_type) == 32ll || sizeof(vector_type) == 16ll) || sizeof(vector_type) == 8ll)
+						if (*goal_dist_writer_iter == distances_between_vector.begin().operator->())
+							(*goal_dist_writer_iter).set_index_ptr(nullptr);
+						else if ((goal_dist_writer_iter - goal_vector.begin()) > 0ll)
+						{
+							auto previous_goal_iter = goal_dist_writer_iter - 1ll;
+							auto previous_goal_iter_ptr = (*previous_goal_iter).get_index_ptr();
+							if (previous_goal_iter_ptr == nullptr || previous_goal_iter_ptr == ((*goal_dist_writer_iter).get_index_ptr() - 1ll))
+								(*goal_dist_writer_iter).set_index_ptr(nullptr);
+						}
+						if ((*goal_dist_writer_iter).get_index_ptr() != nullptr)
+							(*goal_dist_writer_iter).update_pointer_and_values(distances_between_vector.begin().operator->(), indice_iter_index + 1ll);
+
+						if constexpr (mem::Allocating_Type::ALIGNED_NEW == __vector::use_allocating_type && (sizeof(vector_type) == 32ll || sizeof(vector_type) == 16ll) || sizeof(vector_type) == 8ll || sizeof(vector_type) == 4ll)
 						{
 							if constexpr (sizeof(vector_type) == 32ll)
 							{
 								SIMDMemCopy256_32<vector_type, true>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
-								SIMDMemCopy256_32<vector_type, true>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+								SIMDMemCopy256_32<decltype(decltype(indice_iter)::value_type::item_groups_data_iter)::value_type, true>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
 							}
 							else if constexpr (sizeof(vector_type) == 16ll)
 							{
 								SIMDMemCopy256_16<vector_type, false>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
-								SIMDMemCopy256_16<vector_type, false>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+								SIMDMemCopy256_32<decltype(decltype(indice_iter)::value_type::item_groups_data_iter)::value_type, false>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
 							}
 							else if constexpr (sizeof(vector_type) == 8ll)
 							{
 								SIMDMemCopy256_8<vector_type, false>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
-								SIMDMemCopy256_8<vector_type, false>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+								SIMDMemCopy256_32<decltype(decltype(indice_iter)::value_type::item_groups_data_iter)::value_type, false>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+							}
+							else if constexpr (sizeof(vector_type) == 4ll)
+							{
+								SIMDMemCopy256_4<vector_type, false>((void*)(writer_iter.operator->()), (void*)reader_iter.operator->(), initial_count);
+								SIMDMemCopy256_32<decltype(decltype(indice_iter)::value_type::item_groups_data_iter)::value_type, true>((void*)(data_writer_iter.operator->()), (void*)data_reader_iter.operator->(), initial_count);
+								SIMDMemCopy256_8<decltype(decltype(indice_iter)::value_type::item_groups_dist_iter)::value_type, false>((void*)(dist_writer_iter.operator->()), (void*)dist_reader_iter.operator->(), initial_count);
 							}
 
-							writer_iter += initial_count;
-							reader_iter += initial_count;
-							data_writer_iter += initial_count;
-							data_reader_iter += initial_count;
+							auto offset = ((indice_iter + 1ll) != delete_iterators.end() ? 1ll : -1ll);
+
+							reader_iter += initial_count + offset + 1ll;
+							writer_iter += initial_count + offset;
+							data_reader_iter += initial_count + offset + 1ll;
+							data_writer_iter += initial_count + offset;
+							dist_reader_iter += initial_count + offset + 1ll;
+							dist_writer_iter += initial_count + offset;
 						}
 						else
 						{
@@ -1685,30 +1816,67 @@ namespace mem
 					}
 					if (indice_iter != delete_iterators.end())
 					{
-						if (indice_iter + 1 != delete_iterators.end()) ++indice_iter;
-						else indice_iter = delete_iterators.end();
+						/*if (writer_iter != first_iter) prev_dist_iter = (dist_writer_iter - 1ll);
+						(*goal_dist_writer_iter).set_index_ptr(prev_dist_iter.operator->());
+						(*goal_dist_writer_iter).offset_goal_distance(*(*goal_dist_writer_iter).get_index_ptr());
+						++goal_dist_writer_iter;
+						update_goal_pointer_iters(goal_dist_writer_iter, goal_vector);*/
+
+						if (indice_iter + 1 != delete_iterators.end())
+						{
+							++indice_iter;
+							++goal_dist_writer_iter;
+							++indice_iter_index;
+							update_goal_pointer_iters(goal_dist_writer_iter, indice_iter->item_groups_goal_dist_iter, indice_iter_index);
+							goal_dist_writer_iter = indice_iter->item_groups_goal_dist_iter;
+						}
+						else
+						{
+							indice_iter = delete_iterators.end();
+							++goal_dist_writer_iter;
+							++indice_iter_index;
+							update_goal_pointer_iters(goal_dist_writer_iter, goal_vector.last(), indice_iter_index);
+						}
+					}
+					if (initial_count == 0ll)
+					{
+						++reader_iter;
+						++data_reader_iter;
+						++dist_reader_iter;
 					}
 				}
 			}
 			else
 			{
-				for (; reader_iter != last_iter; ++reader_iter, ++data_reader_iter)
+				for (; reader_iter != last_iter; ++reader_iter, ++data_reader_iter, ++dist_reader_iter)
 				{
 					if (indice_iter->item_groups_iter != reader_iter)
 					{
 						*writer_iter = std::move(*reader_iter);
 						*data_writer_iter = std::move(*data_reader_iter);
+						*dist_writer_iter = std::move(*dist_reader_iter);
 						++writer_iter;
 						++data_writer_iter;
+						++dist_writer_iter;
 					}
 					else
 					{
-						if (indice_iter + 1 != delete_iterators.end()) ++indice_iter;
+						if (indice_iter + 1 != delete_iterators.end())
+						{
+							if (writer_iter != first_iter) prev_dist_iter = (dist_writer_iter - 1ll);
+							(*goal_dist_writer_iter).set_index_ptr(prev_dist_iter.operator->());
+							(*goal_dist_writer_iter).subtract_goal_distance(*(*goal_dist_writer_iter).get_index_ptr());
+							++indice_iter;
+							++goal_dist_writer_iter;
+							++indice_iter_index;
+							update_goal_pointer_iters(goal_dist_writer_iter, indice_iter->item_groups_goal_dist_iter, indice_iter_index);
+							goal_dist_writer_iter = indice_iter->item_groups_goal_dist_iter;
+						}
 					}
 				}
 			}
 		}
-		return delete_vector_type{ writer_iter, data_writer_iter };
+		return delete_vector_type{ writer_iter, data_writer_iter, dist_writer_iter };
 	};
 	template <typename vector_type>
 	constexpr inline auto erase_indices(vector_type& data, std::vector<std::size_t>& indicesToDelete) noexcept

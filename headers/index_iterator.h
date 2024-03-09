@@ -149,11 +149,11 @@ public:
 		return { index - rhs, vector };
 	};
 
-	constexpr friend std::ptrdiff_t operator+(const index_iterator& lhs, const index_iterator& rhs) noexcept
+	inline constexpr friend std::ptrdiff_t operator+(const index_iterator& lhs, const index_iterator& rhs) noexcept
 	{
 		return lhs.index + rhs.index;
 	};
-	constexpr friend std::ptrdiff_t operator-(const index_iterator& lhs, const index_iterator& rhs) noexcept
+	inline constexpr friend std::ptrdiff_t operator-(const index_iterator& lhs, const index_iterator& rhs) noexcept
 	{
 		return lhs.index - rhs.index;
 	};
@@ -174,27 +174,27 @@ public:
 	{
 		return !!vector;
 	};
-	constexpr friend bool operator==(const index_iterator& lhs, const index_iterator& rhs) noexcept
+	inline constexpr friend bool operator==(const index_iterator& lhs, const index_iterator& rhs) noexcept
 	{
 		return lhs.index == rhs.index;
 	};
-	constexpr friend bool operator!=(const index_iterator& lhs, const index_iterator& rhs) noexcept
+	inline constexpr friend bool operator!=(const index_iterator& lhs, const index_iterator& rhs) noexcept
 	{
 		return lhs.index != rhs.index;
 	};
-	constexpr friend bool operator<(const index_iterator& lhs, const index_iterator& rhs) noexcept
+	inline constexpr friend bool operator<(const index_iterator& lhs, const index_iterator& rhs) noexcept
 	{
 		return lhs.index < rhs.index;
 	};
-	constexpr friend bool operator>(const index_iterator& lhs, const index_iterator& rhs) noexcept
+	inline constexpr friend bool operator>(const index_iterator& lhs, const index_iterator& rhs) noexcept
 	{
 		return rhs.index < lhs.index;
 	};
-	constexpr friend bool operator>=(const index_iterator& lhs, const index_iterator& rhs) noexcept
+	inline constexpr friend bool operator>=(const index_iterator& lhs, const index_iterator& rhs) noexcept
 	{
 		return lhs.index >= rhs.index;
 	};
-	constexpr friend bool operator<=(const index_iterator& lhs, const index_iterator& rhs) noexcept
+	inline constexpr friend bool operator<=(const index_iterator& lhs, const index_iterator& rhs) noexcept
 	{
 		return rhs.index >= lhs.index;
 	};
@@ -220,6 +220,18 @@ public:
 	inline constexpr std::size_t get_index() const noexcept
 	{
 		return index;
+	};
+	inline constexpr void set_index(std::size_t new_index) noexcept
+	{
+		index = new_index;
+	};
+	inline constexpr auto get_vector_begin() const noexcept
+	{
+		return vector->begin();
+	};
+	inline constexpr auto get_vector_last() const noexcept
+	{
+		return vector->last();
 	};
 	inline constexpr long long get_vector_size() const noexcept
 	{
