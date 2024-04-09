@@ -3,16 +3,68 @@
 #include <type_traits>
 #include <utility>
 
-#include "belt_segment_shared.h"
-
 #include "const_data.h"
 
 #include "vectors.h"
 #include "index_iterator.h"
 #include "item.h"
-#include "item_32.h"
-#include "item_256.h"
 #include "belt_utility_data.h"
+#include "shared_classes.h"
+#include "belt_utility.h"
+
+//PEEPO random rambling of fixing the destination slot with multiple inserters in a row
+/*
+* The reason destination slots were so performant is because they only end up calling methods on objects which actually have a need for it.
+* If you have a line of items (or item groups) only the first in line to a destination has a direct need to have something done to it, all
+* the others can be calculated later once the first in line is done on stored data. And this is what the destination slot did, since only 
+* the first item group in line to a inserter is being updated, once an item passes said inserter we start moving the items to a new item group.
+*
+* TLDR, only calls what's directly necessary
+*
+* reasons why destination slots being unique per item group is good
+* + item groups maps 1 to 1 with inserters
+*	+ no need to look up if item group is correct, it always is
+*	- if destination slots are shared between inserters we will need to check if an item group is the correct one every update call
+*		- if it's not the correct one we will need to scan backwards/forwards until we find the correct one
+*		- grouping inserters based on some kind of criteria to a destination slot cause the same issue, need to check every update if it's the correct one
+*			- grouping also has the added negative effect of when, and how do we actually group
+*				- if we group based on item groups we will incur expensive checks
+*					- grouping on item groups means destination slot grouping isn't fixed and changes as the item groups changes
+*						- very expensive checks that needs to be done per update, per destination group
+* - if we keep unique slots per item group we will need to split item groups based on destination slots
+*	- if inserters are in close proximity (more or less how it will always be) we will be splitting every X (size of inserter/belt) to create/move new groups of very few items
+*		- these groups have a very short life span so will be expensive to allocate/destroy over and over
+*			+ we can reuse existing groups
+*			- we hard to do correct and keep track and incurs extra checks
+*
+*
+* current solutions
+* - develop two designs, keep the destination slot one for longer distance based belts and design a new one when destination slots would stop being unique per item group
+*
+* (destination slots is not really the correct term, leader would be more accurate (although not in the case of inserters, it's just the first inserter, but we
+* still split them up for memory reasons, so that one group of inserters can live on the stack (if that's possible for the compiler)))
+* But, could we do better. Could we repeat the destination slot design, by going deeper. The only reason inserters needs to be updated per update is to check if the can grab an item,
+* if so grab it. That's all they do and all they need to do. So, with that in mind. What if, we never update inserters on update calls.
+*
+* If we invert the idea with the destination slot that inserters would have a item group slot in mind, and instead go with the same design but for inserters.
+* We would get a list of inserters in line, with the closest one being the first one. And if we then when updating the item groups in the destination slots
+* (these slots will be split based on the inserter destination slots) the destination slots now corresponds 1 to 1 with the inserters destinations slots,
+* so each item group in a destination slot has a link to a list of inserters. So each update for the leader item group would be to decrement it's distance,
+* and then check if said distance allows the inserter to grab an item and call the inserter grab item method.
+*
+* Once an item passes the first inserter, we split that item of into it's own group, but it keeps the inserter destination slot pointer
+* (this pointer is gonna be an object that stores a pointer to the inserter destination vector, but also two indexes, one for the destination slot vector,
+* and one for the vector inside that)  but increments it to the next one in line. If there is no inserter next in line,
+* the item group should check if there's another item group a head of it and merge into it's destination slot.
+* If not it checks if it can increment the destination inserter slot, if not there are no more inserters and we just set it to nullptr.
+*
+* Now you might be thinking, wouldn't that end up in a lot of checks. Not really, when the item group checks if the inserter can grab the first item,
+* if it can grab it but doesn't need it we perform the item group split there, we now just have an else outcome to something that previously didn't.
+* So there's no need for any extra checks besides the ones that are already done. The extra cost will be the item group splitting.
+* But in a real scenario the only reason for a split would be if it can't keep up with grabbing items, or if it doesn't need it.
+* This would naturally need to be done with any other solution too. There won't even be any exponential growth in update calls needed,
+* as the only growth needed is limited to the number of inserters. And since we removed the need for inserters to have updates on their own, that might even out in the end.
+*/
 
 class belt_segment;
 
@@ -187,7 +239,7 @@ public:
 		return item_group_distance != nullptr;
 	};
 private:
-	constexpr bool check_if_indexes_matches(long long segment_end_direction) noexcept
+	constexpr bool check_if_indexes_matches(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
 	{
 		if (!item_group || !item_group.vector_empty()) return false;
 		if (!item_group_data || !item_group_data.vector_empty()) return false;
@@ -203,7 +255,7 @@ private:
 				auto tmp = (item_group_distance - 1);
 				auto tmp1 = (*(item_group - 1)).get_distance_to_last_item(*(item_group_data - 1));
 				auto dist_to_last_item = (*item_group).get_distance_to_last_item(*item_group_data);
-				auto inserter_dist = (segment_end_direction - position.x);
+				auto inserter_dist = (segment_end_direction - belt_utility::get_direction_position(direction, position));
 #ifdef _DEBUG
 				if ((*item_group_distance).get_distance() < inserter_dist && (*item_group_distance).get_distance() + dist_to_last_item < inserter_dist && (*tmp).get_distance() > inserter_dist && (*tmp).get_distance() + tmp1 < inserter_dist)
 				{
@@ -228,7 +280,7 @@ private:
 		else return false;
 	};
 public:
-	constexpr bool update_linked_list_group_data(long long segment_end_direction) noexcept
+	constexpr bool update_linked_list_group_data(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
 	{
 		//if (item_group && !item_group.vector_empty()) return false;
 		//if (item_group_data && !item_group_data.vector_empty()) return false;
@@ -252,7 +304,7 @@ public:
 				auto tmp = (item_group_distance - 1);
 				auto tmp1 = (*(item_group - 1)).get_distance_to_last_item(*(item_group_data - 1));
 				auto dist_to_last_item = (*item_group).get_distance_to_last_item(*item_group_data);
-				auto inserter_dist = (segment_end_direction - position.x);
+				auto inserter_dist = (segment_end_direction - belt_utility::get_direction_position(direction, position));
 #ifdef _DEBUG
 				if ((*item_group_distance).get_distance() < inserter_dist && (*item_group_distance).get_distance() + dist_to_last_item < inserter_dist && (*tmp).get_distance() > inserter_dist && (*tmp).get_distance() + tmp1 < inserter_dist)
 				{
@@ -303,9 +355,9 @@ public:
 		return item_group;
 	};
 
-	constexpr void update_linked_data(long long segment_end_direction) noexcept
+	constexpr void update_linked_data(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
 	{
-		long long index_ptr = (*item_group_distance).get_index_ptr() - &index_calculation_vector->operator[](0);
+		//long long index_ptr = (*item_group_distance).get_index_ptr() - &index_calculation_vector->operator[](0);
 		if (std::is_constant_evaluated() == false)
 		{
 			if (item_group_distance.get_index() > 0ll)
@@ -313,7 +365,7 @@ public:
 				auto tmp = (item_group_distance - 1);
 				auto tmp1 = (*(item_group - 1)).get_distance_to_last_item(*(item_group_data - 1));
 				auto dist_to_last_item = (*item_group).get_distance_to_last_item(*item_group_data);
-				auto inserter_dist = (segment_end_direction - position.x);
+				auto inserter_dist = (segment_end_direction - belt_utility::get_direction_position(direction, position));
 
 				//current set pointer is past us, go to tmp
 				if ((*item_group_distance).get_distance() < inserter_dist && (*item_group_distance).get_distance() + dist_to_last_item < inserter_dist && (*tmp).get_distance() > inserter_dist && (*tmp).get_distance() + tmp1 > inserter_dist)
@@ -323,29 +375,29 @@ public:
 			}
 		}
 	};
-	constexpr bool linked_data_validation(long long segment_end_direction) noexcept
+	constexpr bool linked_data_validation(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
 	{
-		if (check_if_indexes_matches(segment_end_direction) == false) return update_linked_list_group_data(segment_end_direction);
+		if (check_if_indexes_matches(direction, segment_end_direction) == false) return update_linked_list_group_data(direction, segment_end_direction);
 		return true;
 	};
-	constexpr short update(belt_utility::belt_direction direction, long long segment_end_direction, long long segment_y_direction, belt_segment* segment_ptr) noexcept
+	inline constexpr short update(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
 	{
 		if ((*item_group_distance).get_index_ptr() != nullptr)
 		{
+			auto inserter_position = belt_utility::get_direction_position(direction, position);
 			//if (check_if_indexes_matches(segment_end_direction) == false) update_linked_list_group_data(segment_end_direction);
 
-			auto inserter_dist = (segment_end_direction - position.x);
-			auto dist_to_last_item = (*item_group).get_distance_to_last_item(*item_group_data);
-			const auto found_index = (*item_group).get_first_item_of_type_before_position(direction, segment_end_direction, (*item_group_distance).get_distance(), *item_group_data, get_item_type(0), position);
+			//auto inserter_dist = (segment_end_direction - belt_utility::get_direction_position(direction, position));
+			//auto dist_to_last_item = (*item_group).get_distance_to_last_item(*item_group_data);
+			const auto found_index = (*item_group).get_first_item_of_type_before_position(direction, segment_end_direction, (*item_group_distance).get_distance(), *item_group_data, get_item_type(0), inserter_position);
 			if (found_index != -1)
 			{
 				auto item_distance_position = (*item_group).get_item_direction_position(direction, segment_end_direction, (*item_group_distance).get_distance(), *item_group_data, found_index);
 				//if (item_group_data.get_index() == 615) __debugbreak();
 #ifdef _DEBUG
-				if (position.x - item_distance_position > 2048ll)
-					throw std::runtime_error("");
+				//if (inserter_position - item_distance_position > 2048ll) throw std::runtime_error("");
 #endif
-				if (position.x == item_distance_position)
+				if (item_distance_position >= inserter_position && item_distance_position <= inserter_position + inserter_grid_size)
 				{
 					if (std::is_constant_evaluated() == false) ++grabbed_items;
 #ifdef _DEBUG

@@ -240,7 +240,7 @@ public:
 
 private:
 	alignas(8) std::size_t index{ 0ull };
-	alignas(8) vector_type* vector{ nullptr };
+	alignas(8) vector_type* vector { nullptr };
 };
 
 static_assert(index_iterator<int, std::vector<int>>{} == nullptr, "should be nullptr");

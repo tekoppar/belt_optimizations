@@ -15,29 +15,31 @@ public:
 		index_ptr{ ptr }
 	{};
 
-	__declspec(noinline) constexpr bool operator==(const long long* const rhs) const noexcept
+	constexpr bool operator==(const long long* const rhs) const noexcept
 	{
 		return index_ptr == rhs;
 	};
-	__declspec(noinline) constexpr bool operator!=(const long long* const rhs) const noexcept
+	constexpr bool operator!=(const long long* const rhs) const noexcept
 	{
 		return index_ptr != rhs;
 	};
-	__declspec(noinline) friend constexpr bool operator==(const long long* const lhs, const goal_distance& rhs) noexcept
+	friend constexpr bool operator==(const long long* const lhs, const goal_distance& rhs) noexcept
 	{
 		return lhs == rhs.get_index_ptr();
 	};
-	__declspec(noinline) friend constexpr bool operator!=(const long long* const lhs, const goal_distance& rhs) noexcept
+	friend constexpr bool operator!=(const long long* const lhs, const goal_distance& rhs) noexcept
 	{
 		return lhs != rhs.get_index_ptr();
 	};
 
-	__declspec(noinline) constexpr void set_checked_index_ptr(std::nullptr_t) noexcept
+	constexpr void set_checked_index_ptr(std::nullptr_t) noexcept
 	{
 		if (!is_offset_alive(-1ll, goal_distance_dead_object_v)) index_ptr = nullptr;
+#ifdef _DEBUG
 		else throw std::runtime_error("");
+#endif
 	};
-	__declspec(noinline) constexpr void set_index_ptr(std::nullptr_t) noexcept
+	constexpr void set_index_ptr(std::nullptr_t) noexcept
 	{
 		index_ptr = nullptr;
 	};
@@ -70,6 +72,10 @@ public:
 	};
 	constexpr long long get_index_from_ptr(const long long* const ptr) const noexcept
 	{
+#ifdef _DEBUG
+		if (index_ptr == nullptr) throw std::runtime_error("");
+#endif
+
 		return index_ptr - ptr;
 	};
 	constexpr goal_distance get_offset_ptr(long long offset) const noexcept
@@ -116,13 +122,12 @@ public:
 			*index_ptr = old_dist + prev_dist_value;
 		}
 	};
-	__declspec(noinline) constexpr void update_pointer_and_values(long long* begin, long long offset, goal_distance_dead_object_t) noexcept
+	constexpr void update_pointer_and_values(long long* begin, long long offset, goal_distance_dead_object_t) noexcept
 	{
 		if (is_offset_alive(offset) && index_ptr != begin)
 		{
 			auto old_dist = *index_ptr;
-			if (std::is_constant_evaluated() == false)
-				*(unsigned long long*)index_ptr = 0x8fffffffffffffff;
+			*(unsigned long long*)index_ptr = 0x8fffffffffffffff;
 			auto prev_dist_value = *(index_ptr - 1ll);
 			index_ptr = index_ptr - offset;
 			*index_ptr = old_dist + prev_dist_value;
@@ -133,5 +138,9 @@ public:
 		//auto old_dist = *index_ptr;
 		if (is_offset_alive(-1ll)) index_ptr = index_ptr - 1;
 		//*index_ptr = old_dist + *index_ptr;
+	};
+	constexpr void update_pointers_without_checks(long long offset) noexcept
+	{
+		index_ptr = index_ptr + offset;
 	};
 };

@@ -146,7 +146,7 @@ namespace tc
 		constexpr auto max_return = (std::numeric_limits<return_type>::max)();
 		constexpr auto lowest_return = std::numeric_limits<return_type>::lowest();
 		constexpr auto max_input = (std::numeric_limits<input_type>::max)();
-		constexpr auto lowest_input = std::numeric_limits<input_type>::lowest();
+		//constexpr auto lowest_input = std::numeric_limits<input_type>::lowest();
 
 		if (value == static_cast<input_type>(0)) return static_cast<return_type>(0);
 		if constexpr (static_cast<std::size_t>(max_return) < static_cast<std::size_t>(max_input)) //max_input is greater then max_return

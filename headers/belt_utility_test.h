@@ -1,6 +1,5 @@
 #pragma once
 
-#include "belt_utility.h"
 #include "item.h"
 #include "vectors.h"
 #include "belt_segment.h"

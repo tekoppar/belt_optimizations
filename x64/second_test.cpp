@@ -2,9 +2,9 @@
 #include "second_test.h"
 
 #include <chrono>
-#include <vector>
 #include <iostream>
 #include <stdexcept>
+#include <limits>
 
 #include "const_data.h"
 
@@ -13,12 +13,7 @@
 #include "item.h"
 
 #include "item_32.h"
-#include "item_256.h"
 #include "belt_segment.h"
-
-#include "belt_utility_test.h"
-
-#include "cpu_info.h"
 
 constexpr const std::size_t second_test_max_belts_8 = 20000000ll;
 constexpr const std::size_t throw_value = second_test_max_belts_8 * 0.6;
@@ -84,10 +79,10 @@ std::size_t second_test_get_total_items_on_belts() noexcept
 
 void second_belt_test()
 {
-	auto test_mixing_inserters_and_item_groups_val = test_mixing_inserters_and_item_groups(0);
-	auto test_new_item_distance_val = test_new_item_distance_vectors(2);
-	auto test_item_distance_val = test_item_distance(0);
-	auto test_inserter_item_val = test_inserter_item();
+	auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(1);
+	return;
+	auto test_new_item_distance_val = test_real_game_scenario_smelters(0);
+
 	second_test_belt_setup();
 
 	std::size_t moved_items_per_second = 0;

@@ -4,7 +4,11 @@
 
 #define WHAT_MM_SHUFFLE(fp0,fp1,fp2,fp3) (((fp3) << 6) | ((fp2) << 4) | ((fp1) << 2) | ((fp0)))
 
+#ifdef _IS_ASSERT_CONSTEXPR_
 #define __ASSUME__(__expr) (((__expr) || (assert(__expr), (__expr))), __assume(__expr))
+#else
+#define __ASSUME__(__expr) __assume(__expr)
+#endif
 #define ASSERT_NOT_CONSTEXPR(exp) if (std::is_constant_evaluated() == false) {assert((exp));}
 #define RELEASE_ASSERT_NOT_CONSTEXPR(__expr) if (std::is_constant_evaluated() == false) {if (__expr) __assume(1); else __assume(0);}
 /*template<class T> struct dependent_false : std::false_type {};
