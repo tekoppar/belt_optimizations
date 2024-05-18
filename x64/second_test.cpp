@@ -14,8 +14,13 @@
 
 #include "item_32.h"
 #include "belt_segment.h"
+#include "belt_segment_static_asserts.h"
 
+#ifdef _DEBUG
+constexpr const std::size_t second_test_max_belts_8 = 2000000ll;
+#else
 constexpr const std::size_t second_test_max_belts_8 = 20000000ll;
+#endif
 constexpr const std::size_t throw_value = second_test_max_belts_8 * 0.6;
 constexpr const std::size_t item_max_distance = second_test_max_belts_8 * 32ll;
 constexpr const std::size_t item_goal_distance_max = (second_test_max_belts_8 / 32ll) * 32ll * 32ll * 2ll;
@@ -80,7 +85,6 @@ std::size_t second_test_get_total_items_on_belts() noexcept
 void second_belt_test()
 {
 	auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(1);
-	return;
 	auto test_new_item_distance_val = test_real_game_scenario_smelters(0);
 
 	second_test_belt_setup();

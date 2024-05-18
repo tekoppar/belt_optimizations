@@ -20,12 +20,14 @@
 #include "item_32.h"
 #include "shared_classes.h"
 
-#define CONSTEXPR_ASSERTS
+//#define CONSTEXPR_ASSERTS
 #ifdef CONSTEXPR_ASSERTS
 #define CONSTEXPR_VAR constexpr
 #else
 #define CONSTEXPR_VAR static
 #endif
+
+using _simple_inserter_vector = mem::vector<index_inserter, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<index_inserter, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
 
 struct belt_segment_correct_t
 {
@@ -38,7 +40,7 @@ public:
 	//protected:
 	vec2_uint start_of_segment{ 0, 0 };
 	vec2_uint end_of_segment{ 0, 0 };
-#ifdef __BELT_SEGMENT_VECTOR_TYPE__
+
 	_data_vector item_groups_data{ 4 };
 	_vector item_groups{ 4 };
 	//contains the item_groups_goal distance of the first item_group
@@ -47,10 +49,10 @@ public:
 	//the value is the distance to the end of the belt segment
 	_vector_distance item_groups_distance_between{ 4 };
 	mem::vector<size_t> item_groups_goal_item_count{ 4 };
-#else
-	_vector item_groups;
-#endif
-	mem::vector<index_inserter> inserters{ 4 };
+
+	mem::vector<_simple_inserter_vector, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<_simple_inserter_vector, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off> inserters{ 4 };
+	mem::vector<double_index_iterator<index_inserter, decltype(belt_segment::inserters)>, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<double_index_iterator<index_inserter, decltype(belt_segment::inserters)>, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off> inserter_slots{ 4 };
+
 	// belt_segments that this segment moves items onto
 	std::vector<belt_segment*> segment_end_points;
 	// belt_segments that will move items onto this segment
@@ -243,18 +245,36 @@ public:
 
 	inline constexpr index_inserter& get_inserter(std::size_t i) noexcept
 	{
-#ifdef _BOUNDS_CHECKING_
-		ASSERT_NOT_CONSTEXPR(i < inserters.size());
+		std::size_t count_index = 0ull;
+		for (auto begin_iter = inserters.begin(); begin_iter != inserters.last(); ++begin_iter)
+		{
+			if (count_index == i) return begin_iter->operator[](0);
+			const auto inserter_size = begin_iter->size();
+			if (count_index <= i && count_index + inserter_size >= i) return begin_iter->operator[](i - count_index);
+			count_index += inserter_size + 1;
+		}
+
+		if (count_index == i) throw std::runtime_error("");
+
+#ifdef _DEBUG
+		throw std::runtime_error(""); //this shouldn't occur as long as the index is valid and not human entered
 #endif
-		return inserters[i];
 	};
 
 	inline constexpr const index_inserter& get_inserter(std::size_t i) const noexcept
 	{
-#ifdef _BOUNDS_CHECKING_
-		ASSERT_NOT_CONSTEXPR(i < inserters.size());
+		std::size_t count_index = 0ull;
+		for (auto begin_iter = inserters.begin(); begin_iter != inserters.last(); ++begin_iter)
+		{
+			if (count_index + 1 == i) return begin_iter->operator[](0);
+			const auto inserter_size = begin_iter->size();
+			if (count_index <= i && count_index + inserter_size >= i) return begin_iter->operator[](i - count_index + 1);
+			count_index += inserter_size;
+		}
+
+#ifdef _DEBUG
+		throw std::runtime_error(""); //this shouldn't occur as long as the index is valid and not human entered
 #endif
-		return inserters[i];
 	};
 
 	inline constexpr long long get_new_item_distance(std::size_t i) const noexcept
@@ -331,7 +351,7 @@ public:
 		return *item_groups_goal_distance[i].get_index_ptr();
 		//return item_groups[tc::unsign(i)].get_goal();
 	};
-	inline constexpr bool has_goal_distance_slot(long long i) const noexcept
+	/*inline constexpr bool has_goal_distance_slot(long long i) const noexcept
 	{
 #ifdef _BOUNDS_CHECKING_
 		ASSERT_NOT_CONSTEXPR(i < inserters.size());
@@ -340,11 +360,16 @@ public:
 #endif
 		return inserters[i].get_linked_list_distance().get_index() == i;
 		//return item_groups[tc::unsign(i)].get_goal();
-	};
+	};*/
 
 	inline constexpr long long count_inserters() const noexcept
 	{
-		return inserters.size();
+		std::size_t count_index = 0ull;
+		for (auto begin_iter = inserters.begin(); begin_iter != inserters.last(); ++begin_iter)
+		{
+			count_index += begin_iter->size();
+		}
+		return count_index;
 	};
 
 	inline constexpr long long get_direction_y_value() const noexcept
@@ -606,14 +631,6 @@ public:
 			}
 
 			remove_iterators.clear();
-			const auto end_distance = get_end_distance_direction();
-			//TODO please just fix this microsoft, I'm so tired of this already
-			for (auto biter = inserters.begin(), enditer = inserters.end(); biter != enditer; ++biter)
-			//auto biter = inserters.begin();
-			//for (; biter != inserters.end(); ++biter)
-			{
-				biter->update_linked_list_group_data(segment_direction, end_distance);
-			}
 			return;
 			/*
 			const auto erase_values = mem::erase_indices<item_groups_type, _vector>(item_groups, remove_iterators, item_groups_goal_distance, item_groups_distance_between);
@@ -644,11 +661,11 @@ public:
 		}
 	};
 
-	constexpr void inserters_offset_calculation() noexcept
+	/*constexpr void inserters_offset_calculation() noexcept
 	{
 		std::size_t current_index = 0;
 		vec2_uint position{ 0ll, 0ll };
-		if (!inserters.empty()) position = inserters[0].get_position();
+		if (!inserters.empty()) position = inserters[0][0].get_position();
 		for (const auto& ref : remove_iterators)
 		{
 #ifdef _BOUNDS_CHECKING_
@@ -672,9 +689,9 @@ public:
 				else break;
 			}
 		}
-	};
+	};*/
 
-	__declspec(noinline) constexpr void update_inserters() noexcept
+	/*__declspec(noinline) constexpr void update_inserters() noexcept
 	{
 		//const long long item_group_offset = 0;
 		const long long li = inserters.size();
@@ -684,13 +701,13 @@ public:
 #ifdef _BOUNDS_CHECKING_
 			ASSERT_NOT_CONSTEXPR(i < inserters.size());
 #endif
-			const auto found_index = inserters[tc::unsign(i)].update(segment_direction, end_distance_direction);
+			const auto found_index = inserters[i].update(segment_direction, end_distance_direction);
 			if (found_index != -1)
 			{
-				inserters[tc::unsign(i)].grab_item(remove_item(&item_groups[inserters[tc::unsign(i)].get_item_group().get_index()], found_index));
+				inserters[i].grab_item(remove_item(&item_groups[inserters[i].get_item_group().get_index()], found_index));
 			}
 		}
-	};
+	};*/
 
 	__declspec(noinline) constexpr void update_item() noexcept
 	{
@@ -698,27 +715,64 @@ public:
 		auto begin_goal_count_iter = item_groups_goal_item_count.begin();
 		auto last_iter = item_groups_goal_distance.last();
 		const auto last_goal_destination = inserters.empty() ? last_iter : last_iter - 1ll;
-		auto begin_inserter_iter = inserters.begin();
-		auto next_inserter_iter = inserters.end();
+
+		//auto begin_inserter_iter = inserters.begin();
+		//auto next_inserter_iter = inserters.end();
+		auto begin_inserter_goal_iter = inserter_slots.begin();
+		auto next_inserter_goal_iter = inserter_slots.last();
+
 		const auto end_distance = get_end_distance_direction();
 
-		if (inserters.size() > 1) next_inserter_iter = begin_inserter_iter + 1;
+		if (inserters.size() > 1) next_inserter_goal_iter = begin_inserter_goal_iter + 1;
 
 		while (begin_iter < last_iter)
 		{
 			if (*begin_iter != nullptr)
 			{
 				const auto cur_dist = begin_iter->get_distance();
+
 				if (cur_dist > 0ll)
 				{
 					begin_iter->subtract_goal_distance(1ll);
 					if (std::is_constant_evaluated() == false) item_groups_type::items_moved_per_frame += (*begin_goal_count_iter);
 
-					if (begin_iter != last_goal_destination && next_inserter_iter != inserters.end())
+					if (begin_inserter_goal_iter != inserter_slots.last())
 					{
-						if (next_inserter_iter->get_linked_list_distance() != begin_inserter_iter->get_linked_list_distance())
+						const auto inserter_distance_position = end_distance - belt_utility::get_direction_position(segment_direction, (*(*begin_inserter_goal_iter)).get_position());
+
+						if ((*(*begin_inserter_goal_iter)).loop_count >= 256) __debugbreak();
+						if ((*begin_iter).get_distance() <= inserter_distance_position)
 						{
-							const auto inserter_distance_position = end_distance - belt_utility::get_direction_position(segment_direction, begin_inserter_iter->get_position());
+							const auto index_ptr = begin_iter->get_index_from_ptr(item_groups_distance_between.begin().operator->());
+							const auto last_item_position = (*begin_iter).get_distance() + item_groups[index_ptr].get_distance_to_last_item(item_groups_data[index_ptr]);
+							if (last_item_position >= inserter_distance_position - item_groups_type::belt_item_size)
+							{
+								auto inserter_position = belt_utility::get_direction_position(segment_direction, (*(*begin_inserter_goal_iter)).get_position());
+								const auto found_index = item_groups[index_ptr].get_first_item_of_type_before_position(segment_direction, end_distance, (*begin_iter).get_distance(), item_groups_data[index_ptr], (*(*begin_inserter_goal_iter)).get_item_type(0), inserter_position);
+								auto item_distance_position = item_groups[index_ptr].get_item_direction_position(segment_direction, end_distance, (*begin_iter).get_distance(), item_groups_data[index_ptr], found_index);
+								if (item_distance_position >= inserter_position && item_distance_position <= inserter_position + index_inserter::inserter_grid_size)
+								{
+									(*(*begin_inserter_goal_iter)).grab_item(remove_item(&item_groups[index_ptr], found_index));
+									++(*(*begin_inserter_goal_iter)).local_grabbed_items;
+									(*(*begin_inserter_goal_iter)).loop_count = 0;
+								}
+								else
+									++(*(*begin_inserter_goal_iter)).missed_grabs;
+							}
+							else
+								++(*(*begin_inserter_goal_iter)).missed_grabs;
+						}
+						else
+							++(*(*begin_inserter_goal_iter)).missed_grabs;
+
+						++(*(*begin_inserter_goal_iter)).loop_count;
+					}
+
+					/*if (begin_iter != last_goal_destination && next_inserter_goal_iter != inserter_slots.end())
+					{
+						if ((*(*next_inserter_goal_iter)).get_linked_list_distance() != (*(*begin_inserter_goal_iter)).get_linked_list_distance())
+						{
+							const auto inserter_distance_position = end_distance - belt_utility::get_direction_position(segment_direction, (*(*begin_inserter_goal_iter)).get_position());
 							if ((*begin_iter).get_distance() < inserter_distance_position)
 							{
 								const auto index_ptr = begin_iter->get_index_from_ptr(item_groups_distance_between.begin().operator->());
@@ -743,14 +797,14 @@ public:
 										if (item_groups_distance_between.begin().operator->() == (*begin_iter).get_index_ptr())
 											begin_iter->set_index_ptr(nullptr);
 
-										begin_inserter_iter->update_linked_list_group_data(segment_direction, end_distance);
+										(*(*begin_inserter_goal_iter)).update_linked_list_group_data(segment_direction, end_distance);
 									}
 								}
 							}
 						}
-						++begin_inserter_iter;
-						next_inserter_iter = begin_inserter_iter + 1;
-					}
+						++begin_inserter_goal_iter;
+						next_inserter_goal_iter = begin_inserter_goal_iter + 1;
+					}*/
 				}
 				else if (cur_dist != -1ll)
 				{
@@ -770,7 +824,8 @@ public:
 					}*/
 				}
 			}
-			else ++begin_inserter_iter;
+
+			++begin_inserter_goal_iter;
 			++begin_iter;
 			++begin_goal_count_iter;
 		}
@@ -793,7 +848,7 @@ public:
 		if (!remove_iterators.empty())
 			item_groups_removal();
 
-		update_inserters();
+		//update_inserters();
 	};
 private:
 	constexpr bool is_end_goal_destination(auto goal) noexcept
@@ -937,7 +992,7 @@ public:
 		{
 			const auto end_distance = get_end_distance_direction();
 			auto begin_inserter_iter = inserters.begin();
-			auto inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, begin_inserter_iter->get_position());
+			auto inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, begin_inserter_iter->operator[](0).get_position());
 			if (item_groups_goal_distance.size() == 1ll && *distance > inserter_distance)
 			{
 				auto begin_iter = item_groups_goal_distance.begin();
@@ -954,7 +1009,7 @@ public:
 				auto tmp_begin_inserter_iter = inserters.begin() + (item_groups_goal_distance.size() - 1ll);
 				if (tmp_begin_inserter_iter != inserters.end())
 				{
-					inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, tmp_begin_inserter_iter->get_position());
+					inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, tmp_begin_inserter_iter->operator[](0).get_position());
 					//we should update the pointer to the new index
 					auto before_last = item_groups_goal_distance.last() - 1ll;
 					if (*distance < before_last->get_distance() && inserter_distance < *distance)
@@ -974,14 +1029,26 @@ public:
 			}
 			else if (item_groups_goal_distance.size() > 2ll)
 			{
-				inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, (inserters.end() - 1ull)->get_position());
+				inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, (inserters.last() - 1ull)->operator[](0).get_position());
 				auto before_last = item_groups_goal_distance.last() - 1ll;
 				const auto before_before_last = before_last - 1ll;
 				if (before_before_last->get_distance() > *distance && *distance < before_last->get_distance() && inserter_distance > *distance)
 				{
 					//auto old_goal_distance = (*before_last).get_index_ptr();
 					before_last->set_index_ptr(distance);
-					auto previous_iter = (item_groups_distance_between.begin() + ((*before_last).get_index_from_ptr(item_groups_distance_between.begin().operator->()))) - 1ll;
+					auto tmp_iter_ptr = item_groups_distance_between.begin().operator->();
+					long long index_from_ptr = 0ll;
+					decltype(item_groups_distance_between)::iterator previous_iter;
+					if (item_groups_goal_distance.size() >= inserters.size())
+					{
+						index_from_ptr = ((*before_before_last).get_index_from_ptr(tmp_iter_ptr));
+						previous_iter = (item_groups_distance_between.begin() + index_from_ptr);
+					}
+					else
+					{
+						index_from_ptr = ((*before_last).get_index_from_ptr(tmp_iter_ptr));
+						previous_iter = (item_groups_distance_between.begin() + index_from_ptr) - 1ll;
+					}
 					*previous_iter = 32ll;
 					/*auto recalc_start_iter = item_groups_distance_between.begin() + ((*before_last).get_index_ptr() - item_groups_distance_between.begin());
 					auto recalc_end_iter = item_groups_distance_between.begin() + (((*(before_last - 1ll)).get_index_ptr() + 1ll) - item_groups_distance_between.begin());
@@ -996,7 +1063,7 @@ public:
 			for (; next_iter != end_iter; ++begin_iter, ++next_iter)
 			{
 				if (begin_inserter_iter != inserters.end())
-					inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, begin_inserter_iter->get_position());
+					inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, begin_inserter_iter->operator[](0).get_position());
 				if (begin_iter->get_distance() > *distance && *distance < next_iter->get_distance() && *distance > inserter_distance)
 				{
 					//if inserter distance is less than begin_iter update **begin_iter 
@@ -1019,12 +1086,13 @@ public:
 					return belt_utility::need_new_slot_result::update_pointer_to_new_index;
 				}*/
 
-				if (begin_inserter_iter != inserters.end() && next_iter->get_distance() < inserter_distance) ++begin_inserter_iter;
+				if (begin_inserter_iter != inserters.last() && begin_inserter_iter + 1 != inserters.last() && next_iter->get_distance() < inserter_distance)
+					++begin_inserter_iter;
 			};
 
 			if (begin_inserter_iter != inserters.end())
 			{
-				inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, begin_inserter_iter->get_position());
+				inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, begin_inserter_iter->operator[](0).get_position());
 				//we should update the pointer to the new index
 				auto before_last = item_groups_goal_distance.last() - 1ll;
 				if (*distance < before_last->get_distance() && inserter_distance < *distance)
@@ -1041,7 +1109,7 @@ public:
 			}
 			else
 			{
-				inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, (inserters.end() - 1ull)->get_position());
+				inserter_distance = end_distance - belt_utility::get_direction_position(segment_direction, (inserters.last() - 1ull)->operator[](0).get_position());
 				auto before_last = item_groups_goal_distance.last() - 1ll;
 				const auto before_before_last = before_last - 1ll;
 				if (before_before_last->get_distance() > *distance && *distance < before_last->get_distance() && inserter_distance > *distance)
@@ -1095,8 +1163,8 @@ private:
 #else
 		if (new_iter_group != item_groups.end()) new_iter_group->add_item(new_item, new_item.position);
 #endif
-		const auto goal_object_index = goal_object - item_groups_goal_distance.begin();
-		if (inserters.size() > goal_object_index && goal_object != item_groups_goal_distance.last()) inserters[goal_object_index].update_linked_list_group_data(segment_direction, get_end_distance_direction());
+		//const auto goal_object_index = goal_object - item_groups_goal_distance.begin();
+		//if (inserters.size() > goal_object_index && goal_object != item_groups_goal_distance.last()) inserters[goal_object_index].update_linked_list_group_data(segment_direction, get_end_distance_direction());
 		return true;
 	};
 
@@ -1126,7 +1194,7 @@ private:
 		const auto goal_object = belt_utility::find_which_goal_object_index_belongs_too(index_ptr_temp, item_groups_goal_distance, item_groups_distance_between);
 		const auto goal_object_index = goal_object - item_groups_goal_distance.begin();
 		if (belt_utility::need_new_slot_result::need_new_slot != new_slot_result) ++item_groups_goal_item_count[goal_object_index];
-		if (inserters.size() > goal_object_index && goal_object != item_groups_goal_distance.last()) inserters[goal_object_index].update_linked_list_group_data(segment_direction, get_end_distance_direction());
+		//if (inserters.size() > goal_object_index && goal_object != item_groups_goal_distance.last()) inserters[goal_object_index].update_linked_list_group_data(segment_direction, get_end_distance_direction());
 		return true;
 	};
 
@@ -1161,8 +1229,8 @@ private:
 #else
 		if (new_iter_group != item_groups.end()) new_iter_group->add_item(new_item, new_item.position);
 #endif
-		const auto goal_object_index = goal_object - item_groups_goal_distance.begin();
-		if (inserters.size() > goal_object_index && goal_object != item_groups_goal_distance.last()) inserters[goal_object_index].update_linked_list_group_data(segment_direction, get_end_distance_direction());
+		//const auto goal_object_index = goal_object - item_groups_goal_distance.begin();
+		//if (inserters.size() > goal_object_index && goal_object != item_groups_goal_distance.last()) inserters[goal_object_index].update_linked_list_group_data(segment_direction, get_end_distance_direction());
 		return true;
 	};
 
@@ -1215,7 +1283,7 @@ public:
 			ASSERT_NOT_CONSTEXPR(0ll < item_groups.size());
 #endif
 			const short added_index = new_item_group.add_item(get_end_distance_direction(), &item_groups_distance_between[0], new_data_group, new_item, new_item.position);
-			if (!inserters.empty()) inserters[0].update_linked_list_group_data(segment_direction, get_end_distance_direction());
+			//if (!inserters.empty()) inserters[0].update_linked_list_group_data(segment_direction, get_end_distance_direction());
 
 			if (added_index != -1) return true;
 			return false;
@@ -1229,6 +1297,8 @@ public:
 			// if it's before the current destination need to swap them out and calculate the new updated distance values for the item behind it, and the one before it
 			// if it's after the current destination we just add it in and calculate the new updated distance values for the item behind it, and the one before it
 			// if there's no existing destination we create a new one
+			auto item_distance = belt_utility::get_direction_position(segment_direction, new_item.position);
+			const auto new_slot_result = need_new_goal_distance_slot(&item_distance);
 
 			auto iter = belt_utility::find_closest_item_group(segment_direction, get_end_distance_direction(), item_groups_data, item_groups, item_groups_distance_between, belt_utility::get_direction_position(segment_direction, new_item.position));
 			const auto index_ptr_temp = iter.result - item_groups.begin();
@@ -1282,24 +1352,23 @@ public:
 				{
 					return add_item_after(new_item, iter, index_ptr_temp);
 				}
-			}
 		}
+	}
 
 		return false;
-	};
+};
 
-	constexpr index_iterator<goal_distance, _vector_goal_distance> get_inserter_destination_slot(const index_inserter& inserter, belt_utility::inserter_fits_results insert_results, long long insert_index = -1ll) noexcept
+	/*constexpr index_iterator<goal_distance, _vector_goal_distance> get_inserter_destination_slot(const index_inserter& inserter, belt_utility::inserter_fits_results insert_results, long long insert_index = -1ll) noexcept
 	{
 		//TODO make sure that we don't add any item_groups_distance_between values when we don't need any and just return a index based on inserters instead
 		//aka don't do this since we add dummy units we later need to take care of, it's better if they index_iterator just has an index and performs a size
 		//check on every tick to see if they actually can read anything and just update the values as we go for the item_groups
 		//since inserters don't actually need valid values to exists in the vectors, they just need a correct index that they can read from
 		//and said index is something they will never modify themselves.
-		/*
-		*	auto& new_dist = item_groups_distance_between.emplace_back(0ll);
-		*	auto new_index = item_groups_goal_distance.usize();
-		*	item_groups_goal_distance.emplace_back(&new_dist);
-		*/
+		//
+		//	auto& new_dist = item_groups_distance_between.emplace_back(0ll);
+		//	auto new_index = item_groups_goal_distance.usize();
+		//	item_groups_goal_distance.emplace_back(&new_dist);
 
 		//if we have zero item_groups we emplace a 0ll in item_groups_distance_between
 		if (item_groups.empty() && inserters.empty()) return { 0ull, &item_groups_goal_distance };
@@ -1398,43 +1467,94 @@ public:
 		throw std::runtime_error("");
 #endif
 		return { 0ull, &item_groups_goal_distance };
+	};*/
+
+	constexpr std::size_t get_inserter_group_index(auto& group_inserters, index_inserter object) noexcept
+	{
+		const long long l = group_inserters.size();
+
+		if (l == 1ll)
+		{
+			if (belt_utility::inserter_fits_results::before == check_if_inserter_is_before_or_after(segment_direction, group_inserters[0], object)) return 0;
+			else return 1;
+		}
+
+		for (long long i = 0, i2 = 1; i2 < l; ++i, ++i2)
+		{
+			const auto test_result = check_if_inserter_is_before_or_after(segment_direction, group_inserters[i], object);
+			if (belt_utility::inserter_fits_results::before == test_result) return i;
+			else if (belt_utility::inserter_fits_results::after == test_result)
+			{
+				const auto second_test_result = check_if_inserter_is_before_or_after(segment_direction, group_inserters[i2], object);
+				if (belt_utility::inserter_fits_results::before == second_test_result) return i;
+			}
+		}
+
+		if (belt_utility::inserter_fits_results::before == check_if_inserter_is_before_or_after(segment_direction, group_inserters.back(), object)) return group_inserters.size() - 1ll;
+		else return group_inserters.size();
 	};
 
 	__declspec(noinline) constexpr std::size_t add_inserter(index_inserter object) noexcept
 	{
+		constexpr auto max_inserter_distance = item_groups_type::belt_item_size * item_groups_type::max_item_count * 4;
+
 		if (inserters.size() == 0)
 		{
 			//auto new_distance_value = get_end_distance_direction() - belt_utility::get_direction_position(segment_direction, object.get_position());
 			//auto new_slot_result = need_new_goal_distance_slot(&new_distance_value);
 
-			object.set_linked_list_data(index_iterator<item_groups_type, _vector>{ 0ull, & item_groups }, index_iterator<item_groups_data_type, _data_vector>{ 0ull, & item_groups_data }, get_inserter_destination_slot(object, belt_utility::inserter_fits_results::no_fit), & item_groups_distance_between);
-			inserters.push_back(object);
+			//object.set_linked_list_data(index_iterator<item_groups_type, _vector>{ 0ull, & item_groups }, index_iterator<item_groups_data_type, _data_vector>{ 0ull, & item_groups_data }, get_inserter_destination_slot(object, belt_utility::inserter_fits_results::no_fit), & item_groups_distance_between);
+			inserters.emplace_back();
+			inserters[0].push_back(object);
+			inserter_slots.emplace_back(0ull, 0ull, &inserters);
 			return 0;
 		}
 
 		long long can_fit_index = -1;
+		long long can_fit_nested_index = -1;
 		belt_utility::inserter_fits_results insert_results = belt_utility::inserter_fits_results::no_fit;
-		if (inserters.size() == 1)
+		if (inserters.size() == 1ll && inserters[0].size() == 1ll)
 		{
-			const auto test_result = check_if_inserter_is_before_or_after(segment_direction, inserters[0], object);
-			insert_results = test_result;
-			if (belt_utility::inserter_fits_results::before == test_result) can_fit_index = 0;
-			else if (belt_utility::inserter_fits_results::after == test_result) can_fit_index = 1;
+			if (expr::abs(get_direction_position(segment_direction, inserters[0ll][0ll].get_position()) - get_direction_position(segment_direction, object.get_position())) >= max_inserter_distance &&
+				expr::abs(get_direction_position(segment_direction, inserters[0ll].back().get_position()) - get_direction_position(segment_direction, object.get_position())) >= max_inserter_distance)
+			{
+				insert_results = belt_utility::inserter_fits_results::no_fit;
+				can_fit_index = inserters.size();
+			}
+			else
+			{
+				can_fit_index = 0;
+				can_fit_nested_index = get_inserter_group_index(inserters[0ll], object);
+			}
 		}
 		else
 		{
+			if (expr::abs(get_direction_position(segment_direction, inserters[0][0].get_position()) - get_direction_position(segment_direction, object.get_position())) >= max_inserter_distance &&
+				expr::abs(get_direction_position(segment_direction, inserters[0].back().get_position()) - get_direction_position(segment_direction, object.get_position())) >= max_inserter_distance)
+			{
+				insert_results = belt_utility::inserter_fits_results::no_fit;
+				can_fit_index = inserters.size();
+			}
+			else if (expr::abs(get_direction_position(segment_direction, inserters.back()[0].get_position()) - get_direction_position(segment_direction, object.get_position())) >= max_inserter_distance &&
+				expr::abs(get_direction_position(segment_direction, inserters.back().back().get_position()) - get_direction_position(segment_direction, object.get_position())) >= max_inserter_distance)
+			{
+				insert_results = belt_utility::inserter_fits_results::no_fit;
+				can_fit_index = inserters.size();
+			}
 			//first check if it's before the first inserter
-			if (belt_utility::inserter_fits_results::before == check_if_inserter_is_before_or_after(segment_direction, inserters[0], object))
+			else if (belt_utility::inserter_fits_results::before == check_if_inserter_is_before_or_after(segment_direction, inserters[0][0], object))
 			{
 				insert_results = belt_utility::inserter_fits_results::before;
 				can_fit_index = 0;
+				can_fit_nested_index = get_inserter_group_index(inserters[0ll], object);
 			}
 			//second check if it's after the last inserter
-			else if (belt_utility::inserter_fits_results::after == check_if_inserter_is_before_or_after(segment_direction, inserters.back(), object))
-			//else if (belt_utility::inserter_fits_results::after == check_if_inserter_is_before_or_after(segment_direction, *inserters.last(), object))
+			else if (belt_utility::inserter_fits_results::after == check_if_inserter_is_before_or_after(segment_direction, inserters.back()[0], object))
+				//else if (belt_utility::inserter_fits_results::after == check_if_inserter_is_before_or_after(segment_direction, *inserters.last(), object))
 			{
 				insert_results = belt_utility::inserter_fits_results::after;
-				can_fit_index = inserters.size();
+				can_fit_index = inserters.size() - 1;
+				can_fit_nested_index = get_inserter_group_index(inserters.back(), object);
 			}
 			else
 			{
@@ -1442,10 +1562,21 @@ public:
 				const long long l = inserters.size();
 				for (long long i = 0, i2 = 1; i2 < l; ++i, ++i2)
 				{
-					if (belt_utility::inserter_fits_results::inbetween == check_if_inserter_is_between(segment_direction, inserters[tc::unsign(i)], inserters[tc::unsign(i2)], object))
+					if (expr::abs(get_direction_position(segment_direction, inserters[i][0].get_position()) - get_direction_position(segment_direction, object.get_position())) >= max_inserter_distance &&
+						expr::abs(get_direction_position(segment_direction, inserters[i].back().get_position()) - get_direction_position(segment_direction, object.get_position())) >= max_inserter_distance)
 					{
-						insert_results = belt_utility::inserter_fits_results::inbetween;
-						can_fit_index = i2;
+						insert_results = belt_utility::inserter_fits_results::no_fit;
+						can_fit_index = l;
+						break;
+					}
+					else
+					{
+						if (belt_utility::inserter_fits_results::inbetween == check_if_inserter_is_between(segment_direction, inserters[i][0], inserters[i2][0], object))
+						{
+							insert_results = belt_utility::inserter_fits_results::inbetween;
+							can_fit_index = i2;
+							can_fit_nested_index = get_inserter_group_index(inserters[i2], object);
+						}
 					}
 				}
 			}
@@ -1453,14 +1584,16 @@ public:
 
 		if (can_fit_index != -1)
 		{
-			object.set_linked_list_data(index_iterator<item_groups_type, _vector>{ 0ull, & item_groups }, index_iterator<item_groups_data_type, _data_vector>{ 0ull, & item_groups_data }, get_inserter_destination_slot(object, insert_results, can_fit_index), & item_groups_distance_between);
-			if (belt_utility::inserter_fits_results::after == insert_results)
-				inserters.emplace_back(object);
+			//object.set_linked_list_data(index_iterator<item_groups_type, _vector>{ 0ull, & item_groups }, index_iterator<item_groups_data_type, _data_vector>{ 0ull, & item_groups_data }, get_inserter_destination_slot(object, insert_results, can_fit_index), & item_groups_distance_between);
+			if (belt_utility::inserter_fits_results::no_fit == insert_results && can_fit_index == inserters.size())
+			{
+				auto& group = inserters.emplace_back();
+				group.push_back(object);
+				inserter_slots.emplace_back(static_cast<std::size_t>(can_fit_index), 0ull, &inserters);
+			}
 			else
 			{
-				auto debug_begin = inserters.begin() + can_fit_index;
-				auto debug_end = inserters.end();
-				inserters.insert(inserters.begin() + can_fit_index, object);
+				inserters[can_fit_index].insert(inserters[can_fit_index].begin() + can_fit_nested_index, object);
 			}
 			return can_fit_index;
 		}
@@ -1473,507 +1606,3 @@ public:
 		segment_end_points.push_back(ptr);
 	};
 };
-
-
-CONSTEXPR_VAR auto test_belt_segment() noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{255, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 128ll, 0ll } });
-
-	//return first_segment.get_item(0).get_distance_to_item(2);
-	//return first_segment.get_item(0).get_direction_position() - first_segment.get_item(0).get_distance_to_item(3);
-	//first_segment.add_item(item_uint{ test_arr[5].type, vec2_uint{ 42ll, 0ll } });
-	//return first_segment.get_item(0).count();
-	//return first_segment.get_item(0).get(4).type;
-	//used to check support that adding items in between is possible
-	//test_belt.add_item(test_arr[4], vec2_uint{ 0ll, 0ll });
-	//test_belt.add_item(test_arr[5], vec2_uint{ 32ll, 0ll });
-	//return test_belt.get(4).type; 
-
-	for (int i = 0, l = 128 + 32; i < l; ++i)
-	{
-		first_segment.update();
-	}
-
-	return first_segment.get_item(0, 0).position.x;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_val_belt_segment = test_belt_segment();
-static_assert(test_belt_segment() == 255, "wrong count");
-#endif
-
-
-CONSTEXPR_VAR auto test_moving_items_between_belt_segments(std::size_t return_index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{255, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 128ll, 0ll } });
-	belt_segment second_segment{ vec2_uint{255, 0}, vec2_uint{1024, 0} };
-	first_segment.add_end_segment_section(&second_segment);
-	for (int i = 0, l = 127 + 32 + 32; i < l; ++i)
-	{
-		second_segment.update();
-		first_segment.update();
-	}
-
-	//return first_segment.get_item_group(0).count();
-	//return second_segment.get_item_group(0).count();
-	//return second_segment.count_item_groups();
-	//return first_segment.get_item_group(0).get(return_index).position.x;
-	//return second_segment.get_item_group(0).get_goal();
-	return second_segment.get_item(0, tc::sign(return_index)).position.x;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto moving_items_between_belts_val = test_moving_items_between_belt_segments(0);
-static_assert(test_moving_items_between_belt_segments(0) == 319ll, "item did not jump to the second segment");
-#endif
-
-
-CONSTEXPR_VAR auto test_removing_item_group(std::size_t return_index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{255, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 128ll, 0ll } });
-	belt_segment second_segment{ vec2_uint{255, 0}, vec2_uint{1024, 0} };
-	first_segment.add_end_segment_section(&second_segment);
-
-	for (int i = 0, l = 128 + 32; i < l; ++i)
-	{
-		first_segment.update();
-		second_segment.update();
-	}
-
-	//return first_segment.goal_distance_in_destinations(0);
-	if (return_index == 0) return first_segment.get_item_group(0).count();
-	else return second_segment.get_item_group(0).count();
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_removing_item_group_val = test_removing_item_group(0);
-static_assert(test_removing_item_group(0) == 2, "item did not jump to the second segment");
-static_assert(test_removing_item_group(1) == 2, "item did not jump to the second segment");
-#endif
-
-
-CONSTEXPR_VAR auto test_incrementing_if_some_are_stuck(std::size_t return_index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{255, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 128ll, 0ll } });
-
-	for (int i = 0, l = 127 + 32 + 32; i < l; ++i)
-	{
-		first_segment.update();
-	}
-
-	return first_segment.get_item(0, return_index).position.x;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto some_are_stuck3 = test_incrementing_if_some_are_stuck(3);
-constexpr auto some_are_stuck2 = test_incrementing_if_some_are_stuck(2);
-constexpr auto some_are_stuck1 = test_incrementing_if_some_are_stuck(1);
-constexpr auto some_are_stuck0 = test_incrementing_if_some_are_stuck(0);
-static_assert(test_incrementing_if_some_are_stuck(3) == 159, "position is wrong, incrementing position while items are stuck doesn't work for 3");
-static_assert(test_incrementing_if_some_are_stuck(2) == 191, "position is wrong, incrementing position while items are stuck doesn't work for 2");
-static_assert(test_incrementing_if_some_are_stuck(1) == 223, "position is wrong, incrementing position while items are stuck doesn't work for 1");
-static_assert(test_incrementing_if_some_are_stuck(0) == 255, "position is wrong, incrementing position while items are stuck doesn't work for 0");
-#endif
-
-
-CONSTEXPR_VAR auto test_adding_in_middle(std::size_t return_index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{400, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
-
-	auto val = first_segment.add_item(item_uint{ item_type::brick, vec2_uint{ 42ll, 0ll } });
-	//return first_segment.get_item_group(0).count();
-	if (!val) return item_type::pink_square;
-	return first_segment.get_item(0, return_index).type;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto in_middle2_val = test_adding_in_middle(4);
-static_assert(test_adding_in_middle(2) == item_type::stone, "wrong type so adding in the middle got something wrong");
-static_assert(test_adding_in_middle(3) == item_type::brick, "wrong type so adding in the middle got something wrong");
-//static_assert(test_adding_in_middle(4) == item_type::wood, "wrong type so adding in the middle got something wrong");
-#endif
-
-
-CONSTEXPR_VAR auto test_last_item_distance() noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{400, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
-
-	for (int i = 0, l = 170; i < l; ++i)
-	{
-		first_segment.update();
-	}
-	//return first_segment.get_item_group(0).get_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), 3ll);
-	return first_segment.get_item_group(0).get_last_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0));
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_last_item_distance_val = test_last_item_distance();
-static_assert(test_last_item_distance() == 180, "item distance is incorrect");
-#endif
-
-
-CONSTEXPR_VAR auto test_item_distance(std::size_t return_index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{400, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
-
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[return_index], first_segment.get_item_data_group(0), return_index);
-	//return first_segment.get_item_group(0).get_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), return_index);
-	return first_segment.get_item_group(0).get_distance_to_item(first_segment.get_item_data_group(0), return_index);
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_item_distance_val = test_item_distance(1);
-static_assert(test_item_distance(1) == 128, "item distance is incorrect");
-#endif
-
-
-CONSTEXPR_VAR auto test_inserter_item() noexcept
-{
-	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{400ll, 0ll} };
-
-	first_segment.add_inserter(index_inserter{ vec2_uint{320ll, 32ll} });
-	first_segment.get_inserter(0).set_item_type(item_type::stone);
-
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
-
-	for (int i = 0, l = 128 + 32; i < l; ++i)
-	{
-		first_segment.update();
-	}
-	//auto test_type_pos = first_segment.get_item_group(0).get_first_item_of_type_before_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), item_type::stone, vec2_uint{ 320ll , 0ll });
-	//return test_type_pos;
-	return first_segment.get_inserter(0).get_item().type;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_inserter_item_val = test_inserter_item();
-static_assert(test_inserter_item() == item_type::stone, "inserter hasn't grabbed item");
-#endif
-
-
-CONSTEXPR_VAR auto test_inserter_can_grab_all_items() noexcept
-{
-	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{1024ll, 0ll} };
-
-	first_segment.add_inserter(index_inserter{ vec2_uint{448ll, 32ll} });
-	first_segment.get_inserter(0).set_item_type(item_type::stone);
-
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 32ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 128ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 192ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 256ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 288ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 320ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 352ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 384ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 416ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 448ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 480ll, 0ll } });
-
-	auto real_pos = first_segment.get_item_group(0).get_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), 13);
-
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 12);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 11);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 10);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 9);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 8);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 7);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 6);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 5);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 4);
-	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 3);
-
-	auto new_pos = first_segment.get_item_group(0).get_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), first_segment.get_item_group(0).count() - 3);
-
-	//auto test_type_pos = first_segment.get_item_group(0).get_first_item_of_type_before_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), item_type::stone, vec2_uint{ 448ll , 0ll });
-	//return test_type_pos;
-	//return real_pos;
-	//return new_pos;
-	return real_pos == new_pos;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_inserter_can_grab_all_items_val = test_inserter_can_grab_all_items();
-static_assert(test_inserter_can_grab_all_items() == true, "item position moved when it shouldn't have");
-#endif
-
-
-CONSTEXPR_VAR auto test_inserter_moved_to_no_group() noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024, 0} };
-
-	first_segment.add_inserter(index_inserter{ vec2_uint{256 + 64, 32} });
-	first_segment.get_inserter(0).set_item_type(item_type::stone);
-
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 288ll - 278ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 288ll - 128ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 288ll - 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
-
-	for (int i = 0, l = 256 + 128; i < l; ++i)
-	{
-		first_segment.update();
-	}
-
-	return first_segment.get_inserter(0).has_linked_list_data();
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_moved_group_val = test_inserter_moved_to_no_group();
-static_assert(test_inserter_moved_to_no_group() == true, "inserter hasn't been moved");
-#endif
-
-CONSTEXPR_VAR auto test_item_groups_distance_between_value(int index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{2048, 0} };
-
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 32ll, 0ll } });
-	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + 4096ll, 0ll } });
-	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + (4096ll + 4096ll), 0ll } });
-	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + (4096ll + 4096ll + 12288ll), 0ll } });
-
-
-	//return first_segment.get_item_group(1).get_direction_position(first_segment.get_end_distance_direction(), first_segment.goal_distance_in_group(1));
-	//return first_segment.get_item_group(1).get_last_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_item_data_group(1));
-	//return first_segment.get_new_item_distance(index);
-	return first_segment.get_item(0, index).position.x;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_item_groups_distance_between_val = test_item_groups_distance_between_value(0);
-static_assert(test_item_groups_distance_between_value(31) == 0ll, "inserter hasn't been moved");
-static_assert(test_item_groups_distance_between_value(30) == 32ll, "inserter hasn't been moved");
-static_assert(test_item_groups_distance_between_value(29) == 64ll, "inserter hasn't been moved");
-static_assert(test_item_groups_distance_between_value(28) == 96ll, "inserter hasn't been moved");
-#endif
-
-
-CONSTEXPR_VAR auto test_new_item_distance_vectors(int index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024 * 32, 0} };
-
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 32ll, 0ll } });
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + 4096ll, 0ll } });
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + (4096ll + 4096ll), 0ll } });
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + (4096ll + 4096ll + 12288ll), 0ll } });
-
-	//return first_segment.get_item_group(0).count();
-	//return first_segment.get_item_group(1).get_direction_position(first_segment.get_end_distance_direction(), first_segment.goal_distance_in_group(1));
-	//return first_segment.get_item_group(1).get_last_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_item_data_group(1));
-	return first_segment.get_new_item_position(index);
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_new_item_distance_val = test_new_item_distance_vectors(0);
-static_assert(test_new_item_distance_vectors(0) == 1024ll, "inserter hasn't been moved");
-static_assert(test_new_item_distance_vectors(1) == 1024 + 4096, "inserter hasn't been moved");
-static_assert(test_new_item_distance_vectors(2) == 1024 + 4096 + 4096, "inserter hasn't been moved");
-static_assert(test_new_item_distance_vectors(3) == 1024 + 4096 + 4096 + 12288, "inserter hasn't been moved");
-#endif
-
-
-CONSTEXPR_VAR auto test_multiple_inserters_getting_destination_slots(auto i) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{400ll, 0ll} };
-
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 5), 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll, 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 2), 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 1), 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 3), 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 4), 32ll} });
-
-	//return first_segment.get_item_groups_goal_distance_size();
-	//return first_segment.count_inserters();
-	return first_segment.has_goal_distance_slot(i);
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_multiple_inserters_getting_destination_slots_val = test_multiple_inserters_getting_destination_slots(0);
-static_assert(test_multiple_inserters_getting_destination_slots(0) == true, "inserter 0 doesn't have a slot");
-static_assert(test_multiple_inserters_getting_destination_slots(1) == true, "inserter 1 doesn't have a slot");
-static_assert(test_multiple_inserters_getting_destination_slots(2) == true, "inserter 2 doesn't have a slot");
-static_assert(test_multiple_inserters_getting_destination_slots(3) == true, "inserter 3 doesn't have a slot");
-static_assert(test_multiple_inserters_getting_destination_slots(4) == true, "inserter 4 doesn't have a slot");
-static_assert(test_multiple_inserters_getting_destination_slots(5) == true, "inserter 5 doesn't have a slot");
-#endif
-
-struct booleans
-{
-	bool a{ false };
-	bool b{ false };
-	bool c{ false };
-	bool d{ false };
-	bool e{ false };
-	bool f{ false };
-
-	constexpr bool operator==(const booleans& rhs) const noexcept
-	{
-		return a == rhs.a && b == rhs.b && c == rhs.c && d == rhs.d && e == rhs.e && f == rhs.f;
-	};
-};
-CONSTEXPR_VAR auto test_mixing_inserters_and_item_groups(std::size_t return_index) noexcept
-{
-	booleans count_conditions{};
-	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{14096ll, 0ll} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-
-	if (first_segment.goal_distance_in_destinations(0) == 14096ll - 64ll) count_conditions.a = true;
-
-	first_segment.add_inserter(index_inserter{ vec2_uint{256ll, 32ll} });
-
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-
-	first_segment.add_inserter(index_inserter{ vec2_uint{1024ll, 32ll} });
-
-	if (first_segment.get_inserter(1).get_linked_list_distance().get_index() != 1ll) return booleans{};
-
-	first_segment.add_item(item_uint{ item_type::copper, vec2_uint{ 128ll + 256ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 2048ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 4048ll, 0ll } });
-
-	const int l = 128 + 32;
-	for (int i = 0; i < l; ++i)
-	{
-		first_segment.update();
-	}
-
-	//return first_segment.goal_distance_in_destinations(0);
-	if (first_segment.get_item_group(0).count() == 3) count_conditions.c = true;
-	if (first_segment.has_goal_distance_slot(0) == true) count_conditions.d = true;
-	if (first_segment.has_goal_distance_slot(1) == true) count_conditions.e = true;
-	if (first_segment.get_item_groups_goal_distance_size() == 3ll) count_conditions.f = true;
-
-	return count_conditions;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_mixing_inserters_and_item_groups_val = test_mixing_inserters_and_item_groups(0);
-static_assert(test_mixing_inserters_and_item_groups(0) == booleans{ true, false, true, true, true, true }, "item did not jump to the second segment");
-static_assert(test_mixing_inserters_and_item_groups(0) == booleans{ true, false, true, true, true, true }, "item did not jump to the second segment");
-#endif
-
-
-CONSTEXPR_VAR auto test_splitting_item_groups(int index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024 * 32, 0} };
-
-	const int l = 32;
-	for (int i = 0; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 128ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (10 * 128ll) + 32ll, 0ll } });
-
-	//return first_segment.get_item_group(0).count();
-	//return first_segment.get_item_group(1).get_direction_position(first_segment.get_end_distance_direction(), first_segment.goal_distance_in_group(1));
-	//return first_segment.get_item_group(1).get_last_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_item_data_group(1));
-	//return first_segment.get_new_item_position(index);
-	return first_segment.count_items_in_group(index);
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_splitting_item_groups_val = test_splitting_item_groups(0);
-static_assert(test_splitting_item_groups(0) == 12ll, "inserter hasn't been moved");
-static_assert(test_splitting_item_groups(1) == 21ll, "inserter hasn't been moved");
-#endif
-
-
-CONSTEXPR_VAR auto test_goal_distance_is_all_valid(int index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024 * 32, 0} };
-	for (int i = 0, l = 32; i < l; ++i)
-	{
-		if (i == 0)
-		{
-			first_segment.add_inserter(index_inserter{ vec2_uint{ i * 128ll, 0ll } });
-			first_segment.get_inserter(i).set_item_type(item_type::wood);
-		}
-		else
-		{
-			first_segment.add_inserter(index_inserter{ vec2_uint{ (i * 128ll) + 256ll, 0ll } });
-			first_segment.get_inserter(i).set_item_type(item_type::wood);
-		}
-	}
-	for (int i = 0, l = 64; i < l; ++i)
-	{
-		if (i == 0) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 128ll, 0ll } });
-		else first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 128ll) + 128ll, 0ll } });
-	}
-
-	for (int i = 0, l = 128 + 32; i < l; ++i)
-	{
-		first_segment.update();
-	}
-
-	//return first_segment.get_new_item_position(index);
-	//return first_segment.get_inserter(index).has_linked_list_distance();
-	//return first_segment.get_item_group(0).count();
-	//return first_segment.get_item_group(1).get_direction_position(first_segment.get_end_distance_direction(), first_segment.goal_distance_in_group(1));
-	//return first_segment.get_item_group(1).get_last_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_item_data_group(1));
-	const bool return_val = first_segment.get_goal_distance(index).get_index_ptr() != nullptr;
-	return return_val;
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(1);
-#endif
-
-
-CONSTEXPR_VAR auto test_real_game_scenario_smelters(int index) noexcept
-{
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024 * 32, 0} };
-	for (int i = 0, l = 32; i < l; ++i)
-	{
-		if (i == 0)
-		{
-			first_segment.add_inserter(index_inserter{ vec2_uint{ i * 128ll, 0ll } });
-			first_segment.get_inserter(i).set_item_type(item_type::wood);
-		}
-		else
-		{
-			first_segment.add_inserter(index_inserter{ vec2_uint{ (i * 128ll) + 256ll, 0ll } });
-			first_segment.get_inserter(i).set_item_type(item_type::wood);
-		}
-	}
-	for (int i = 0, l = 64; i < l; ++i)
-	{
-		if (i == 0) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 128ll, 0ll } });
-		else first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 128ll) + 128ll, 0ll } });
-	}
-
-	for (int i = 0, l = 128 + 32; i < l; ++i)
-	{
-		first_segment.update();
-	}
-
-	//return first_segment.get_item_group(0).count();
-	//return first_segment.get_item_group(1).get_direction_position(first_segment.get_end_distance_direction(), first_segment.goal_distance_in_group(1));
-	//return first_segment.get_item_group(1).get_last_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_item_data_group(1));
-	return first_segment.get_new_item_position(index);
-};
-#ifdef CONSTEXPR_ASSERTS
-constexpr auto test_real_game_scenario_smelters_val = test_real_game_scenario_smelters(0);
-static_assert(test_real_game_scenario_smelters(0) == 1024ll, "inserter hasn't been moved");
-static_assert(test_real_game_scenario_smelters(1) == 1024 + 4096, "inserter hasn't been moved");
-static_assert(test_real_game_scenario_smelters(2) == 1024 + 4096 + 4096, "inserter hasn't been moved");
-static_assert(test_real_game_scenario_smelters(3) == 1024 + 4096 + 4096 + 12288, "inserter hasn't been moved");
-#endif

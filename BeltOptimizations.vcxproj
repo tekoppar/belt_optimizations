@@ -44,6 +44,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <EnableASAN>true</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -170,6 +171,7 @@
     <ClInclude Include="headers\belt_intrinsics.h" />
     <ClInclude Include="headers\belt_segment.h" />
     <ClInclude Include="headers\belt_segment_shared.h" />
+    <ClInclude Include="headers\belt_segment_static_asserts.h" />
     <ClInclude Include="headers\belt_utility.h" />
     <ClInclude Include="headers\belt_utility_concepts.h" />
     <ClInclude Include="headers\belt_utility_data.h" />

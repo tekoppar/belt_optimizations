@@ -76,14 +76,15 @@ public:
 
 private:
 	vec2_uint position{ 0, 0 };
-	index_iterator<item_groups_type, _vector> item_group{ 0ull, nullptr };
-	index_iterator<item_groups_data_type, _data_vector> item_group_data{ 0ull, nullptr };
-	index_iterator<goal_distance, _vector_goal_distance> item_group_distance{ 0ull, nullptr };
-	_vector_distance const* index_calculation_vector{ nullptr };
+	//index_iterator<item_groups_type, _vector> item_group{ 0ull, nullptr };
+	//index_iterator<item_groups_data_type, _data_vector> item_group_data{ 0ull, nullptr };
+	//index_iterator<goal_distance, _vector_goal_distance> item_group_distance{ 0ull, nullptr };
+	//_vector_distance const* index_calculation_vector{ nullptr };
 	item_type item_need_types[8]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square,
 	item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square };
 	__declspec(align(32)) item_uint item;
 #ifdef _DEBUG
+public:
 	long long loop_count = 0ll;
 	long long missed_grabs = 0ll;
 	long long local_grabbed_items = 0ll;
@@ -103,10 +104,10 @@ public:
 
 	constexpr index_inserter(const index_inserter& o) noexcept :
 		position{ o.position },
-		item_group{ o.item_group },
+		/*item_group{o.item_group},
 		item_group_data{ o.item_group_data },
 		item_group_distance{ o.item_group_distance },
-		index_calculation_vector{ o.index_calculation_vector },
+		index_calculation_vector{ o.index_calculation_vector },*/
 		item{ o.item }
 	{
 		if (std::is_constant_evaluated())
@@ -121,10 +122,10 @@ public:
 	};
 	constexpr index_inserter(index_inserter&& o) noexcept :
 		position{ std::exchange(o.position, vec2_uint{}) },
-		item_group{ std::exchange(o.item_group, {0ull, nullptr}) },
+		/*item_group{std::exchange(o.item_group, {0ull, nullptr})},
 		item_group_data{ std::exchange(o.item_group_data, {0ull, nullptr}) },
 		item_group_distance{ std::exchange(o.item_group_distance, {0ull, nullptr}) },
-		index_calculation_vector{ std::exchange(o.index_calculation_vector, nullptr) },
+		index_calculation_vector{ std::exchange(o.index_calculation_vector, nullptr) },*/
 		item{ std::exchange(o.item, item_uint{}) }
 	{
 		if (std::is_constant_evaluated())
@@ -140,10 +141,10 @@ public:
 	constexpr index_inserter& operator=(const index_inserter& o) noexcept
 	{
 		position = o.position;
-		item_group = o.item_group;
+		/*item_group = o.item_group;
 		item_group_data = o.item_group_data;
 		item_group_distance = o.item_group_distance;
-		index_calculation_vector = o.index_calculation_vector;
+		index_calculation_vector = o.index_calculation_vector;*/
 		item = o.item;
 
 		if (std::is_constant_evaluated())
@@ -161,10 +162,10 @@ public:
 	constexpr index_inserter& operator=(index_inserter&& o) noexcept
 	{
 		position = std::exchange(o.position, vec2_uint{});
-		item_group = std::exchange(o.item_group, { 0ull, nullptr });
+		/*item_group = std::exchange(o.item_group, {0ull, nullptr});
 		item_group_data = std::exchange(o.item_group_data, { 0ull, nullptr });
 		item_group_distance = std::exchange(o.item_group_distance, { 0ull, nullptr });
-		index_calculation_vector = std::exchange(o.index_calculation_vector, nullptr);
+		index_calculation_vector = std::exchange(o.index_calculation_vector, nullptr);*/
 		item = std::exchange(o.item, item_uint{});
 
 		if (std::is_constant_evaluated())
@@ -214,7 +215,7 @@ public:
 
 		return false;
 	};
-	inline constexpr bool has_linked_list_data() const noexcept
+	/*inline constexpr bool has_linked_list_data() const noexcept
 	{
 		return item_group != nullptr;
 	};
@@ -278,9 +279,9 @@ private:
 
 		if (index_ptr == item_group.get_index()) return true;
 		else return false;
-	};
+	};*/
 public:
-	constexpr bool update_linked_list_group_data(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
+	/*constexpr bool update_linked_list_group_data(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
 	{
 		//if (item_group && !item_group.vector_empty()) return false;
 		//if (item_group_data && !item_group_data.vector_empty()) return false;
@@ -333,15 +334,15 @@ public:
 		item_group.set_index(index_ptr);
 		item_group_data.set_index(index_ptr);
 		return true;
-	};
+	};*/
 public:
-	constexpr void set_linked_list_data(const index_iterator<item_groups_type, _vector>& iter, const index_iterator<item_groups_data_type, _data_vector> data_iter, const index_iterator<goal_distance, _vector_goal_distance>& dist_iter, _vector_distance const* dist_ptr) noexcept
+	/*constexpr void set_linked_list_data(const index_iterator<item_groups_type, _vector>& iter, const index_iterator<item_groups_data_type, _data_vector> data_iter, const index_iterator<goal_distance, _vector_goal_distance>& dist_iter, _vector_distance const* dist_ptr) noexcept
 	{
 		item_group = iter;
 		item_group_data = data_iter;
 		item_group_distance = dist_iter;
 		index_calculation_vector = dist_ptr;
-	};
+	};*/
 	inline constexpr void grab_item(const item_uint& _item) noexcept
 	{
 		item = _item;
@@ -350,12 +351,12 @@ public:
 	{
 		return item;
 	};
-	inline constexpr index_iterator<item_groups_type, _vector> get_item_group() const noexcept
+	/*inline constexpr index_iterator<item_groups_type, _vector> get_item_group() const noexcept
 	{
 		return item_group;
-	};
+	};*/
 
-	constexpr void update_linked_data(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
+	/*constexpr void update_linked_data(belt_utility::belt_direction direction, long long segment_end_direction) noexcept
 	{
 		//long long index_ptr = (*item_group_distance).get_index_ptr() - &index_calculation_vector->operator[](0);
 		if (std::is_constant_evaluated() == false)
@@ -432,5 +433,5 @@ public:
 		}
 
 		return -1;
-	};
+	};*/
 };

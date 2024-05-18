@@ -766,8 +766,9 @@ namespace mem
 		{
 #ifdef _DEBUG
 			if (this->size() < index) throw std::runtime_error("");
-			if (this->size() == index) throw std::runtime_error("");
+			//if (this->size() == index) throw std::runtime_error("");
 			if (this->size() >= index) return this->values.first[index];
+			throw std::runtime_error("");
 #else
 			return values.first[index];
 #endif
@@ -778,8 +779,9 @@ namespace mem
 		{
 #ifdef _DEBUG
 			if (this->usize() < index) throw std::runtime_error("");
-			if (this->usize() == index) throw std::runtime_error("");
+			//if (this->usize() == index) throw std::runtime_error("");
 			if (this->usize() >= index) return this->values.first[index];
+			throw std::runtime_error("");
 #else
 			return values.first[index];
 #endif
@@ -791,8 +793,9 @@ namespace mem
 		{
 #ifdef _DEBUG
 			if (this->size() < index) throw std::runtime_error("");
-			if (this->size() == index) throw std::runtime_error("");
-			if (this->size() > index) return this->values.first[index];
+			//if (this->size() == index) throw std::runtime_error("");
+			if (this->size() >= index) return this->values.first[index];
+			throw std::runtime_error("");
 #else
 			return values.first[index];
 #endif
@@ -803,8 +806,9 @@ namespace mem
 		{
 #ifdef _DEBUG
 			if (this->usize() < index) throw std::runtime_error("");
-			if (this->usize() == index) throw std::runtime_error("");
+			//if (this->usize() == index) throw std::runtime_error("");
 			if (this->usize() >= index) return this->values.first[index];
+			throw std::runtime_error("");
 #else
 			return values.first[index];
 #endif
@@ -1251,7 +1255,7 @@ namespace mem
 		};
 
 		inline constexpr value_type& emplace_back() noexcept
-			requires(std::is_default_constructible_v<value_type> == true)
+			requires(mem::concepts::vector_has_method<value_type> == false && std::is_default_constructible_v<value_type> == true)
 		{
 			static_assert(std::is_default_constructible_v<value_type> == true);
 			if (this->needs_resize()) [[unlikely]]
@@ -1270,6 +1274,30 @@ namespace mem
 						new (this->values.last) value_type{};
 					else
 						*values.last = value_type{};
+					++this->values.last;
+					return *(values.last - 1ll);
+				}
+		};
+		inline constexpr value_type& emplace_back() noexcept
+			requires(mem::concepts::vector_has_method<value_type> == true && std::is_default_constructible_v<value_type> == true)
+		{
+			static_assert(std::is_default_constructible_v<value_type> == true);
+			if (this->needs_resize()) [[unlikely]]
+				{
+					this->resize();
+					if (std::is_constant_evaluated() == false)
+						new (this->values.last) value_type{ 4 };
+					else
+						*values.last = value_type{ 4 };
+					++this->values.last;
+					return *(values.last - 1ll);
+				}
+			else [[likely]]
+				{
+					if (std::is_constant_evaluated() == false)
+						new (this->values.last) value_type{ 4 };
+					else
+						*values.last = value_type{ 4 };
 					++this->values.last;
 					return *(values.last - 1ll);
 				}

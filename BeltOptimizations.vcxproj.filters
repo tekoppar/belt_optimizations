@@ -116,6 +116,9 @@
     <ClInclude Include="headers\shared_classes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="headers\belt_segment_static_asserts.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="NatvisFile.natvis" />

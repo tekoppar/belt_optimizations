@@ -81,4 +81,20 @@ struct vec2_uint
 	{
 		return !(*this == rhs);
 	};
+	constexpr bool operator>(const vec2_uint& rhs) const noexcept
+	{
+		return x > rhs.x && y > rhs.y;
+	};
+	constexpr bool operator<(const vec2_uint& rhs) const noexcept
+	{
+		return rhs > *this;
+	};
+	constexpr bool operator>=(const vec2_uint& rhs) const noexcept
+	{
+		return x >= rhs.x && y >= rhs.y;
+	};
+	constexpr bool operator<=(const vec2_uint& rhs) const noexcept
+	{
+		return rhs >= *this;
+	};
 };

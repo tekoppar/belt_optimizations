@@ -34,6 +34,7 @@ public:
 
 	constexpr void set_checked_index_ptr(std::nullptr_t) noexcept
 	{
+		//TODO need to fix if the object before it is alive and is a goal object itself
 		if (!is_offset_alive(-1ll, goal_distance_dead_object_v)) index_ptr = nullptr;
 #ifdef _DEBUG
 		else throw std::runtime_error("");
