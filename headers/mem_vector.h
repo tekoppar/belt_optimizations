@@ -16,6 +16,10 @@
 #include <concrt.h>
 #include <vector>
 #include <corecrt_terminate.h>
+#include <cstring>
+#ifdef _DEBUG
+#include <exception>
+#endif
 
 #include "macros.h"
 #include "math_utility.h"
@@ -503,9 +507,9 @@ namespace mem
 			}
 			else
 			{
-				constexpr auto closest_alignmnet = (mem::aligned_by<value_type, sizeof(value_type)>() == 0ull ? (mem::aligned_by<value_type, 32ull>() == 0ull ? 32ull : mem::get_closest_alignmnet<value_type>()) : mem::get_closest_alignmnet<value_type>());
-				if (n != 0) operator delete[](memory_block, n, std::align_val_t{ closest_alignmnet });
-				else operator delete[](memory_block, std::align_val_t{ closest_alignmnet });
+				constexpr auto closest_alignment = (mem::aligned_by<value_type, sizeof(value_type)>() == 0ull ? (mem::aligned_by<value_type, 32ull>() == 0ull ? 32ull : mem::get_closest_alignmnet<value_type>()) : mem::get_closest_alignmnet<value_type>());
+				if (n != 0) operator delete[](memory_block, n, std::align_val_t{ closest_alignment });
+				else operator delete[](memory_block, std::align_val_t{ closest_alignment });
 			}
 		};
 	};
@@ -682,7 +686,7 @@ namespace mem
 		inline constexpr vector(long long capacity, _Alty allocator = _Alty{}) noexcept : //requires(mem::is_allocator_v<Allocator, Object>&& mem::is_allocator_requirements_v<_Alty, Object>)
 			values{ _Alty_traits::allocate(allocator, static_cast<unsigned long long>(capacity)), static_cast<unsigned long long>(capacity) }
 		{};
-		inline constexpr ~vector() noexcept
+		__declspec(noinline) constexpr ~vector() noexcept
 			//requires (vector_has_method<Object> == false)
 		{
 #ifdef _DEBUG
@@ -694,9 +698,9 @@ namespace mem
 				{
 					if (!std::is_constant_evaluated())
 					{
-						for (iterator iter = begin(); iter != end(); ++iter)
+						for (iterator iter = begin(); iter != last(); ++iter)
 						{
-							(*(iter)).~Object();
+							(*(iter)).Object::~Object();
 						}
 					}
 				}
@@ -1096,7 +1100,7 @@ namespace mem
 			if (values.end == values.first) new_size = (old_container.get_ucapacity() * 2ull) + 2ull;
 			else new_size = old_container.get_ucapacity() * 2ull;
 			auto old_size = old_container.size();
-			_Alty MemoryAllocator{};
+			const _Alty MemoryAllocator{};
 
 #ifdef _DEBUG
 			if (new_size <= 0ll) throw std::runtime_error("");
@@ -1736,7 +1740,7 @@ namespace mem
 
 			iterator first = start;
 			const iterator _end = this->end();
-			_Alty MemoryAllocator{};
+			const _Alty MemoryAllocator{};
 			while (first != end)
 			{
 				if constexpr (std::is_trivially_destructible_v<Object> == false) _Alty_traits::destroy(MemoryAllocator, first.operator->());
@@ -1843,7 +1847,7 @@ namespace mem
 
 	static_assert(std::is_same_v<decltype(mem::vector<int>{}.begin()), decltype(mem::iterator<mem::vector<int>::scary_val>{}) > == true, "no");
 
-	constexpr auto test_mem_vector_back() noexcept
+	CONSTEXPR_VAR auto test_mem_vector_back() noexcept
 	{
 		mem::vector<int> vec;
 		vec.push_back(0);
@@ -1855,7 +1859,9 @@ namespace mem
 
 		return vec.back();
 	};
+#ifdef CONSTEXPR_ASSERTS
 	static_assert(test_mem_vector_back() == 5, "no");
+#endif
 
 	template<typename iter_type>
 	constexpr void update_goal_pointer_iters(iter_type iter, iter_type last_iter, long long offset) noexcept
@@ -2242,7 +2248,7 @@ namespace mem
 
 namespace mem
 {
-	constexpr int validate_mem_iterator()
+	CONSTEXPR_VAR int validate_mem_iterator()
 	{
 		using _Alty = typename std::allocator_traits<mem::allocator<int>>::template rebind_alloc<int>;
 		using scary_val = mem::vector_value<std::conditional_t<mem::concepts::is_simple_alloc_v<_Alty>, mem::simple_types<int>, mem::vector_iterator_types<int, long long, std::ptrdiff_t, int*, const int*, int&, const int&>>>;
@@ -2283,10 +2289,12 @@ namespace mem
 
 		return 1;
 	};
+#ifdef CONSTEXPR_ASSERTS
 	constexpr int validate_iterator_value = validate_mem_iterator();
 	static_assert(validate_mem_iterator() == 1, "non working iterators");
+#endif
 
-	static constexpr std::size_t TestMemVectorConstexpr() noexcept
+	CONSTEXPR_VAR std::size_t TestMemVectorConstexpr() noexcept
 	{
 		/*std::vector<Rect, mem::allocator<Rect>> test_custom_allocator;
 		test_custom_allocator.push_back(Rect{});
@@ -2313,13 +2321,16 @@ namespace mem
 
 		return test_capacity.get_capacity();// test_custom_allocator.size();// vector.get_ucapacity();
 	};
+#ifdef CONSTEXPR_ASSERTS
 	constexpr std::size_t test_value = TestMemVectorConstexpr();
+
 
 	static_assert(TestMemVectorConstexpr() == 3ull);
 	static_assert(std::is_copy_constructible_v<mem::vector<long long>>);
 	static_assert(std::is_copy_assignable_v<mem::vector<long long>>);
+#endif
 
-	constexpr auto test_insert() noexcept
+	CONSTEXPR_VAR auto test_insert() noexcept
 	{
 		mem::vector<long long> iterator_indexes_1{ 25 };
 		iterator_indexes_1.emplace_back(15ll);
@@ -2328,9 +2339,11 @@ namespace mem
 
 		return iterator_indexes_1[1ll] == -250ll;
 	};
+#ifdef CONSTEXPR_ASSERTS
 	static_assert(test_insert() == true, "no");
+#endif
 
-	static constexpr auto test_mem_erase_indices()
+	CONSTEXPR_VAR auto test_mem_erase_indices()
 	{
 		mem::vector<int> v{ 5 };
 		v.emplace_back(0);
@@ -2357,10 +2370,12 @@ namespace mem
 
 		return v.size();
 	};
+#ifdef CONSTEXPR_ASSERTS
 	constexpr auto mem_erase_indices_val = test_mem_erase_indices();
 	static_assert(test_mem_erase_indices() == 3, "erased incorrectly");
+#endif
 
-	constexpr static auto test_vector()
+	CONSTEXPR_VAR auto test_vector()
 	{
 		int* v = nullptr;
 		std::size_t c_l = 0;
@@ -2386,20 +2401,24 @@ namespace mem
 		mem::deallocate_ptr<int, mem::Allocating_Type::NEW>(v);
 		return return_val;
 	};
+#ifdef CONSTEXPR_ASSERTS
 	constexpr auto vector_erase_indices_val = test_vector();
 	static_assert(test_vector() == 3ll, "no");
+#endif
 
-	constexpr static auto test_mem_vector_empty(int insert_count)
+	CONSTEXPR_VAR auto test_mem_vector_empty(int insert_count)
 	{
 		mem::vector<int> test{ 4 };
 		for (int i = 0; i < insert_count; ++i) test.emplace_back(i);
 		return test.empty();
 	};
+#ifdef CONSTEXPR_ASSERTS
 	static_assert(test_mem_vector_empty(0) == true, "vector is not empty");
 	static_assert(!test_mem_vector_empty(4) == true, "vector is not empty");
+#endif
 
 
-	constexpr static auto test_mem_vector_begin_last(int insert_count)
+	CONSTEXPR_VAR auto test_mem_vector_begin_last(int insert_count)
 	{
 		mem::vector<int> test{ 4 };
 		for (int i = 0; i < insert_count; ++i) test.emplace_back(i);
@@ -2415,15 +2434,17 @@ namespace mem
 
 		return calc;
 	};
+#ifdef CONSTEXPR_ASSERTS
 	static_assert(test_mem_vector_begin_last(0) == 0, "vector is not empty");
 	static_assert(test_mem_vector_begin_last(4) == 6, "vector is not empty");
+#endif
 
 	struct ice_struct
 	{
 		mem::iterator<mem::vector_value<mem::simple_types<int>>> first{ nullptr };
 		mem::iterator<mem::vector_value<mem::simple_types<int>>> second{ nullptr };
 	};
-	constexpr auto test_mem_vector_ice(int insert_count)
+	CONSTEXPR_VAR auto test_mem_vector_ice(int insert_count)
 	{
 		mem::vector<int> ice{ 4 };
 		mem::vector<ice_struct> test{ 4 };
@@ -2444,6 +2465,8 @@ namespace mem
 		}
 		return calc;
 	};
+#ifdef CONSTEXPR_ASSERTS
 	static_assert(test_mem_vector_ice(0) == 0, "vector is not empty");
 	static_assert(test_mem_vector_ice(4) == 0, "vector is not empty");
+#endif
 };

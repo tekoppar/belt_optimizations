@@ -134,6 +134,13 @@ namespace belt_utility
 		object result = object{};
 	};
 
+	enum class distance_comparison
+	{
+		null = -1,
+		distance_is_before = 0,
+		distance_is_after = 1,
+		distance_is_inside = 2
+	};
 	enum class need_new_slot_result
 	{
 		update_pointer_to_new_index = 0,
@@ -145,5 +152,11 @@ namespace belt_utility
 	{
 		adding,
 		removing
+	};
+
+	struct add_inserter_return_indexes
+	{
+		long long index{ 0 };
+		long long nested_index{ 0 };
 	};
 };

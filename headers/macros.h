@@ -2,6 +2,13 @@
 
 #include <type_traits>
 
+//#define CONSTEXPR_ASSERTS
+#ifdef CONSTEXPR_ASSERTS
+#define CONSTEXPR_VAR constexpr
+#else
+#define CONSTEXPR_VAR static
+#endif
+
 #define WHAT_MM_SHUFFLE(fp0,fp1,fp2,fp3) (((fp3) << 6) | ((fp2) << 4) | ((fp1) << 2) | ((fp0)))
 
 #ifdef _IS_ASSERT_CONSTEXPR_

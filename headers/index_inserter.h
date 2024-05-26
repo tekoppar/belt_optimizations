@@ -16,7 +16,7 @@
 /*
 * The reason destination slots were so performant is because they only end up calling methods on objects which actually have a need for it.
 * If you have a line of items (or item groups) only the first in line to a destination has a direct need to have something done to it, all
-* the others can be calculated later once the first in line is done on stored data. And this is what the destination slot did, since only 
+* the others can be calculated later once the first in line is done on stored data. And this is what the destination slot did, since only
 * the first item group in line to a inserter is being updated, once an item passes said inserter we start moving the items to a new item group.
 *
 * TLDR, only calls what's directly necessary
@@ -109,6 +109,15 @@ public:
 		item_group_distance{ o.item_group_distance },
 		index_calculation_vector{ o.index_calculation_vector },*/
 		item{ o.item }
+#ifdef _DEBUG
+		,
+		loop_count{ o.loop_count },
+		missed_grabs{ o.missed_grabs },
+		local_grabbed_items{ o.local_grabbed_items },
+		no_item_found{ o.no_item_found },
+		wrong_goal_pointer_frame_count{ o.wrong_goal_pointer_frame_count },
+		wrong_goal_pointer_updated{ o.wrong_goal_pointer_updated }
+#endif
 	{
 		if (std::is_constant_evaluated())
 		{
@@ -127,6 +136,15 @@ public:
 		item_group_distance{ std::exchange(o.item_group_distance, {0ull, nullptr}) },
 		index_calculation_vector{ std::exchange(o.index_calculation_vector, nullptr) },*/
 		item{ std::exchange(o.item, item_uint{}) }
+#ifdef _DEBUG
+		,
+		loop_count{ o.loop_count },
+		missed_grabs{ o.missed_grabs },
+		local_grabbed_items{ o.local_grabbed_items },
+		no_item_found{ o.no_item_found },
+		wrong_goal_pointer_frame_count{ o.wrong_goal_pointer_frame_count },
+		wrong_goal_pointer_updated{ o.wrong_goal_pointer_updated }
+#endif
 	{
 		if (std::is_constant_evaluated())
 		{
@@ -146,6 +164,14 @@ public:
 		item_group_distance = o.item_group_distance;
 		index_calculation_vector = o.index_calculation_vector;*/
 		item = o.item;
+#ifdef _DEBUG
+		loop_count = o.loop_count;
+		missed_grabs = o.missed_grabs;
+		local_grabbed_items = o.local_grabbed_items;
+		no_item_found = o.no_item_found;
+		wrong_goal_pointer_frame_count = o.wrong_goal_pointer_frame_count;
+		wrong_goal_pointer_updated = o.wrong_goal_pointer_updated;
+#endif
 
 		if (std::is_constant_evaluated())
 		{
@@ -167,6 +193,14 @@ public:
 		item_group_distance = std::exchange(o.item_group_distance, { 0ull, nullptr });
 		index_calculation_vector = std::exchange(o.index_calculation_vector, nullptr);*/
 		item = std::exchange(o.item, item_uint{});
+#ifdef _DEBUG
+		loop_count = o.loop_count;
+		missed_grabs = o.missed_grabs;
+		local_grabbed_items = o.local_grabbed_items;
+		no_item_found = o.no_item_found;
+		wrong_goal_pointer_frame_count = o.wrong_goal_pointer_frame_count;
+		wrong_goal_pointer_updated = o.wrong_goal_pointer_updated;
+#endif
 
 		if (std::is_constant_evaluated())
 		{
@@ -291,7 +325,7 @@ public:
 
 		long long index_ptr = (*item_group_distance).get_index_ptr() - &index_calculation_vector->operator[](0);
 
-		if (index_ptr != item_group.get_index()) 
+		if (index_ptr != item_group.get_index())
 		{
 			item_group.set_index(index_ptr);
 			item_group_data.set_index(index_ptr);

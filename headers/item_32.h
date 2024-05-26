@@ -2,6 +2,7 @@
 
 #include <immintrin.h>
 #include <type_traits>
+#include <cstring>
 
 #include "item.h"
 #include "vectors.h"
@@ -102,8 +103,8 @@ public:
 
 	constexpr item_32_data() noexcept
 	{};
-	constexpr ~item_32_data() noexcept
-	{};
+	/*constexpr ~item_32_data() noexcept
+	{};*/
 
 	constexpr item_32_data(const item_32_data& o) noexcept
 	{
@@ -193,6 +194,8 @@ namespace item_data_utility
 
 	constexpr item_32_data_split split_from_index(item_32_data* _this, short index) noexcept
 	{
+		if (index < 0 || index >= 32) return { *_this, 0 }; //TODO BAD ERROR CHECKING
+
 		item_32_data split_left = *_this;
 		const long long l = static_cast<long long>(index) + 1;
 		const auto new_count = 32 - (index + 1);
@@ -453,7 +456,6 @@ public:
 	};
 	inline constexpr long long get_item_direction_position(belt_utility::belt_direction direction, const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, short index) const noexcept
 	{
-		//index = fix_index(item_data, index);
 		switch (direction)
 		{
 			default:

@@ -44,8 +44,12 @@ void second_test_belt_setup() noexcept
 	constexpr long long max_inserters = (second_test_max_belts * 32ll) / inserter_pos - 1ll;
 	for (long long i = 0, l = max_inserters; i < l; ++i)
 	{
-		const auto inserterd_index = second_test_all_belts.add_inserter(index_inserter{ vec2_uint{inserter_pos * i + 35000ll, 32ll} });
-		second_test_all_belts.get_inserter(inserterd_index).set_item_type(item_type::wood);
+		for (long long x = 0, lx = 3; x < lx; ++x)
+		{
+			const auto inserterd_index = second_test_all_belts.add_inserter(index_inserter{ vec2_uint{(inserter_pos * i + 35000ll) + (x * 32ll), 32ll}});
+			auto& found_inserter = second_test_all_belts.get_inserter(inserterd_index);
+			found_inserter.set_item_type(item_type::wood);
+		}
 	}
 #elif __BELT_SWITCH__ == 4
 	second_test_all_belts = belt_segment{ vec2_uint{0, 0}, vec2_uint{ second_test_max_belts * 32 * 32 * 8, 0} };
@@ -84,8 +88,8 @@ std::size_t second_test_get_total_items_on_belts() noexcept
 
 void second_belt_test()
 {
-	auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(1);
-	auto test_new_item_distance_val = test_real_game_scenario_smelters(0);
+	auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(0);
+	auto test_new_item_distance_val = test_real_game_scenario_smelters(1);
 
 	second_test_belt_setup();
 

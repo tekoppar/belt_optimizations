@@ -480,11 +480,16 @@ CONSTEXPR_VAR auto test_real_game_scenario_smelters(int index) noexcept
 			first_segment.get_inserter(i).set_item_type(item_type::wood);
 		}
 	}
-	for (int i = 0, l = 64; i < l; ++i)
+	for (int j = 0, jl = 4; j < jl; ++j)
 	{
-		if (i == 0) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 128ll, 0ll } });
-		else first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 128ll) + 128ll, 0ll } });
+		for (int i = 0, l = 32; i < l; ++i)
+		{
+			if (j == 0) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (l * j + i) * 128ll, 0ll } });
+			else first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ ((l * j + i) * 128ll) + 128ll, 0ll } });
+		}
 	}
+
+	if (first_segment.get_item_groups_goal_distance_size() < 2ll) throw std::runtime_error("");
 
 	for (int i = 0, l = 128 + 32; i < l; ++i)
 	{
