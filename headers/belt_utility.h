@@ -49,7 +49,6 @@ namespace belt_utility
 		}
 	};
 
-	//template<long long start_x, long long start_y, long long end_x, long long end_y>
 	static consteval belt_direction direction_from_positions(vec2_uint start, vec2_uint end) noexcept
 	{
 		if (start.x != end.x)
@@ -437,9 +436,8 @@ namespace belt_utility
 		requires(class_has_iterator<vector>)
 	{
 		auto distance_position = segment_end_direction - position;
-		auto found_goal = belt_utility::binary_find(segment_end_direction - position, goal_dist_vec, &goal_dist_vector::value_type::get_distance);// belt_utility::find_closest_goal_binary(segment_end_direction, goal_dist_vec, position); //
+		auto found_goal = belt_utility::binary_find(segment_end_direction - position, goal_dist_vec, &goal_dist_vector::value_type::get_distance);
 		auto found_goal_index = found_goal - goal_dist_vec.begin();
-		//auto found_inserter = belt_utility::find_which_inserter_group_distance_belongs_in(segment_end_direction, direction, distance_position, inserter_vec, vector::value_type::belt_item_size);
 		auto found_inserter = inserter_vec.begin() + found_goal_index;
 
 		bool force_new_group_after = false;
@@ -520,7 +518,6 @@ namespace belt_utility
 					if (begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter) - max_distance > position && tmp->get_direction_position(segment_end_direction, *tmp_dist) + max_distance < position) //if vector is sorted from high to low
 						return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, tmp };
 				}
-				//begin_iter = tmp;
 				++loop_index;
 			}
 			else return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, end_iter };

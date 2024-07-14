@@ -13,81 +13,8 @@
 #include "type_conversion.h"
 
 class belt_segment;
-//#include "single_list_block.h"
 
 #define optimization_comp
-
-/*
-* The concept for this class is as items move on a belt there's only two things we actually care about
-* The current position of the first item and the goal destination. With that in mind there's only two
-* variables we have to iterate for in this class's 32 items. So for each update called were moving 32
-* items instead of 4 (belt.h) or 32 (belt_32.h).
-*
-* There's also another advantage of this setup, if you use any of the belt classes to move items, at
-* some point items will hit a point where they will need to move from one belt to another. This comes
-* in fixed intervals of every x instance of said belt, so the performance hit of moving an item to
-* another belt and then shifting the arrays to the left is gonna add up quite quickly.
-*
-* But since we don't have "belts" in this instance, we just have a line of items. That problem will
-* only occur once an item reaches it's destination. So we can move our items until the goal distance
-* is equal to zero, then we would either flag is_stuck or in my case I decided to just remove the item.
-* If you wanted to the items to stop you would just set is_stuck to true.
-*
-* So the setup for all this requires that item_32's are created when items enter new segments of "belts".
-* Each segment stores all the item_32 that currently in said segment. A belt moving copper that splits into
-* two around the middle would have 3 segments, from the start up to the split, then at the start of the split
-* to the end for each split. So it would look something like this where s = start of a segment,
-* e = end of a segment, c = copper plate, _ = is belt part and | = the splitter.
-* s___c___c___c___c_e|s__c___c___c___e
-*  					 |s__c___c___c___e
-*
-* So every time an item moves to a new segment it either needs to be added to an already existing item_32
-* or create a new item_32 to add itself too. An item can only be added to a item_32 if the distance between
-* the last items position and the newly added is less than or equal too 255, item_32 only does less than.
-* There's no support for adding items in the middle, but that can be achieved by comparing the x position
-* of the new item with the distance to x item until it's less than and then check if the next item in the
-* series has a distance greater than 63 if it does the item can fit and you just shift the arrays from that index.
-*
-* Direction is currently not used, so at the moment the class only supports movement from left to right.
-* There's not much that need to be changed to support that, I would recommend switching the x and y values
-* based on the direction, since then there's no need to have code for all 4 directions and only need left to
-* right or right to left.
-*
-* One big issue to solve is how to deal with items having multiple destinations that overlaps back and fourth.
-* One solution would be to add an array of 32 bools used to indicate if an item is reserved, this would be
-* used so that when an inserter wants an item. It checks from it's position backwards to the start of the belt
-* segment if an item it wants to pickup exist, it would do this by looping over all the stored item_32 in said
-* segment and checking if an item that matches the item_type it wants is there. If it finds a matching item the
-* inserter stores the distance from it to the item, then it decrements the distance the same item_32 does ever
-* update and once it reaches zero the item is where the inserter picks it up.
-*
-* This solution has some major advantages, items don't need to be split up into different item_32 based on what
-* inserters wants to pick up, there's no need to keep track of any data besides a bool being toggled. Nothing
-* in the code in item_32 needs to change except to add in support for the reserved bool code to indicate that an
-* item is reserved and shift said array when an item is removed. Besides that the item_32 can keep moving until
-* it either reaches zero items or the final end segment.
-*
-* The way is_stuck would be used would be outside the item_32 instance and be in whatever loop is used to call
-* the update method. Since each start of a segments holds all the instances it would probably be good to put the
-* loop code there, then you can check the first segment in the vector if it's stuck. If it is stuck all item_32
-* in the segment is also stuck, if it's not stuck then all instances can move. So there's only a need to check
-* if one instance of item_32 can move or not to move all instances in said segment. So in the segments code loop
-* you would just check the first segment, if it can move you do the loop, if it can't move you return. Then each
-* segment would have a link to connected segments and signal each other if something can move or not.
-*
-* For inserters inserting items onto a belt you can use the reserved array to mark that an item is gonna be inserted
-* and use the same logic as taking items but instead adding onto it. Would need to add in checks for if a spot is
-* reserved in the add_item code, but that's just one more check.
-*
-*
-* TODO
-*
-* It might be a good idea to test if adding 8bit and 16bit mode variable to the class would be a benefit since
-* than you could have a greater distance between items if there's not enough items moving to avoid creating too
-* many instances of item_32 to hold few items. You would only need to switch on the add and shift parts to use
-* 16bit intrinsics instead of 8bit. This way you could still store the instances as objects instead of ptrs and
-* avoid using virtual functions to have a item_32_8bit and item_32_16bit version in the same vector.
-*/
 
 class item_32_data
 {
@@ -104,8 +31,6 @@ public:
 
 	constexpr item_32_data() noexcept
 	{};
-	/*constexpr ~item_32_data() noexcept
-	{};*/
 
 	constexpr item_32_data(const item_32_data& o) noexcept
 	{
@@ -577,7 +502,6 @@ public:
 			item_data.item_distance[0] = static_cast<short>(0);
 			item_data.item_distance[1] = static_cast<short>(new_distance);
 			item_data.items[0] = new_item;
-			//last_distance_to_item += item_data->item_distance[1];
 			return 0;
 		}
 
@@ -591,7 +515,6 @@ public:
 			item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[item_count - 1] = static_cast<short>(new_item_position.x - direction_position);
 			item_data.items[item_count - 1] = new_item;
-			//last_distance_to_item += item_data->item_distance[item_count - 1];
 			return item_count - 1ll;
 		}
 
@@ -605,7 +528,6 @@ public:
 				item_data.contains_item[i + 1] = true;
 				item_data.item_distance[i + 1] = static_cast<short>(new_item_position.x - direction_position);
 				item_data.items[i + 1] = new_item;
-				//last_distance_to_item += item_data->item_distance[i + 1];
 				return tc::narrow<short>(i) + 1;
 			}
 		}
@@ -620,7 +542,6 @@ public:
 	{
 		if (item_count == 0ll)
 		{
-			//*item_goal_distance = *item_goal_distance - new_item_position.x;
 			++item_count;
 			item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[item_count - 1] = static_cast<short>(0);
@@ -642,7 +563,6 @@ public:
 			item_data.item_distance[0] = static_cast<short>(0);
 			item_data.item_distance[1] = static_cast<short>(new_distance);
 			item_data.items[0] = new_item;
-			//last_distance_to_item += item_data->item_distance[1];
 			return 0;
 		}
 
@@ -656,7 +576,6 @@ public:
 			item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[item_count - 1] = static_cast<short>(new_item_position.x - direction_position);
 			item_data.items[item_count - 1] = new_item;
-			//last_distance_to_item += item_data->item_distance[item_count - 1];
 			return item_count - 1;
 		}
 
@@ -670,7 +589,6 @@ public:
 				item_data.contains_item[i + 1] = true;
 				item_data.item_distance[i + 1] = static_cast<short>(new_item_position.x - direction_position);
 				item_data.items[i + 1] = new_item;
-				//last_distance_to_item += item_data->item_distance[i + 1];
 				return tc::narrow<short>(i) + 1;
 			}
 		}
@@ -692,21 +610,14 @@ public:
 				item_data.contains_item[index] = false;
 				item_data.item_distance[index] = 0;
 				item_data_utility::shift_arrays_right(item_count, item_data);
-				//for (int i = 0; i < item_count; ++i) item_data.item_distance[i] += new_goal_distance;
-				//*item_goal_distance += new_goal_distance;
-				//last_distance_to_item -= new_goal_distance;
 				--item_count;
 			}
 			else
 			{
-				//const unsigned char removed_distance = item_data.item_distance[index];
 				item_data.contains_item[index] = false;
 				item_data.item_distance[index] = 0;
 				item_data.items[index] = belt_item{};
 				item_data_utility::shift_arrays_right_from_index(item_count, item_data, index);
-				//for (int i = index; i < item_count; ++i) item_data.item_distance[i] += removed_distance;
-				//item_data.item_distance[index] += removed_distance;
-				//last_distance_to_item -= removed_distance;
 				--item_count;
 			}
 
@@ -714,7 +625,6 @@ public:
 		}
 		else
 		{
-			//last_distance_to_item = 0;
 			*item_goal_distance += item_data.item_distance[index];
 			--item_count;
 			item_data.contains_item[index] = false;
@@ -737,20 +647,16 @@ public:
 			item_data.item_distance[0ll] = 0;
 			item_data_utility::shift_arrays_right(item_count, item_data);
 			*item_goal_distance += new_goal_distance;
-			//last_distance_to_item -= new_goal_distance;
 			--item_count;
 		}
 		else
 		{
-			//last_distance_to_item = 0;
-			//*item_goal_distance->update_goal_distance(0ll);
 			--item_count;
 			*item_goal_distance -= item_data.item_distance[0ll];
 			item_data.contains_item[0ll] = false;
 			item_data.item_distance[0ll] = 0;
 			item_data.items[0ll] = belt_item{};
 			return item_removal_result::item_removed_zero_remains;
-			//belt_segment_helpers::item_group_has_zero_count(segment_ptr, this, &item_data);
 		}
 
 		return item_removal_result::item_removed;
@@ -812,18 +718,6 @@ public:
 
 		return { -1ll, -1ll };
 	};
-	/*template<belt_utility::belt_direction direction>
-	constexpr short get_first_item_of_type_before_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, item_type type, long long direction_position) const noexcept
-	{
-		for (long long i = 0ll; i < item_count; ++i)
-		{
-			if (item_data.items[i].type != type) continue;
-			auto item_position = get_item_direction_position<direction>(segment_end_direction, item_goal_distance, item_data, i);
-			if (item_position <= direction_position + belt_item_size) return i;
-		}
-
-		return -1;
-	};*/
 	constexpr item_removal_result try_to_remove_item(goal_distance* item_goal_distance, item_32_data& item_data) noexcept
 	{
 		if (std::is_constant_evaluated() == false)
@@ -865,14 +759,6 @@ public:
 				++moved_items;
 			}
 			previous_item_dist = item_data.item_distance[i] + belt_item_size;
-			/*else if (item_data.contains_item[i] == false && item_data.item_distance[i] > 0)
-			{
-				--item_data.item_distance[i];
-				if (item_data.item_distance[i])
-				{
-					if (remove_empty_item(item_data, i)) --i;
-				}
-			}*/
 		}
 
 		if (std::is_constant_evaluated() == false) items_moved_per_frame += moved_items;

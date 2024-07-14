@@ -14,7 +14,6 @@ namespace mem
 	template <typename T>
 	inline constexpr bool is_aligned(T value, long long alignment)
 	{
-		//return ((reinterpret_cast<std::uintptr_t>(value) % alignment) == 0);
 		return 0 == ((long long)value & (alignment - 1));
 	};
 
@@ -49,18 +48,6 @@ namespace mem
 			{
 				_mm_stream_si64x(&s_Dest->m256i_i64[i], s_Source->m256i_i64[i]);
 			}
-			/*switch (InitialDoublewordCount)
-			{
-				case 7: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[2], (s_Source + 1)->m256i_i64[2]); [[fallthrough]];	 // Fall through
-				case 6: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[1], (s_Source + 1)->m256i_i64[1]); [[fallthrough]];	 // Fall through
-				case 5: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[0], (s_Source + 1)->m256i_i64[0]); [[fallthrough]];	 // Fall through
-				case 4: _mm_stream_si64x(&s_Dest->m256i_i64[3], s_Source->m256i_i64[3]); [[fallthrough]];	 // Fall through
-				case 3: _mm_stream_si64x(&s_Dest->m256i_i64[2], s_Source->m256i_i64[2]); [[fallthrough]];	 // Fall through
-				case 2: _mm_stream_si64x(&s_Dest->m256i_i64[1], s_Source->m256i_i64[1]); [[fallthrough]];	 // Fall through
-				case 1: _mm_stream_si64x(&s_Dest->m256i_i64[0], s_Source->m256i_i64[0]); [[fallthrough]];	 // Fall through
-				default:
-					break;
-			}*/
 		};
 		inline void cache_line_copy_4(long long InitialWordCount, int* __restrict _Dest, const int* __restrict _Source) noexcept
 		{
@@ -71,26 +58,6 @@ namespace mem
 			{
 				_mm_stream_si32(s_Dest + i, *(s_Source + i));
 			}
-			/*switch (InitialWordCount)
-			{
-				case 15: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[6], (s_Source + 1)->m256i_i32[6]); [[fallthrough]];	 // Fall through
-				case 14: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[5], (s_Source + 1)->m256i_i32[5]); [[fallthrough]];	 // Fall through
-				case 13: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[4], (s_Source + 1)->m256i_i32[4]); [[fallthrough]];	 // Fall through
-				case 12: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[3], (s_Source + 1)->m256i_i32[3]); [[fallthrough]];	 // Fall through
-				case 11: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[2], (s_Source + 1)->m256i_i32[2]); [[fallthrough]];	 // Fall through
-				case 10: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[1], (s_Source + 1)->m256i_i32[1]); [[fallthrough]];	 // Fall through
-				case 9: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[0], (s_Source + 1)->m256i_i32[0]); [[fallthrough]];	 // Fall through
-				case 8: _mm_stream_si32(&s_Dest->m256i_i32[7], s_Source->m256i_i32[7]); [[fallthrough]];	 // Fall through
-				case 7: _mm_stream_si32(&s_Dest->m256i_i32[6], s_Source->m256i_i32[6]); [[fallthrough]];	 // Fall through
-				case 6: _mm_stream_si32(&s_Dest->m256i_i32[5], s_Source->m256i_i32[5]); [[fallthrough]];	 // Fall through
-				case 5: _mm_stream_si32(&s_Dest->m256i_i32[4], s_Source->m256i_i32[4]); [[fallthrough]];	 // Fall through
-				case 4: _mm_stream_si32(&s_Dest->m256i_i32[3], s_Source->m256i_i32[3]); [[fallthrough]];	 // Fall through
-				case 3: _mm_stream_si32(&s_Dest->m256i_i32[2], s_Source->m256i_i32[2]); [[fallthrough]];	 // Fall through
-				case 2: _mm_stream_si32(&s_Dest->m256i_i32[1], s_Source->m256i_i32[1]); [[fallthrough]];	 // Fall through
-				case 1: _mm_stream_si32(&s_Dest->m256i_i32[0], s_Source->m256i_i32[0]); [[fallthrough]];	 // Fall through
-				default:
-					break;
-			}*/
 		};
 
 		inline void remaining_cache_line(long long NumQuadwords, void* __restrict _Dest, const void* __restrict _Source) noexcept
@@ -118,20 +85,6 @@ namespace mem
 			{
 				_mm_stream_si64x(&s_Dest->m256i_i64[i], s_Source->m256i_i64[i]);
 			}
-
-			// Copy the remaining quadwords
-			/*switch (NumDoublewords & 7)
-			{
-				case 7: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[2], (s_Source + 1)->m256i_i64[2]); [[fallthrough]];	 // Fall through
-				case 6: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[1], (s_Source + 1)->m256i_i64[1]); [[fallthrough]];	 // Fall through
-				case 5: _mm_stream_si64x(&(s_Dest + 1)->m256i_i64[0], (s_Source + 1)->m256i_i64[0]); [[fallthrough]];	 // Fall through
-				case 4: _mm_stream_si64x(&s_Dest->m256i_i64[3], s_Source->m256i_i64[3]); [[fallthrough]];	 // Fall through
-				case 3: _mm_stream_si64x(&s_Dest->m256i_i64[2], s_Source->m256i_i64[2]); [[fallthrough]];	 // Fall through
-				case 2: _mm_stream_si64x(&s_Dest->m256i_i64[1], s_Source->m256i_i64[1]); [[fallthrough]];	 // Fall through
-				case 1: _mm_stream_si64x(&s_Dest->m256i_i64[0], s_Source->m256i_i64[0]); [[fallthrough]];	 // Fall through
-				default:
-					break;
-			}*/
 		};
 		inline void remaining_cache_line_4(long long InitialWordCount, void* __restrict _Dest, const void* __restrict _Source) noexcept
 		{
@@ -143,26 +96,6 @@ namespace mem
 			{
 				_mm_stream_si32(&s_Dest->m256i_i32[i], s_Source->m256i_i32[i]);
 			}
-			/*switch (InitialWordCount & 15)
-			{
-				case 15: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[6], (s_Source + 1)->m256i_i32[6]); [[fallthrough]];	 // Fall through
-				case 14: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[5], (s_Source + 1)->m256i_i32[5]); [[fallthrough]];	 // Fall through
-				case 13: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[4], (s_Source + 1)->m256i_i32[4]); [[fallthrough]];	 // Fall through
-				case 12: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[3], (s_Source + 1)->m256i_i32[3]); [[fallthrough]];	 // Fall through
-				case 11: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[2], (s_Source + 1)->m256i_i32[2]); [[fallthrough]];	 // Fall through
-				case 10: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[1], (s_Source + 1)->m256i_i32[1]); [[fallthrough]];	 // Fall through
-				case 9: _mm_stream_si32(&(s_Dest + 1)->m256i_i32[0], (s_Source + 1)->m256i_i32[0]); [[fallthrough]];	 // Fall through
-				case 8: _mm_stream_si32(&s_Dest->m256i_i32[7], s_Source->m256i_i32[7]); [[fallthrough]];	 // Fall through
-				case 7: _mm_stream_si32(&s_Dest->m256i_i32[6], s_Source->m256i_i32[6]); [[fallthrough]];	 // Fall through
-				case 6: _mm_stream_si32(&s_Dest->m256i_i32[5], s_Source->m256i_i32[5]); [[fallthrough]];	 // Fall through
-				case 5: _mm_stream_si32(&s_Dest->m256i_i32[4], s_Source->m256i_i32[4]); [[fallthrough]];	 // Fall through
-				case 4: _mm_stream_si32(&s_Dest->m256i_i32[3], s_Source->m256i_i32[3]); [[fallthrough]];	 // Fall through
-				case 3: _mm_stream_si32(&s_Dest->m256i_i32[2], s_Source->m256i_i32[2]); [[fallthrough]];	 // Fall through
-				case 2: _mm_stream_si32(&s_Dest->m256i_i32[1], s_Source->m256i_i32[1]); [[fallthrough]];	 // Fall through
-				case 1: _mm_stream_si32(&s_Dest->m256i_i32[0], s_Source->m256i_i32[0]); [[fallthrough]];	 // Fall through
-				default:
-					break;
-			}*/
 		};
 
 		template<typename T>
@@ -349,8 +282,6 @@ namespace mem
 
 							_mm256_stream_si256(Dest + 0, _mm256_load_si256(Source + 0));
 							_mm256_stream_si256(Dest + 1, _mm256_load_si256(Source + 1));
-							//_mm256_stream_si256(Dest + 2, _mm256_load_si256(Source + 2));
-							//_mm256_stream_si256(Dest + 3, _mm256_load_si256(Source + 3));
 
 							Dest += 2;
 							Source += 2;
@@ -368,8 +299,6 @@ namespace mem
 
 							_mm256_stream_si256(Dest + 0, _mm256_loadu_si256(Source + 0));
 							_mm256_stream_si256(Dest + 1, _mm256_loadu_si256(Source + 1));
-							//_mm256_stream_si256(Dest + 2, _mm256_load_si256(Source + 2));
-							//_mm256_stream_si256(Dest + 3, _mm256_load_si256(Source + 3));
 
 							Dest += 2;
 							Source += 2;
@@ -381,14 +310,6 @@ namespace mem
 			}
 
 			// Copy the remaining quadwords
-			/*switch (NumQuadwords & 1)
-			{
-				//case 3: _mm_stream_si128(s_Dest + 2, _mm_load_si128(s_Dest + 2));	 // Fall through
-				//case 2: _mm_stream_si128(s_Dest + 1, _mm_load_si128(s_Dest + 1));	 // Fall through
-				case 1: _mm256_stream_si256(Dest + 0, _mm256_load_si256(Dest + 0));	 // Fall through
-				default:
-					break;
-			}*/
 			remaining_cache_line(NumQuadwords, Dest, Source);
 
 			_mm_sfence();
@@ -443,8 +364,6 @@ namespace mem
 
 					_mm256_stream_si256(&Dest[0], _mm256_stream_load_si256(Source + 0));
 					_mm256_stream_si256(&Dest[1], _mm256_stream_load_si256(Source + 1));
-					//_mm256_stream_si256(Dest + 0, _mm256_load_si256(Source + 0));
-					//_mm256_stream_si256(Dest + 1, _mm256_load_si256(Source + 1));
 
 					Dest += 2;
 					Source += 2;

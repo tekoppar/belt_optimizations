@@ -138,7 +138,6 @@ namespace expr
 	};
 	static_assert(divide_with_remainder(50ll, 4ll).div + divide_with_remainder(50ll, 4ll).rem == 14ll);
 	static_assert(divide_with_remainder(256ll, 4ll).div == 256ll / 4ll);
-	//constexpr auto tmp = divide_with_remainder<2048ll, 3ll>();
 
 	constexpr div_rem<long long> multiply_division_with_remainder(const long long i, const long long multi, const long long division)
 	{

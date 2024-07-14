@@ -80,7 +80,6 @@ namespace mem
 		{
 			return &m_ptr->object;
 		};
-		//pointer operator&() const noexcept = delete;
 
 		constexpr sl_iterator& operator++() noexcept
 		{
@@ -282,11 +281,6 @@ namespace mem
 					allocator.deallocate(tmp_ptr);
 					tmp_ptr = nxt_ptr;
 				}
-				/*				for (auto it = begin(); it != end(); ++it)
-				{
-					allocator.deallocate(*it);
-				}
-				*/
 			}
 		};
 
@@ -522,15 +516,6 @@ constexpr auto test_get_item_method() noexcept
 {
 	get_item_struct arr;
 	arr.list.emplace_back(4000ll);
-	/*auto success = arr.get_item(0)->add_item(4000ll, belt_item{item_type::log}, vec2_uint{0ll, 0ll});
-	if (success == -1) return success;
-	success = arr.get_item(0)->add_item(4000ll, belt_item{ item_type::stone }, vec2_uint{ 64ll, 0ll });
-	if (success == -1) return success;
-	success = arr.get_item(0)->add_item(4000ll, belt_item{ item_type::log }, vec2_uint{ 96ll, 0ll });
-	if (success == -1) return success;
-	success = arr.get_item(0)->add_item(4000ll, belt_item{ item_type::iron }, vec2_uint{ 128ll, 0ll });
-	if (success == -1) return success;
-	return arr.get_item(0)->count();*/
 	return 4ll;
 };
 constexpr auto test_get_item_method_value = test_get_item_method();

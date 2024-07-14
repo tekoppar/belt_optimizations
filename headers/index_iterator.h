@@ -104,7 +104,6 @@ public:
 	{
 		return vector->operator[](index);
 	};
-	//pointer operator&() const noexcept = delete;
 
 	constexpr index_iterator& operator++() noexcept
 	{
@@ -373,50 +372,7 @@ public:
 #endif
 		return vector->operator[](index).operator[](nested_index);
 	};
-	//pointer operator&() const noexcept = delete;
 
-	/*constexpr double_index_iterator& operator++() noexcept
-	{
-		++index;
-		return *this;
-	};
-	constexpr double_index_iterator operator++(int) noexcept
-	{
-		double_index_iterator tmp = *this;
-		++*this;
-		return tmp;
-	};
-	constexpr double_index_iterator operator+(const double_index_iterator& rhs) const
-	{
-		return { index + rhs.index, vector };
-	};
-	template<typename integer>
-	constexpr double_index_iterator operator+(integer rhs) const
-		requires(std::is_integral_v<integer>)
-	{
-		return { index + rhs, vector };
-	};
-	constexpr double_index_iterator& operator--() noexcept
-	{
-		--index;
-		return *this;
-	};
-	constexpr double_index_iterator operator--(int) noexcept
-	{
-		double_index_iterator tmp = *this;
-		--*this;
-		return tmp;
-	};
-	constexpr double_index_iterator operator-(const double_index_iterator& rhs) const
-	{
-		return { index - rhs.index, vector };
-	};
-	template<typename integer>
-	constexpr double_index_iterator operator-(integer rhs) const
-		requires(std::is_integral_v<integer>)
-	{
-		return { index - rhs, vector };
-	};*/
 	inline constexpr void increment() noexcept
 	{
 		++index;
@@ -450,15 +406,6 @@ public:
 	{
 		return { index, nested_index - rhs.nested_index, vector };
 	};
-
-	/*inline constexpr friend std::ptrdiff_t operator+(const double_index_iterator& lhs, const double_index_iterator& rhs) noexcept
-	{
-		return lhs.index + rhs.index;
-	};
-	inline constexpr friend std::ptrdiff_t operator-(const double_index_iterator& lhs, const double_index_iterator& rhs) noexcept
-	{
-		return lhs.index - rhs.index;
-	};*/
 
 	constexpr bool operator==(const std::nullptr_t) noexcept
 	{

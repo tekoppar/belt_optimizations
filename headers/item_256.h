@@ -10,10 +10,6 @@
 
 #define optimization_comp
 
-/*
-* See item_32.h for information regarding how the class works. Since item_256 is just 8 arrays of item_32
-*/
-
 class item_256
 {
 	constexpr static short single_belt_length = 128;
