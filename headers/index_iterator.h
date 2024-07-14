@@ -311,7 +311,7 @@ public:
 	};
 	constexpr operator reference () noexcept
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		if (!vector) throw std::runtime_error("");
 		if (vector->size() <= index) throw std::runtime_error("");
 		if (vector->operator[](index).size() <= nested_index) throw std::runtime_error("");
@@ -320,7 +320,7 @@ public:
 	};
 	constexpr operator const_reference () const noexcept
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		if (!vector) throw std::runtime_error("");
 		if (vector->size() <= index) throw std::runtime_error("");
 		if (vector->operator[](index).size() <= nested_index) throw std::runtime_error("");
@@ -330,7 +330,7 @@ public:
 
 	[[nodiscard]] constexpr reference operator*() noexcept
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		if (!vector) throw std::runtime_error("");
 		if (vector->size() <= index) throw std::runtime_error("");
 		if (vector->operator[](index).size() <= nested_index) throw std::runtime_error("");
@@ -339,7 +339,7 @@ public:
 	};
 	[[nodiscard]] constexpr const_reference operator*() const noexcept
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		if (!vector) throw std::runtime_error("");
 		if (vector->size() <= index) throw std::runtime_error("");
 		if (vector->operator[](index).size() <= nested_index) throw std::runtime_error("");
@@ -348,7 +348,7 @@ public:
 	};
 	[[nodiscard]] constexpr reference operator*(double_index_iterator iter) const noexcept
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		if (!iter.vector) throw std::runtime_error("");
 		if (iter.vector->size() <= iter.index) throw std::runtime_error("");
 		if (iter.vector->operator[](iter.index).size() <= iter.nested_index) throw std::runtime_error("");
@@ -357,7 +357,7 @@ public:
 	};
 	[[nodiscard]] constexpr reference operator->() noexcept
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		if (!vector) throw std::runtime_error("");
 		if (vector->size() <= index) throw std::runtime_error("");
 		if (vector->operator[](index).size() <= nested_index) throw std::runtime_error("");
@@ -366,7 +366,7 @@ public:
 	};
 	[[nodiscard]] constexpr const_reference operator->() const noexcept
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		if (!vector) throw std::runtime_error("");
 		if (vector->size() <= index) throw std::runtime_error("");
 		if (vector->operator[](index).size() <= nested_index) throw std::runtime_error("");

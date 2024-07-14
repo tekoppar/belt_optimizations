@@ -92,6 +92,17 @@ namespace expr
 	static_assert(floor_div(64ll, 13ll) == 4ll);
 	static_assert(floor_div(64ll, 12ll) == 5ll);
 
+	inline constexpr auto ceil_div(auto lhs, auto rhs) noexcept
+		requires(std::is_integral_v<decltype(lhs)>&& std::is_integral_v<decltype(rhs)>)
+	{
+		if (static_cast<decltype(lhs)>(lhs / rhs) == static_cast<double>(lhs) / static_cast<double>(rhs))
+			return static_cast<decltype(lhs)>(lhs / rhs);
+		else
+			return static_cast<decltype(lhs)>(lhs / rhs) + 1ll;
+	};
+	static_assert(ceil_div(5ll, 2ll) == 3ll);
+	static_assert(ceil_div(24ll, 2ll) == 12ll);
+
 	template<typename type_size>
 	struct div_rem
 	{

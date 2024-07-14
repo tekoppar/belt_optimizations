@@ -36,7 +36,7 @@ public:
 	{
 		//TODO need to fix if the object before it is alive and is a goal object itself
 		if (!is_offset_alive(-1ll, goal_distance_dead_object_v)) index_ptr = nullptr;
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		else throw std::runtime_error("");
 #endif
 	};
@@ -73,7 +73,7 @@ public:
 	};
 	constexpr long long get_index_from_ptr(const long long* const ptr) const noexcept
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		if (index_ptr == nullptr) throw std::runtime_error("");
 #endif
 

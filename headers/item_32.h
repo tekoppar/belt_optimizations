@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <cstring>
 
+#include "macros.h"
 #include "item.h"
 #include "vectors.h"
 #include "belt_utility_data.h"
@@ -454,6 +455,8 @@ public:
 	{
 		return { get_direction_position(segment_end_direction, item_goal_distance), segment_y_direction };
 	};
+
+#ifndef	__TEMPLATED_DIRECTION__
 	inline constexpr long long get_item_direction_position(belt_utility::belt_direction direction, const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, short index) const noexcept
 	{
 		switch (direction)
@@ -478,6 +481,27 @@ public:
 			case belt_utility::belt_direction::bottom_top: return get_direction_position(segment_end_direction, item_goal_distance) + get_distance_to_last_item(item_data);
 		}
 	};
+#else
+	template<belt_utility::belt_direction direction>
+	inline constexpr long long get_item_direction_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, short index) const noexcept
+	{
+		if constexpr (belt_utility::belt_direction::null == direction) return get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_item(item_data, index);
+		if constexpr (belt_utility::belt_direction::left_right == direction) return get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_item(item_data, index);
+		if constexpr (belt_utility::belt_direction::right_left == direction) return get_direction_position(segment_end_direction, item_goal_distance) + get_distance_to_item(item_data, index);
+		if constexpr (belt_utility::belt_direction::top_bottom == direction) return get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_item(item_data, index);
+		if constexpr (belt_utility::belt_direction::bottom_top == direction) return get_direction_position(segment_end_direction, item_goal_distance) + get_distance_to_item(item_data, index);
+	};
+	template<belt_utility::belt_direction direction>
+	inline constexpr long long get_last_item_direction_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data) const noexcept
+	{
+		if constexpr (belt_utility::belt_direction::null == direction) return get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_last_item(item_data);
+		if constexpr (belt_utility::belt_direction::left_right == direction) return get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_last_item(item_data);
+		if constexpr (belt_utility::belt_direction::right_left == direction) return get_direction_position(segment_end_direction, item_goal_distance) + get_distance_to_last_item(item_data);
+		if constexpr (belt_utility::belt_direction::top_bottom == direction) return get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_last_item(item_data);
+		if constexpr (belt_utility::belt_direction::bottom_top == direction) return get_direction_position(segment_end_direction, item_goal_distance) + get_distance_to_last_item(item_data);
+	};
+#endif
+
 	inline constexpr long long get_goal(long long* item_goal_distance) const noexcept
 	{
 		return *item_goal_distance;
@@ -497,13 +521,17 @@ public:
 	};
 	constexpr long long get_item_distance(item_32_data item_data, long long item_index) const noexcept
 	{
+#ifdef _DEBUG
 		if (item_index >= item_count) return 0;
+#endif
 		return item_data.item_distance[item_index];
 	};
 	constexpr long long get_distance_to_item(item_32_data& item_data, long long item_index) const noexcept
 	{
+#ifdef _DEBUG
 		if (item_index >= item_count) return 0;
-		return tc::widen<long long>(item_data.item_distance[item_index]);
+#endif
+		return item_data.item_distance[item_index];
 	};
 
 	constexpr bool can_add_item(const long long segment_end_direction, long long* item_goal_distance, item_32_data& item_data, vec2_uint new_item_position) const noexcept
@@ -743,6 +771,7 @@ public:
 
 		return -1;
 	};
+#ifndef __TEMPLATED_DIRECTION__
 	constexpr short get_first_item_before_position(belt_utility::belt_direction direction, const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, long long direction_position) const noexcept
 	{
 		for (long long i = 0ll; i < item_count; ++i)
@@ -753,17 +782,48 @@ public:
 
 		return -1;
 	};
-	constexpr short get_first_item_of_type_before_position(belt_utility::belt_direction direction, const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, item_type type, long long direction_position) const noexcept
+#else
+	template<belt_utility::belt_direction direction>
+	constexpr short get_first_item_before_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, long long direction_position) const noexcept
 	{
 		for (long long i = 0ll; i < item_count; ++i)
 		{
-			if (item_data.items[i].type != type) continue;
-			auto item_position = get_item_direction_position(direction, segment_end_direction, item_goal_distance, item_data, tc::narrow<short>(i));
-			if (item_position <= direction_position + belt_item_size) return tc::narrow<short>(i);
+			auto item_position = get_item_direction_position<direction>(segment_end_direction, item_goal_distance, item_data, i);
+			if (item_position < direction_position) return i - 1;
 		}
 
 		return -1;
 	};
+#endif
+	struct index_item_position_return
+	{
+		long long found_index{ -1ll };
+		long long item_distance_position{ -1ll };
+	};
+	template<belt_utility::belt_direction direction>
+	constexpr index_item_position_return get_first_item_of_type_before_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, item_type type, long long direction_position) const noexcept
+	{
+		for (long long i = 0ll; i < item_count; ++i)
+		{
+			if (item_data.items[i].type != type) continue;
+			auto item_position = get_item_direction_position<direction>(segment_end_direction, item_goal_distance, item_data, i);
+			if (item_position <= direction_position + belt_item_size) return index_item_position_return{ i, item_position };
+		}
+
+		return { -1ll, -1ll };
+	};
+	/*template<belt_utility::belt_direction direction>
+	constexpr short get_first_item_of_type_before_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, item_type type, long long direction_position) const noexcept
+	{
+		for (long long i = 0ll; i < item_count; ++i)
+		{
+			if (item_data.items[i].type != type) continue;
+			auto item_position = get_item_direction_position<direction>(segment_end_direction, item_goal_distance, item_data, i);
+			if (item_position <= direction_position + belt_item_size) return i;
+		}
+
+		return -1;
+	};*/
 	constexpr item_removal_result try_to_remove_item(goal_distance* item_goal_distance, item_32_data& item_data) noexcept
 	{
 		if (std::is_constant_evaluated() == false)

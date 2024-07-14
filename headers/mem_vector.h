@@ -393,7 +393,7 @@ namespace mem
 			if constexpr (mem::Allocating_Type::MALLOC == allocating_type)
 			{
 				auto const pv = malloc(count);
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 				if (!pv) throw std::bad_alloc();
 #else
 				if (!pv) [[unlikely]] std::terminate();
@@ -403,7 +403,7 @@ namespace mem
 			else if constexpr (mem::Allocating_Type::CONCURRENCY == allocating_type)
 			{
 				auto const ptr = concurrency::Alloc(count);
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 				if (!ptr) [[unlikely]] throw std::bad_alloc();
 #else
 				if (!ptr) [[unlikely]] std::terminate();
@@ -414,7 +414,7 @@ namespace mem
 			else if constexpr (mem::Allocating_Type::NEW == allocating_type)
 			{
 				auto const ptr = ::operator new[](count, std::nothrow);
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 				if (!ptr) [[unlikely]] throw std::bad_alloc();
 #else
 				if (!ptr) [[unlikely]] std::terminate();
@@ -426,7 +426,7 @@ namespace mem
 			{
 				constexpr auto closest_alignmnet = (mem::aligned_by<value_type, sizeof(value_type)>() == 0ull ? (mem::aligned_by<value_type, 32ull>() == 0ull ? 32ull : mem::get_closest_alignmnet<value_type>()) : mem::get_closest_alignmnet<value_type>());
 				auto const pv = _aligned_malloc(count, closest_alignmnet);
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 				if (!pv) throw std::bad_alloc();
 #else
 				if (!pv) [[unlikely]] std::terminate();
@@ -436,7 +436,7 @@ namespace mem
 			else if constexpr (mem::Allocating_Type::CONCURRENCY == allocating_type)
 			{
 				auto const ptr = concurrency::Alloc(count);
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 				if (!ptr) [[unlikely]] throw std::bad_alloc();
 #else
 				if (!ptr) [[unlikely]] std::terminate();
@@ -448,7 +448,7 @@ namespace mem
 			{
 				auto const ptr = ::operator new[](count, std::align_val_t{ 32ull }, std::nothrow);
 				//if (!mem::is_aligned<T, closest_alignmnet>(ptr)) throw std::bad_alloc();
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 				if (!ptr) [[unlikely]] throw std::bad_alloc();
 #else
 				if (!ptr) [[unlikely]] std::terminate();
@@ -461,7 +461,7 @@ namespace mem
 				constexpr auto closest_alignmnet = (mem::aligned_by<value_type, sizeof(value_type)>() == 0ull ? (mem::aligned_by<value_type, 32ull>() == 0ull ? 32ull : mem::get_closest_alignmnet<value_type>()) : mem::get_closest_alignmnet<value_type>());
 				auto const ptr = ::operator new[](count, std::align_val_t{ closest_alignmnet }, std::nothrow);
 				//if (!mem::is_aligned<T, closest_alignmnet>(ptr)) throw std::bad_alloc();
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 				if (!ptr) [[unlikely]] throw std::bad_alloc();
 #else
 				if (!ptr) [[unlikely]] std::terminate();
@@ -473,7 +473,7 @@ namespace mem
 	public:
 		[[nodiscard]] __declspec(allocator, restrict) constexpr value_type* allocate(const std::size_t count) const
 		{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (count == 0 || count > bad_arr_length) throw std::bad_array_new_length();
 #endif
 			if (std::is_constant_evaluated()) return ::new value_type[count]{};
@@ -686,7 +686,7 @@ namespace mem
 		inline constexpr vector(long long capacity, _Alty allocator = _Alty{}) noexcept : //requires(mem::is_allocator_v<Allocator, Object>&& mem::is_allocator_requirements_v<_Alty, Object>)
 			values{ _Alty_traits::allocate(allocator, static_cast<unsigned long long>(capacity)), static_cast<unsigned long long>(capacity) }
 		{};
-		__declspec(noinline) constexpr ~vector() noexcept
+		inline constexpr ~vector() noexcept
 			//requires (vector_has_method<Object> == false)
 		{
 #ifdef _DEBUG
@@ -732,7 +732,7 @@ namespace mem
 		inline constexpr bool validate_vector() const noexcept
 		{
 			auto logic_check = values.first <= values.last && values.first < values.end && values.last <= values.end;
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (logic_check == false) throw std::runtime_error("");
 #else
 			if (logic_check == false) [[unlikely]] std::terminate();
@@ -744,7 +744,7 @@ namespace mem
 			requires(std::is_same_v<validation_ptr, pointer>&& std::is_convertible_v<validation_ptr, pointer>)
 		{
 			auto logic_check = (values.first) >= ptr && ptr <= (values.last) && ptr < (values.end);
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (logic_check == false) throw std::runtime_error("");
 #else
 			if (logic_check == false) [[unlikely]] std::terminate();
@@ -756,7 +756,7 @@ namespace mem
 			requires(std::is_same_v<validation_iter, iterator>)
 		{
 			auto logic_check = values.first >= iter.operator->() && iter.operator->() < values.last && iter.operator->() <= values.end;
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (logic_check == false) throw std::runtime_error("");
 #else
 			if (logic_check == false) [[unlikely]] std::terminate();
@@ -768,7 +768,7 @@ namespace mem
 		[[nodiscard]] constexpr value_type& operator[](type_size index) noexcept
 			requires(std::is_integral_v<type_size>&& std::is_same_v<std::size_t, type_size> == false)
 		{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (this->size() < index) throw std::runtime_error("");
 			//if (this->size() == index) throw std::runtime_error("");
 			if (this->size() >= index) return this->values.first[index];
@@ -781,7 +781,7 @@ namespace mem
 		[[nodiscard]] constexpr value_type& operator[](type_size index) noexcept
 			requires(std::is_same_v<std::size_t, type_size>)
 		{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (this->usize() < index) throw std::runtime_error("");
 			//if (this->usize() == index) throw std::runtime_error("");
 			if (this->usize() >= index) return this->values.first[index];
@@ -795,7 +795,7 @@ namespace mem
 		[[nodiscard]] constexpr const value_type& operator[](type_size index) const noexcept
 			requires(std::is_integral_v<type_size>&& std::is_same_v<std::size_t, type_size> == false)
 		{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (this->size() < index) throw std::runtime_error("");
 			//if (this->size() == index) throw std::runtime_error("");
 			if (this->size() >= index) return this->values.first[index];
@@ -808,7 +808,7 @@ namespace mem
 		[[nodiscard]] constexpr const value_type& operator[](type_size index) const noexcept
 			requires(std::is_same_v<std::size_t, type_size>)
 		{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (this->usize() < index) throw std::runtime_error("");
 			//if (this->usize() == index) throw std::runtime_error("");
 			if (this->usize() >= index) return this->values.first[index];
@@ -856,7 +856,7 @@ namespace mem
 		};
 		constexpr const value_type& back() const noexcept
 		{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (values.end == values.first) throw std::runtime_error("");
 #endif
 			return values.first[size() - 1ll];
@@ -930,7 +930,7 @@ namespace mem
 				const auto old_size = this->size();
 				scary_val newContainer = { MemoryAllocator.allocate(tc::widen<std::size_t>(newSize)), tc::widen<std::size_t>(newSize) };
 
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 				if (values.first + old_size > values.end) throw std::runtime_error("");
 #else
 				if (values.first + old_size > values.end) [[unlikely]] std::terminate();
@@ -1102,7 +1102,7 @@ namespace mem
 			auto old_size = old_container.size();
 			const _Alty MemoryAllocator{};
 
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (new_size <= 0ll) throw std::runtime_error("");
 #endif
 
@@ -2130,7 +2130,7 @@ namespace mem
 		if constexpr (mem::Allocating_Type::MALLOC == allocating_type)
 		{
 			auto const pv = malloc(count);
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (!pv) throw std::bad_alloc();
 #endif
 			return pv;
@@ -2138,7 +2138,7 @@ namespace mem
 		else
 		{
 			auto const ptr = ::operator new[](count, std::nothrow);
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (!ptr) throw std::bad_alloc();
 #else
 			if (!ptr) [[unlikely]] std::terminate();
@@ -2150,7 +2150,7 @@ namespace mem
 	template <typename value_type>
 	constexpr static auto allocate_ptr(const std::size_t count)
 	{
-#ifdef _DEBUG
+#ifdef ENABLE_CPP_EXCEPTION_THROW
 		constexpr std::size_t bad_arr_length{ (std::numeric_limits<std::size_t>::max)() / sizeof(value_type) };
 		if (std::is_constant_evaluated() == false && (count == 0 || count > bad_arr_length))
 			throw std::bad_array_new_length();

@@ -159,4 +159,11 @@ namespace belt_utility
 		long long index{ 0 };
 		long long nested_index{ 0 };
 	};
+
+	enum class distance_slot_inserted_position
+	{
+		new_item_after_last_goal = 0,
+		new_item_after_iter = 1,
+		new_item_before_iter = 2
+	};
 };

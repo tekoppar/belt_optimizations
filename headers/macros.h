@@ -9,6 +9,12 @@
 #define CONSTEXPR_VAR static
 #endif
 
+#ifdef CPLUSPLUS_EXCEPTIONS_THROWING
+#define ENABLE_CPP_EXCEPTION_THROW
+#endif
+
+#define __TEMPLATED_DIRECTION__
+
 #define WHAT_MM_SHUFFLE(fp0,fp1,fp2,fp3) (((fp3) << 6) | ((fp2) << 4) | ((fp1) << 2) | ((fp0)))
 
 #ifdef _IS_ASSERT_CONSTEXPR_

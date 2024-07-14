@@ -40,13 +40,13 @@ void second_test_belt_setup() noexcept
 {
 #if __BELT_SWITCH__ == 3
 	second_test_all_belts = belt_segment{ vec2_uint{0, 0}, vec2_uint{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
-	constexpr long long inserter_pos = 35000ll;
-	constexpr long long max_inserters = (second_test_max_belts * 32ll) / inserter_pos - 1ll;
+	constexpr long long inserter_pos = 350000ll;
+	constexpr long long max_inserters = (second_test_max_belts * 32ll * 32ll) / inserter_pos - 1ll;
 	for (long long i = 0, l = max_inserters; i < l; ++i)
 	{
 		for (long long x = 0, lx = 3; x < lx; ++x)
 		{
-			const auto inserterd_index = second_test_all_belts.add_inserter(index_inserter{ vec2_uint{(inserter_pos * i + 35000ll) + (x * 32ll), 32ll}});
+			const auto inserterd_index = second_test_all_belts.add_inserter(index_inserter{ vec2_uint{(inserter_pos * i + inserter_pos) + (x * 32ll), 32ll}});
 			auto& found_inserter = second_test_all_belts.get_inserter(inserterd_index);
 			found_inserter.set_item_type(item_type::wood);
 		}

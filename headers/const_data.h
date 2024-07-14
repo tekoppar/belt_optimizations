@@ -9,7 +9,6 @@
 #define _BOUNDS_CHECKING_
 #endif
 
-
 #define __BELT_SWITCH__ 3
 
 #if __BELT_SWITCH__ == 3
