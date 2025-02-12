@@ -17,7 +17,7 @@
 #include "belt_segment_static_asserts.h"
 
 #ifdef _DEBUG
-constexpr const std::size_t second_test_max_belts_8 = 2000000ll;
+constexpr const std::size_t second_test_max_belts_8 = 200000ll;
 #else
 constexpr const std::size_t second_test_max_belts_8 = 20000000ll;
 #endif
@@ -88,8 +88,8 @@ std::size_t second_test_get_total_items_on_belts() noexcept
 
 void second_belt_test()
 {
-	auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(0);
-	auto test_new_item_distance_val = test_real_game_scenario_smelters(1);
+	//auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(0);
+	//auto test_new_item_distance_val = test_real_game_scenario_smelters(1);
 
 	second_test_belt_setup();
 

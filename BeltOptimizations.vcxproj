@@ -153,6 +153,8 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <ConformanceMode>true</ConformanceMode>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <GuardEHContMetadata>false</GuardEHContMetadata>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

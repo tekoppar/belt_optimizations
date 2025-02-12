@@ -25,6 +25,8 @@ private:
 	item_type item_need_types[8]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square,
 	item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square };
 	__declspec(align(32)) item_uint item;
+	long long distance_position_plus{ -1ll };
+	long long distance_position_minus{ -1ll };
 #ifdef _DEBUG
 public:
 	long long loop_count = 0ll;
@@ -46,7 +48,9 @@ public:
 
 	constexpr index_inserter(const index_inserter& o) noexcept :
 		position{ o.position },
-		item{ o.item }
+		item{ o.item },
+		distance_position_plus{ o.distance_position_plus },
+		distance_position_minus{ o.distance_position_minus }
 #ifdef _DEBUG
 		,
 		loop_count{ o.loop_count },
@@ -69,7 +73,9 @@ public:
 	};
 	constexpr index_inserter(index_inserter&& o) noexcept :
 		position{ std::exchange(o.position, vec2_uint{}) },
-		item{ std::exchange(o.item, item_uint{}) }
+		item{ std::exchange(o.item, item_uint{}) },
+		distance_position_plus{ std::exchange(o.distance_position_plus, -1ll) },
+		distance_position_minus{ std::exchange(o.distance_position_minus, -1ll) }
 #ifdef _DEBUG
 		,
 		loop_count{ o.loop_count },
@@ -94,6 +100,8 @@ public:
 	{
 		position = o.position;
 		item = o.item;
+		distance_position_plus = o.distance_position_plus;
+		distance_position_minus = o.distance_position_minus;
 #ifdef _DEBUG
 		loop_count = o.loop_count;
 		missed_grabs = o.missed_grabs;
@@ -119,6 +127,8 @@ public:
 	{
 		position = std::exchange(o.position, vec2_uint{});
 		item = std::exchange(o.item, item_uint{});
+		distance_position_plus = std::exchange(o.distance_position_plus, -1ll);
+		distance_position_minus = std::exchange(o.distance_position_minus, -1ll);
 #ifdef _DEBUG
 		loop_count = o.loop_count;
 		missed_grabs = o.missed_grabs;
@@ -184,5 +194,21 @@ public:
 	inline constexpr item_uint& get_item() noexcept
 	{
 		return item;
+	};
+	inline constexpr void set_distance_position_plus(long long distance) noexcept
+	{
+		distance_position_plus = distance;
+	};
+	inline constexpr void set_distance_position_minus(long long distance) noexcept
+	{
+		distance_position_minus = distance;
+	};
+	inline constexpr long long get_distance_position_plus() const noexcept
+	{
+		return distance_position_plus;
+	};
+	inline constexpr long long get_distance_position_minus() const noexcept
+	{
+		return distance_position_minus;
 	};
 };

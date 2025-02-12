@@ -606,14 +606,17 @@ public:
 		{
 			if (index == 0)
 			{
+				//if (*item_goal_distance >= 12429984) __debugbreak();
 				new_goal_distance = item_count >= 2ll ? get_distance_to_item(item_data, 1ll) : 0ll;
 				item_data.contains_item[index] = false;
 				item_data.item_distance[index] = 0;
 				item_data_utility::shift_arrays_right(item_count, item_data);
+				//*item_goal_distance += new_goal_distance; //shouldn't this be here since I'm using it in remove_first_item
 				--item_count;
 			}
 			else
 			{
+				//if (*item_goal_distance >= 12429984) __debugbreak();
 				item_data.contains_item[index] = false;
 				item_data.item_distance[index] = 0;
 				item_data.items[index] = belt_item{};
