@@ -21,7 +21,7 @@ public:
 	static inline long long grabbed_items{ 0ll };
 
 private:
-	vec2_uint position{ 0, 0 };
+	vec2_int64 position{ 0, 0 };
 	item_type item_need_types[8]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square,
 	item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square };
 	__declspec(align(32)) item_uint item;
@@ -40,7 +40,7 @@ public:
 public:
 	constexpr index_inserter() noexcept
 	{};
-	constexpr index_inserter(vec2_uint pos) noexcept :
+	constexpr index_inserter(vec2_int64 pos) noexcept :
 		position{ pos }
 	{};
 	constexpr ~index_inserter() noexcept
@@ -72,7 +72,7 @@ public:
 		else std::memcpy(&item_need_types[0], &o.item_need_types[0], 16);
 	};
 	constexpr index_inserter(index_inserter&& o) noexcept :
-		position{ std::exchange(o.position, vec2_uint{}) },
+		position{ std::exchange(o.position, vec2_int64{}) },
 		item{ std::exchange(o.item, item_uint{}) },
 		distance_position_plus{ std::exchange(o.distance_position_plus, -1ll) },
 		distance_position_minus{ std::exchange(o.distance_position_minus, -1ll) }
@@ -125,7 +125,7 @@ public:
 	};
 	constexpr index_inserter& operator=(index_inserter&& o) noexcept
 	{
-		position = std::exchange(o.position, vec2_uint{});
+		position = std::exchange(o.position, vec2_int64{});
 		item = std::exchange(o.item, item_uint{});
 		distance_position_plus = std::exchange(o.distance_position_plus, -1ll);
 		distance_position_minus = std::exchange(o.distance_position_minus, -1ll);
@@ -151,7 +151,12 @@ public:
 		return *this;
 	};
 
-	inline constexpr vec2_uint get_position() const noexcept
+	friend constexpr bool operator==(const index_inserter& lhs, const index_inserter& rhs) noexcept
+	{
+		return lhs.position == rhs.position && lhs.item == rhs.item;
+	};
+
+	inline constexpr vec2_int64 get_position() const noexcept
 	{
 		return position;
 	};

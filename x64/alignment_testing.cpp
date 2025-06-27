@@ -26,22 +26,22 @@ static void align_test()
 	}*/
 	std::vector<HANDLE> Threads_;
 	Threads_.reserve(1);
-	auto t1 = std::chrono::high_resolution_clock::now();
-	Threads_.push_back((HANDLE)_beginthreadex(NULL, 0, &cache_test::thread_test, NULL, 0, NULL));
-	Threads_.push_back((HANDLE)_beginthreadex(NULL, 0, &cache_test::thread_test, NULL, 0, NULL));
-	Threads_.push_back((HANDLE)_beginthreadex(NULL, 0, &cache_test::thread_test, NULL, 0, NULL));
-	Threads_.push_back((HANDLE)_beginthreadex(NULL, 0, &cache_test::thread_test, NULL, 0, NULL));
-	Threads_.push_back((HANDLE)_beginthreadex(NULL, 0, &cache_test::thread_test, NULL, 0, NULL));
-	Threads_.push_back((HANDLE)_beginthreadex(NULL, 0, &cache_test::thread_test, NULL, 0, NULL));
-	Threads_.push_back((HANDLE)_beginthreadex(NULL, 0, &cache_test::thread_test, NULL, 0, NULL));
-	Threads_.push_back((HANDLE)_beginthreadex(NULL, 0, &cache_test::thread_test, NULL, 0, NULL));
+	const auto t1 = std::chrono::high_resolution_clock::now();
+	Threads_.push_back((HANDLE)_beginthreadex(nullptr, 0, &cache_test::thread_test, nullptr, 0, nullptr));
+	Threads_.push_back((HANDLE)_beginthreadex(nullptr, 0, &cache_test::thread_test, nullptr, 0, nullptr));
+	Threads_.push_back((HANDLE)_beginthreadex(nullptr, 0, &cache_test::thread_test, nullptr, 0, nullptr));
+	Threads_.push_back((HANDLE)_beginthreadex(nullptr, 0, &cache_test::thread_test, nullptr, 0, nullptr));
+	Threads_.push_back((HANDLE)_beginthreadex(nullptr, 0, &cache_test::thread_test, nullptr, 0, nullptr));
+	Threads_.push_back((HANDLE)_beginthreadex(nullptr, 0, &cache_test::thread_test, nullptr, 0, nullptr));
+	Threads_.push_back((HANDLE)_beginthreadex(nullptr, 0, &cache_test::thread_test, nullptr, 0, nullptr));
+	Threads_.push_back((HANDLE)_beginthreadex(nullptr, 0, &cache_test::thread_test, nullptr, 0, nullptr));
 
 	for (int i = 0; i < 1; ++i)
 	{
 		WaitForSingleObject(Threads_[i], INFINITE);
 		CloseHandle(Threads_[i]);
 	}
-	auto t2 = std::chrono::high_resolution_clock::now();
+	const auto t2 = std::chrono::high_resolution_clock::now();
 	auto ms_int = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 	std::cout << "EXECUTION TIME: " << ms_int.count() << "micro" << std::endl;
 

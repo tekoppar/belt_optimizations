@@ -21,9 +21,6 @@
     <ClCompile Include="x64\second_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="headers\cpu_info.h">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="x64\alignment_testing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -122,5 +119,8 @@
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="NatvisFile.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

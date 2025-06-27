@@ -5,9 +5,9 @@
 #include "shared_classes.h"
 
 //#define _SIMPLE_MEMORY_LEAK_DETECTION
-#ifdef _DEBUG
+/*#ifdef _DEBUG
 #define _BOUNDS_CHECKING_
-#endif
+#endif*/
 
 #define __BELT_SWITCH__ 3
 

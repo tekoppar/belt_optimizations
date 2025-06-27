@@ -247,7 +247,7 @@ namespace mem
 		long long byte_ptr = 0ll;
 		long long active_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		const int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		constexpr int l = mem::cpu_info::l1d_info.cache_number_of_sets;
 		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[active_set];
@@ -284,7 +284,7 @@ namespace mem
 		long long byte_ptr = 0ll;
 		long long active_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		const int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		constexpr int l = mem::cpu_info::l1d_info.cache_number_of_sets;
 		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[active_set];
@@ -314,11 +314,11 @@ namespace mem
 
 	constexpr static set_loop_step_info find_step_rate_with_fewest_collisions(long long object_size, long long max_step_rate = 16ll)
 	{
-		if (object_size < 1ll) return { -1ll, -1ll };
-		const long long byte_ptr = 0ll;
+		if (object_size < 1ll) return { {-1ll}, -1ll };
+		constexpr long long byte_ptr = 0ll;
 		long long first_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		const int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		constexpr int l = mem::cpu_info::l1d_info.cache_number_of_sets;
 		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[first_set];
@@ -341,11 +341,11 @@ namespace mem
 
 	constexpr static set_loop_step_info find_step_rate_with_fewest_evictions(long long object_size, long long max_step_rate = 16ll)
 	{
-		if (object_size < 1ll) return { -1ll, -1ll };
-		const long long byte_ptr = 0ll;
+		if (object_size < 1ll) return { {-1ll}, -1ll };
+		constexpr long long byte_ptr = 0ll;
 		long long first_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		const int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		constexpr int l = mem::cpu_info::l1d_info.cache_number_of_sets;
 		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[first_set];

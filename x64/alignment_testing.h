@@ -91,9 +91,9 @@ namespace cache_test
 	static cache_info cache_test(unsigned char* buffer)
 	{
 		cache_info set_counter{};
-		for (int i = 0, l = NUM_OF_SETS; i < l; ++i) set_counter.sc[i] = 0;
+		for (int i = 0; i < NUM_OF_SETS; ++i) set_counter.sc[i] = 0;
 
-		clock_t t1 = clock();
+		const clock_t t1 = clock();
 
 		if constexpr (useCriticalStep < 2)
 		{
@@ -129,21 +129,24 @@ namespace cache_test
 				index += (STEP * 4);
 			}
 			index = REPS * OBJECT_SIZE;
-			for (std::size_t i = 0; i < REPS_REM; ++i)
+			if constexpr (REPS_REM > 0)
 			{
+				for (std::size_t i = 0; i < REPS_REM; ++i)
+				{
 #ifdef _return_cache_info_
-				const auto ptr_set1 = find_cache_set(buffer + index);
-				++set_counter.sc[ptr_set1];
+					const auto ptr_set1 = find_cache_set(buffer + index);
+					++set_counter.sc[ptr_set1];
 #endif
-				if (onlyWriteToCache)
-				{
-					buffer[index] = (unsigned char)(index % 255);
+					if (onlyWriteToCache)
+					{
+						buffer[index] = (unsigned char)(index % 255);
+					}
+					else
+					{
+						buffer[index] = (unsigned char)(buffer[index] % 255);
+					}
+					index += OBJECT_SIZE;
 				}
-				else
-				{
-					buffer[index] = (unsigned char)(buffer[index] % 255);
-				}
-				index += OBJECT_SIZE;
 			}
 		}
 		else
@@ -184,46 +187,50 @@ namespace cache_test
 				index += (STEP * 4);
 			}
 			index = REPS * OBJECT_SIZE;
-			for (std::size_t i = 0; i < REPS_REM; ++i)
+			if constexpr (REPS_REM > 0)
 			{
+				for (std::size_t i = 0; i < REPS_REM; ++i)
+				{
 #ifdef _return_cache_info_
-				const auto ptr_set1 = find_cache_set(buffer + index);
-				++set_counter.sc[ptr_set1];
+					const auto ptr_set1 = find_cache_set(buffer + index);
+					++set_counter.sc[ptr_set1];
 #endif
-				if (onlyWriteToCache)
-				{
-					buffer[index] = (unsigned char)(index % 255);
+					if (onlyWriteToCache)
+					{
+						buffer[index] = (unsigned char)(index % 255);
+					}
+					else
+					{
+						buffer[index] = (unsigned char)(buffer[index] % 255);
+					}
+					index += OBJECT_SIZE;
 				}
-				else
-				{
-					buffer[index] = (unsigned char)(buffer[index] % 255);
-				}
-				index += OBJECT_SIZE;
 			}
 		}
 
-		clock_t t2 = clock();
+		const clock_t t2 = clock();
 
 		//======================================================================
 		// Print the execution time (in clock ticks) and cleanup resources
 		//======================================================================
 
-		double executionTime = ((double)(t2) - t1) / CLOCKS_PER_SEC;
+		const double executionTime = ((double)(t2) - t1) / CLOCKS_PER_SEC;
 		std::cout << "EXECUTION TIME: " << executionTime << "s" << std::endl;
 
 		return set_counter;
 	};
 	static inline std::mutex cout_lock;
-	static cache_info cache_size_test(long long* buffer)
+	static cache_info cache_size_test(long long* buffer) noexcept
 	{
 		cache_info set_counter{};
-		for (int i = 0, l = NUM_OF_SETS; i < l; ++i) set_counter.sc[i] = 0;
+		for (int i = 0; i < NUM_OF_SETS; ++i) set_counter.sc[i] = 0;
 
 		//auto t1 = std::chrono::high_resolution_clock::now();
 
 		if constexpr (useCriticalStep < 2)
 		{
-			for (int x = 0, xl = 32; x < xl; ++x)
+			const int xl = 32;
+			for (int x = 0; x < xl; ++x)
 			{
 				std::size_t index = 0;
 				for (std::size_t i = 0; i < REPS; i += 4)
@@ -265,21 +272,24 @@ namespace cache_test
 					index += STEP * 4;
 				}
 				index = REPS * OBJECT_SIZE;
-				for (std::size_t i = 0; i < REPS_REM; ++i)
+				if constexpr (REPS_REM > 0)
 				{
+					for (std::size_t i = 0; i < REPS_REM; ++i)
+					{
 #ifdef _return_cache_info_
-					const auto ptr_set1 = find_cache_set(buffer + index);
-					++set_counter.sc[ptr_set1];
+						const auto ptr_set1 = find_cache_set(buffer + index);
+						++set_counter.sc[ptr_set1];
 #endif
-					if (onlyWriteToCache)
-					{
-						buffer[index] = (index % 255);
+						if (onlyWriteToCache)
+						{
+							buffer[index] = (index % 255);
+						}
+						else
+						{
+							buffer[index] = (buffer[index] % 255);
+						}
+						index += OBJECT_SIZE;
 					}
-					else
-					{
-						buffer[index] = (buffer[index] % 255);
-					}
-					index += OBJECT_SIZE;
 				}
 			}
 		}
@@ -298,7 +308,7 @@ namespace cache_test
 		return set_counter;
 	};
 
-	static unsigned int thread_test(void* ignored) noexcept
+	static unsigned int thread_test(void* ignored)
 	{
 		cache_test::cache_info infos[15]{};
 		long long* buffer = (long long*)::operator new[](cache_test::BUFFER_SIZE + (cache_test::SET_SIZE * 16), std::align_val_t{ 64 }, std::nothrow_t{});

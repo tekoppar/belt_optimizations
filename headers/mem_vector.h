@@ -27,6 +27,11 @@
 #include "mem_vector_concepts.h"
 #include "type_conversion.h"
 #include "simd_memcpy.h"
+#include <exception>
+
+#ifdef _DEBUG
+#define _DEAD_DEBUG_CHECK
+#endif
 
 namespace mem
 {
@@ -476,7 +481,7 @@ namespace mem
 #ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (count == 0 || count > bad_arr_length) throw std::bad_array_new_length();
 #endif
-			if (std::is_constant_evaluated()) return ::new value_type[count]{};
+			if (std::is_constant_evaluated()) return ::new value_type[count];
 			else return static_cast<value_type*>(this->_allocate(size_of_value_type * count));
 		};
 
@@ -678,7 +683,7 @@ namespace mem
 		//static_assert(std::random_access_iterator<iterator>);
 
 		scary_val values{ nullptr, nullptr, nullptr };
-#ifdef _DEBUG
+#ifdef _DEAD_DEBUG_CHECK
 		bool is_dead{ false };
 #endif
 
@@ -689,9 +694,6 @@ namespace mem
 		inline constexpr ~vector() noexcept
 			//requires (vector_has_method<Object> == false)
 		{
-#ifdef _DEBUG
-			is_dead = true;
-#endif
 			if (this->values.first != nullptr && this->get_capacity() > 0)
 			{
 				if constexpr (std::is_trivially_destructible_v<Object> == false)
@@ -706,25 +708,42 @@ namespace mem
 				}
 				const _Alty MemoryAllocator{};
 				MemoryAllocator.deallocate(this->values.first);// , this->usize());
+				values = { nullptr, nullptr, nullptr };
 			}
+
+#ifdef _DEAD_DEBUG_CHECK
+			is_dead = true;
+#endif
 		};
 
 		constexpr vector(const vector& o) noexcept
 		{
 			if (o.values != nullptr && o.size() > 0) this->emplace_resize_vector(o);
+#ifdef _DEAD_DEBUG_CHECK
+			this->is_dead = o.is_dead;
+#endif
 		};
 		constexpr vector& operator=(const vector& o) noexcept
 		{
 			if (o.values != nullptr && o.size() > 0) this->emplace_resize_vector(o);
-
+#ifdef _DEAD_DEBUG_CHECK
+			this->is_dead = o.is_dead;
+#endif
 			return *this;
 		};
 		constexpr vector(vector&& o) noexcept :
 			values{ std::exchange(o.values, scary_val{nullptr, nullptr, nullptr}) }
+#ifdef _DEAD_DEBUG_CHECK
+			,
+			is_dead{ std::exchange(o.is_dead, true) }
+#endif
 		{};
 		constexpr vector& operator=(vector&& o) noexcept
 		{
 			this->values = std::exchange(o.values, scary_val{ nullptr, nullptr, nullptr });
+#ifdef _DEAD_DEBUG_CHECK
+			this->is_dead = std::exchange(o.is_dead, true);
+#endif
 
 			return *this;
 		};
@@ -818,6 +837,11 @@ namespace mem
 #endif
 		};
 
+		friend inline constexpr bool operator==(const vector& lhs, const vector& rhs) noexcept
+		{
+			return lhs.values.first == rhs.values.first && lhs.values.last == rhs.values.last && lhs.values.end == rhs.values.end;
+		};
+
 		inline constexpr long long size() const noexcept
 		{
 			return this->values.last - this->values.first;//  this->size_;
@@ -849,10 +873,8 @@ namespace mem
 		};
 		constexpr iterator end() const noexcept
 		{
-			if (this->values.last == this->values.end)
-				return iterator(this->values.last);
-			else
-				return iterator(this->values.last + 1);
+			if (this->values.last == this->values.end) return iterator(this->values.last);
+			else return iterator(this->values.last + 1);
 		};
 		constexpr const value_type& back() const noexcept
 		{
@@ -883,6 +905,12 @@ namespace mem
 			return (this->values.last + min_size) >= (this->values.end - 1ll);
 		};
 
+		inline constexpr void decrease_size(long long new_size) noexcept
+			requires(std::is_trivially_destructible_v<value_type> == true)
+		{
+			this->values.last = this->values.first + new_size;
+		};
+
 		inline constexpr void check_increase_capacity() noexcept
 		{
 			if (this->needs_resize()) this->resize(this->get_capacity() * 2ll);
@@ -900,7 +928,7 @@ namespace mem
 
 		__forceinline constexpr void resize() noexcept
 		{
-			scary_val oldContainer{ this->values };
+			const scary_val oldContainer{ this->values };
 			this->reallocate(oldContainer);
 		};
 
@@ -914,7 +942,8 @@ namespace mem
 
 			for (long long i = 0; i < old_size; ++i)
 			{
-				this->values.first[i] = std::move(oldContainer.first[i]);
+				new (&this->values.first[i]) value_type{ std::move(oldContainer.first[i]) };
+				//this->values.first[i] = std::move(oldContainer.first[i]);
 			}
 			MemoryAllocator.deallocate(oldContainer.first);
 			this->values.last = this->values.first + old_size;
@@ -924,37 +953,39 @@ namespace mem
 			requires (mem::concepts::vector_has_method<value_type> == true)
 		{
 			__ASSUME__(values.first != nullptr);
-			_Alty MemoryAllocator{};
+			const _Alty MemoryAllocator{};
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
-				const auto old_size = this->size();
-				scary_val newContainer = { MemoryAllocator.allocate(tc::widen<std::size_t>(newSize)), tc::widen<std::size_t>(newSize) };
+				if (!std::is_constant_evaluated())
+				{
+					const auto old_size = this->size();
+					scary_val newContainer = { MemoryAllocator.allocate(tc::widen<std::size_t>(newSize)), tc::widen<std::size_t>(newSize) };
 
 #ifdef ENABLE_CPP_EXCEPTION_THROW
-				if (values.first + old_size > values.end) throw std::runtime_error("");
+					if (values.first + old_size > values.end) throw std::runtime_error("");
 #else
-				if (values.first + old_size > values.end) [[unlikely]] std::terminate();
+					if (values.first + old_size > values.end) [[unlikely]] std::terminate();
 #endif
 
-				std::memcpy(newContainer.first, this->values.first, sizeof(value_type) * old_size);
+					std::memcpy(newContainer.first, this->values.first, sizeof(value_type) * old_size);
 
-				this->values = std::move(newContainer);
-				this->values.last = this->values.first + old_size;
-			}
-			else
-			{
-				scary_val oldContainer{ this->values };
-				this->capacity = newSize;
-				this->values = { MemoryAllocator.allocate(newSize), static_cast<std::size_t>(newSize) };
-
-				for (long long i = 0; i < oldContainer.size(); ++i)
-				{
-					this->values.first[i] = std::move(oldContainer.first[i]);
+					this->values = std::move(newContainer);
+					this->values.last = this->values.first + old_size;
+					return;
 				}
-
-				this->values.last = this->values.first + oldContainer.size();
-				MemoryAllocator.deallocate(oldContainer.first);
 			}
+
+			scary_val oldContainer{ this->values };
+			long long old_size = oldContainer.size();
+			this->values = scary_val{ MemoryAllocator.allocate(static_cast<std::size_t>(newSize)), static_cast<std::size_t>(newSize) };
+
+			for (long long i = 0; i < old_size; ++i)
+			{
+				new (&this->values.first[i]) value_type{ std::move(oldContainer.first[i]) };
+				//this->values.first[i] = std::move(oldContainer.first[i]);
+			}
+			MemoryAllocator.deallocate(oldContainer.first);
+			this->values.last = this->values.first + old_size;
 		};
 
 
@@ -977,7 +1008,8 @@ namespace mem
 			__ASSUME__(values.first != nullptr);
 
 			this->reallocate(std::move(this->values));
-			*(this->values.last) = object;
+			new (this->values.last) value_type{ object };
+			//*(this->values.last) = object;
 			++this->values.last;
 		};
 
@@ -999,7 +1031,8 @@ namespace mem
 				}
 			}
 
-			*(this->values.last) = std::move(object);
+			new (this->values.last) value_type{ std::move(object) };
+			//*(this->values.last) = std::move(object);
 			++this->values.last;
 		};
 
@@ -1009,13 +1042,13 @@ namespace mem
 		{
 			//__ASSUME__(values.first != nullptr);
 			//__ASSUME__(values.first != 0);
-
 			if (this->values.first && !this->empty()) this->clear();
 
 			const auto new_capacity = vector.get_capacity();
+
 			if (this->get_capacity() < new_capacity || this->values.first == nullptr)
 			{
-				_Alty MemoryAllocator{};
+				const _Alty MemoryAllocator{};
 				this->values = scary_val{ MemoryAllocator.allocate(new_capacity), vector.get_ucapacity() };
 			}
 
@@ -1023,6 +1056,7 @@ namespace mem
 			{
 				if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 				{
+					__assume(this->values.first != nullptr);
 					std::memcpy(this->values.first, vector.values.first, sizeof(value_type) * vector.size());
 					this->values.last = this->values.first + vector.size();
 					return;
@@ -1031,8 +1065,10 @@ namespace mem
 
 			for (long long i = 0; i < vector.size(); ++i)
 			{
-				this->values.first[i] = vector.values.first[i];
+				new (&this->values.first[i]) value_type{ vector.values.first[i] };
+				//this->values.first[i] = vector.values.first[i];
 			}
+			this->values.last = this->values.first + vector.size();
 		};
 
 		template<typename vector_other>
@@ -1067,12 +1103,13 @@ namespace mem
 			{
 				for (long long i = 0; i < this->size(); ++i)
 				{
-					this->values.first[i] = std::move(vector.values.first[i]);
+					new (&this->values.first[i]) value_type{ std::move(vector.values.first[i]) };
+					//this->values.first[i] = std::move(vector.values.first[i]);
 				}
 			}
 
 			MemoryAllocator.deallocate(vector.values.first);
-			vector.values = nullptr;
+			vector.values = { nullptr, nullptr, nullptr };
 		};
 
 	private:
@@ -1096,9 +1133,9 @@ namespace mem
 		};
 		__declspec(noinline) constexpr void reallocate_cm(scary_val old_container) noexcept
 		{
-			std::size_t new_size;
+			std::size_t new_size = old_container.get_ucapacity() * 2ull;
 			if (values.end == values.first) new_size = (old_container.get_ucapacity() * 2ull) + 2ull;
-			else new_size = old_container.get_ucapacity() * 2ull;
+
 			auto old_size = old_container.size();
 			const _Alty MemoryAllocator{};
 
@@ -1110,8 +1147,8 @@ namespace mem
 
 			if (old_size > 256ll)
 			{
-				long long initial_count = old_size;
-				auto loops = expr::divide_with_remainder(initial_count, 4ll);
+				const long long initial_count = old_size;
+				const auto loops = expr::divide_with_remainder(initial_count, 4ll);
 				for (long long i = 0ll, i_loop = 0ll; i < loops.div; ++i)
 				{
 					/*if (std::is_constant_evaluated() == false)
@@ -1122,21 +1159,27 @@ namespace mem
 						//pre_fetch_cachelines<Object, 4ll>(tmp2 + (i_loop + 4ll));
 					}*/
 					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 1ll));
-					this->values.first[i_loop] = std::move(old_container.first[i_loop]);
+					//this->values.first[i_loop] = std::move(old_container.first[i_loop]);
+					new (&this->values.first[i_loop]) value_type{ std::move(old_container.first[i_loop]) };
 
 					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 2ll));
-					this->values.first[i_loop + 1ll] = std::move(old_container.first[i_loop + 1ll]);
+					//this->values.first[i_loop + 1ll] = std::move(old_container.first[i_loop + 1ll]);
+					new (&this->values.first[i_loop + 1ll]) value_type{ std::move(old_container.first[i_loop + 1ll]) };
 
 					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 3ll));
-					this->values.first[i_loop + 2ll] = std::move(old_container.first[i_loop + 2ll]);
+					//this->values.first[i_loop + 2ll] = std::move(old_container.first[i_loop + 2ll]);
+					new (&this->values.first[i_loop + 2ll]) value_type{ std::move(old_container.first[i_loop + 2ll]) };
 
 					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 4ll));
-					this->values.first[i_loop + 3ll] = std::move(old_container.first[i_loop + 3ll]);
+					//this->values.first[i_loop + 3ll] = std::move(old_container.first[i_loop + 3ll]);
+					new (&this->values.first[i_loop + 3ll]) value_type{ std::move(old_container.first[i_loop + 3ll]) };
 					i_loop += 4ll;
 				}
-				for (long long i = loops.div * 4ll, l = i + loops.rem; i < l; ++i)
+				const long long l = loops.div * 4ll + loops.rem;
+				for (long long i = loops.div * 4ll; i < l; ++i)
 				{
-					this->values.first[i] = std::move(old_container.first[i]);
+					new (&this->values.first[i]) value_type{ std::move(old_container.first[i]) };
+					//this->values.first[i] = std::move(old_container.first[i]);
 				}
 			}
 			else
@@ -1144,7 +1187,8 @@ namespace mem
 				for (long long i = 0; i < old_size; ++i)
 				{
 					//if (std::is_constant_evaluated() == false && i + 1 > old_size) _mm_prefetch((char const*)(&old_container.first[i + 1]), _MM_HINT_NTA);
-					this->values.first[i] = std::move(old_container.first[i]);
+					//this->values.first[i] = std::move(old_container.first[i]);
+					new (&this->values.first[i]) value_type{ std::move(old_container.first[i]) };
 				}
 			}
 			MemoryAllocator.deallocate(old_container.first);
@@ -1168,10 +1212,11 @@ namespace mem
 			if (this->needs_resize()) [[unlikely]]
 				this->emplace_resize(val);
 			else [[likely]]
-				{
-					*(this->values.last) = val;
-					++this->values.last;
-				}
+			{
+				new (this->values.last) value_type{ val };
+				//*(this->values.last) = val;
+				++this->values.last;
+			}
 		};
 
 		inline constexpr void push_back(const mem::vector<Object, allocating_type, Allocator, memcpy_check>& val) noexcept
@@ -1181,11 +1226,12 @@ namespace mem
 				this->increase_capacity(val.size());
 
 			auto begin_val = val.begin();
-			const auto end_val = val.end();
+			const auto end_val = val.last();
 
 			while (begin_val < end_val)
 			{
-				*(this->values.last) = *begin_val;
+				new (this->values.last) value_type{ *begin_val };
+				//*(this->values.last) = *begin_val;
 				++this->values.last;
 				++begin_val;
 			}
@@ -1197,10 +1243,11 @@ namespace mem
 			if (this->needs_resize()) [[unlikely]]
 				this->emplace_resize(std::move(val));
 			else [[likely]]
-				{
-					*(this->values.last) = std::move(val);
-					++this->values.last;
-				}
+			{
+				new (this->values.last) value_type{ std::move(val) };
+				//*(this->values.last) = std::move(val);
+				++this->values.last;
+			}
 		};
 
 		inline constexpr void push_back(mem::vector<Object, allocating_type, Allocator, memcpy_check>&& val) noexcept
@@ -1216,7 +1263,8 @@ namespace mem
 		{
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
-				*(this->values.last) = val;
+				new (this->values.last) value_type{ val };
+				//*(this->values.last) = val;
 				++this->values.last;
 
 				if (this->needs_resize()) this->increase_capacity();
@@ -1226,10 +1274,11 @@ namespace mem
 				if (this->needs_resize()) [[unlikely]]
 					this->emplace_resize(val);
 				else [[likely]]
-					{
-						*(this->values.last) = val;
-						++this->values.last;
-					}
+				{
+					new (this->values.last) value_type{ val };
+					//*(this->values.last) = val;
+					++this->values.last;
+				}
 			}
 		};
 
@@ -1249,12 +1298,13 @@ namespace mem
 				if (this->needs_resize()) [[unlikely]]
 					this->emplace_resize(std::move(val));
 				else [[likely]]
-					{
-						*(this->values.last) = std::move(val);
-						++this->values.last;
-					}
+				{
+					new (this->values.last) value_type{ std::move(val) };
+					//*(this->values.last) = std::move(val);
+					++this->values.last;
+				}
 
-					val.values = nullptr;
+				val.values = nullptr;
 			}
 		};
 
@@ -1263,48 +1313,48 @@ namespace mem
 		{
 			static_assert(std::is_default_constructible_v<value_type> == true);
 			if (this->needs_resize()) [[unlikely]]
-				{
-					this->resize();
-					if (std::is_constant_evaluated() == false)
-						new (this->values.last) value_type{};
-					else
-						*values.last = value_type{};
-					++this->values.last;
-					return *(values.last - 1ll);
-				}
+			{
+				this->resize();
+				if (std::is_constant_evaluated() == false)
+					new (this->values.last) value_type{};
+				else
+					*values.last = value_type{};
+				++this->values.last;
+				return *(values.last - 1ll);
+			}
 			else [[likely]]
-				{
-					if (std::is_constant_evaluated() == false)
-						new (this->values.last) value_type{};
-					else
-						*values.last = value_type{};
-					++this->values.last;
-					return *(values.last - 1ll);
-				}
+			{
+				if (std::is_constant_evaluated() == false)
+					new (this->values.last) value_type{};
+				else
+					*values.last = value_type{};
+				++this->values.last;
+				return *(values.last - 1ll);
+			}
 		};
 		inline constexpr value_type& emplace_back() noexcept
 			requires(mem::concepts::vector_has_method<value_type> == true && std::is_default_constructible_v<value_type> == true)
 		{
 			static_assert(std::is_default_constructible_v<value_type> == true);
 			if (this->needs_resize()) [[unlikely]]
-				{
-					this->resize();
-					if (std::is_constant_evaluated() == false)
-						new (this->values.last) value_type{ 4 };
-					else
-						*values.last = value_type{ 4 };
-					++this->values.last;
-					return *(values.last - 1ll);
-				}
+			{
+				this->resize();
+				if (std::is_constant_evaluated() == false)
+					new (this->values.last) value_type{ 4 };
+				else
+					*values.last = value_type{ 4 };
+				++this->values.last;
+				return *(values.last - 1ll);
+			}
 			else [[likely]]
-				{
-					if (std::is_constant_evaluated() == false)
-						new (this->values.last) value_type{ 4 };
-					else
-						*values.last = value_type{ 4 };
-					++this->values.last;
-					return *(values.last - 1ll);
-				}
+			{
+				if (std::is_constant_evaluated() == false)
+					new (this->values.last) value_type{ 4 };
+				else
+					*values.last = value_type{ 4 };
+				++this->values.last;
+				return *(values.last - 1ll);
+			}
 		};
 
 		template <typename... Types>
@@ -1316,10 +1366,10 @@ namespace mem
 			if (this->needs_resize()) [[unlikely]]
 				this->emplace_resize<Types...>(std::forward<Types>(args)...);
 			else [[likely]]
-				{
-					new (this->values.last) value_type{ std::forward<Types>(args)... };
-					++this->values.last;
-				}
+			{
+				new (this->values.last) value_type{ std::forward<Types>(args)... };
+				++this->values.last;
+			}
 		};
 
 		template <typename... Types>
@@ -1327,19 +1377,19 @@ namespace mem
 			requires (std::is_move_constructible_v<value_type> == true && std::is_constructible_v<value_type, Types...> == true)
 		{
 			if (this->needs_resize()) [[unlikely]]
-				{
-					this->emplace_resize<Types...>(std::forward<Types>(args)...);
-					return *(values.last - 1ll);
-				}
+			{
+				this->emplace_resize<Types...>(std::forward<Types>(args)...);
+				return *(values.last - 1ll);
+			}
 			else [[likely]]
-				{
-					if (std::is_constant_evaluated() == false)
-						new (this->values.last) value_type{ std::forward<Types>(args)... };
-					else
-						*values.last = value_type{ std::forward<Types>(args)... };
-					++this->values.last;
-					return *(values.last - 1ll);
-				}
+			{
+				if (std::is_constant_evaluated() == false)
+					new (this->values.last) value_type{ std::forward<Types>(args)... };
+				else
+					*values.last = value_type{ std::forward<Types>(args)... };
+				++this->values.last;
+				return *(values.last - 1ll);
+			}
 		};
 
 		template <typename... Types>
@@ -1349,10 +1399,10 @@ namespace mem
 			if (this->needs_resize()) [[unlikely]]
 				this->emplace_resize<Types...>(std::forward<Types>(args)...);
 			else [[likely]]
-				{
-					new (this->values.last) value_type{ std::forward<Types>(args)... };
-					++this->values.last;
-				}
+			{
+				new (this->values.last) value_type{ std::forward<Types>(args)... };
+				++this->values.last;
+			}
 		};
 
 		template <std::size_t expected_args, typename... Types>
@@ -1364,7 +1414,7 @@ namespace mem
 			if (this->needs_resize()) this->increase_capacity();
 
 			const auto temp = mem::tuple::ReverseTuple(args);
-			std::memmove(&(this->values.first[this->size()]), &temp, sizeof(args));
+			std::memcpy(&(this->values.first[this->size()]), &temp, sizeof(args));
 			this->values.last = this->values.first + (this->size() + (sizeof...(Types) / expected_args));
 		};
 
@@ -1378,11 +1428,11 @@ namespace mem
 			if constexpr (mem::mem_tuple_layout::reverse == tuple_layout)
 			{
 				const auto temp2 = mem::tuple::ReverseTuple(temp);
-				std::memmove(&(this->values.first[this->size()]), &temp2, sizeof(temp2));
+				std::memcpy(&(this->values.first[this->size()]), &temp2, sizeof(temp2));
 			}
 			else
 			{
-				std::memmove(&(this->values.first[this->size()]), &temp, sizeof(temp));
+				std::memcpy(&(this->values.first[this->size()]), &temp, sizeof(temp));
 			}
 
 			this->values.last = this->values.first + (this->size() + min_size);
@@ -1398,11 +1448,11 @@ namespace mem
 			if constexpr (mem::mem_tuple_layout::reverse == tuple_layout)
 			{
 				const auto temp2 = mem::tuple::ReverseTuple(temp);
-				std::memmove(&(this->values.first[this->size_]), &temp2, sizeof(temp2));
+				std::memcpy(&(this->values.first[this->size_]), &temp2, sizeof(temp2));
 			}
 			else
 			{
-				std::memmove(&(this->values.first[this->size_]), &temp, sizeof(temp));
+				std::memcpy(&(this->values.first[this->size_]), &temp, sizeof(temp));
 			}
 			this->values.last = this->values.first + (this->size() + min_size);
 		};
@@ -1414,7 +1464,7 @@ namespace mem
 
 			for (iterator* iterator : iterators)
 			{
-				if (iterator->operator->() >= this->values.first && iterator->operator->() < this->values.end)
+				if (iterator->operator->() >= this->values.first && iterator->operator->() <= this->values.end)
 				{
 					const auto ptr_diff = (iterator->operator->() - this->values.first);
 					iterator_indexes.push_back(static_cast<long long>(ptr_diff));
@@ -1469,20 +1519,24 @@ namespace mem
 
 				while (_begin > _end)
 				{
-					(*_start) = std::move(*_begin);
+					new (_start.operator->()) value_type{ std::move(*_begin) };
+					//(*_start) = std::move(*_begin);
 					--_start;
 					--_begin;
 				}
+
+				iter_position.operator*() = value_type{ };
+				this->values.last = this->values.last + 1ll;
+				return iterator{ iter_position };
 			}
-			*(iter_position + 1ll) = value_type{ };
-			this->values.last = this->values.last + 1ll;
-			return iterator{ iter_position };
+
+			return end();
 		};
 		template <typename... Types>
 		__forceinline constexpr iterator emplace(iterator iter_position, Types&&... args) noexcept
 			requires (std::is_move_constructible_v<value_type> == true && std::is_constructible_v<value_type, Types...> == true)
 		{
-			const std::size_t min_size = this->usize() + 1ull;
+			const long long min_size = this->size() + 1ll;
 
 			if (this->needs_resize(min_size))
 			{
@@ -1502,7 +1556,7 @@ namespace mem
 					const iterator tmp_start = iterator{ iter_position + 1ll };
 					if (tmp_start != values.last)
 					{
-						iterator _end = last();
+						const iterator _end = last();
 						const std::size_t count = _end - iter_position;
 						std::memmove(tmp_start.operator->(), iter_position.operator->(), sizeof(value_type) * count);
 					}
@@ -1526,10 +1580,13 @@ namespace mem
 					--_start;
 					--_begin;
 				}
+
+				iter_position.operator*() = value_type{ std::forward<Types>(args)... };
+				this->values.last = this->values.last + 1ll;
+				return iterator{ iter_position };
 			}
-			*(iter_position + 1ll) = value_type{ std::forward<Types>(args)... };
-			this->values.last = this->values.last + 1ll;
-			return iterator{ iter_position };
+
+			return end();
 		};
 
 		inline constexpr iterator insert(iterator insert_position, value_type insert_value) noexcept
@@ -1542,38 +1599,60 @@ namespace mem
 				insert_position = iterator{ values.first + tmp_iter_index };
 			}
 
-			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
+			if constexpr (std::is_trivially_copyable_v<value_type> == true) //mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
 				if (std::is_constant_evaluated() == false)
 				{
+					/**values.last = *insert_position;
+					*insert_position = insert_value;
+					++values.last;*/
 					if (insert_position == values.last)
 					{
-						*values.last = *insert_position;
-						*insert_position = insert_value;
+						new (values.last) value_type{ insert_value };
+						//*values.last = insert_value;
 						++values.last;
 					}
 					else
 					{
-						auto right_count = values.last - insert_position;
+						const auto right_count = values.last - insert_position;
 						std::memmove(insert_position.operator->() + 1ll, insert_position.operator->(), sizeof(value_type) * right_count);
-						*insert_position = insert_value;
-						++values.last;
+						new (insert_position.operator->()) value_type{ insert_value };
+						//*insert_position = insert_value;
+						//++values.last;
 					}
 
 					return insert_position;
 				}
 			}
 
+			/**values.last = *insert_position;
+			*insert_position = insert_value;
+			++values.last;*/
+
 			//are we not inserting at the end, move right side by count
 			if (insert_position == values.last)
 			{
-				*values.last = *insert_position;
-				*insert_position = insert_value;
+				new (values.last) value_type{ insert_value };
+				//*values.last = insert_value;
 				++values.last;
 			}
 			else
 			{
-				iterator tmp_start = iterator{ insert_position };
+				if (values.last != values.first)
+				{
+					iterator tmp_start = iterator{ values.last - 1ll };
+					iterator new_right_start = iterator{ values.last };
+
+					while (insert_position < tmp_start)
+					{
+						new (new_right_start.operator->()) value_type{ *tmp_start };
+						//(*new_right_start) = std::move(*tmp_start);
+						--new_right_start;
+						--tmp_start;
+					}
+				}
+
+				/*iterator tmp_start = iterator{insert_position};
 				iterator new_right_start{ insert_position + 1ll };
 				auto right_count = values.last - insert_position;
 
@@ -1582,10 +1661,11 @@ namespace mem
 					(*new_right_start) = std::move(*tmp_start);
 					++new_right_start;
 					++tmp_start;
-				}
+				}*/
 
-				*insert_position = insert_value;
-				++values.last;
+				new (insert_position.operator->()) value_type{ insert_value };
+				//*insert_position = insert_value;
+				//++values.last;
 			}
 
 			return insert_position;
@@ -1609,11 +1689,11 @@ namespace mem
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
 				const iterator tmp_start{ start };
-				const iterator new_right_start{ this->values.last + (count + 1) };
+				const iterator new_right_start{ this->values.last };// + (count + 1)};
 				const auto right_size = this->values.last - start;
 				if (right_size > 0)
-					std::memmove(new_right_start.operator->(), tmp_start.operator->(), sizeof(value_type) * right_size);
-				std::memmove(start.operator->(), begin.operator->(), sizeof(value_type) * count);
+					std::memcpy(new_right_start.operator->(), tmp_start.operator->(), sizeof(value_type) * right_size);
+				std::memcpy(start.operator->(), begin.operator->(), sizeof(value_type) * count);
 				this->values.last = this->values.last + count;
 			}
 			else
@@ -1621,15 +1701,16 @@ namespace mem
 				//are we not inserting at the end, move right side by count
 				if (start.operator->() <= this->values.last)
 				{
-					iterator tmp_start = iterator{ this->values.last };
-					iterator new_right_start{ this->values.last + (count + 1) };
+					iterator tmp_start = iterator{ start };
+					iterator new_right_start{ this->values.last };
 					const difference_type right_size{ this->values.last - start };
 
 					for (long long i = 0; i < right_size; ++i)
 					{
-						(*new_right_start) = std::move(*tmp_start);
+						new (new_right_start.operator->()) value_type{ std::move(*tmp_start) };
+						//(*new_right_start) = std::move(*tmp_start);
 						++new_right_start;
-						--tmp_start;
+						++tmp_start;
 					}
 				}
 
@@ -1676,25 +1757,28 @@ namespace mem
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
 				iterator tmp_start = iterator{ start };
-				iterator new_right_start = this->values.last + (count + 1);
+				iterator new_right_start = this->values.last;
 				const auto right_size = this->values.last - start;
-				std::memcpy(new_right_start.operator->(), tmp_start.operator->(), sizeof(value_type) * right_size);
+				if (right_size > 0)
+					std::memcpy(new_right_start.operator->(), tmp_start.operator->(), sizeof(value_type) * right_size);
 				std::memcpy(start.operator->(), begin.operator->(), sizeof(value_type) * count);
+				this->values.last = this->values.last + count;
 			}
 			else
 			{
 				//are we not inserting at the end, move right side by count
 				if (start <= this->values.last)
 				{
-					iterator tmp_start = iterator{ this->values.last };
-					iterator new_right_start = this->values.last + (count + 1);
+					iterator tmp_start = iterator{ start };
+					iterator new_right_start = this->values.last;
 					const auto right_size = this->values.last - start;
 
 					for (long long i = 0; i < right_size; ++i)
 					{
-						(*new_right_start) = std::move(*tmp_start);
+						new (new_right_start.operator->()) value_type{ std::move(*tmp_start) };
+						//(*new_right_start) = std::move(*tmp_start);
 						++new_right_start;
-						--tmp_start;
+						++tmp_start;
 					}
 				}
 
@@ -1704,6 +1788,8 @@ namespace mem
 					++start;
 					++begin;
 				}
+
+				this->values.last = this->values.last + count;
 			}
 		};
 
@@ -1712,7 +1798,7 @@ namespace mem
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
 				const iterator first = (start + 1);
-				std::memmove(start.operator->(), first.operator->(), sizeof(value_type) * static_cast<std::ptrdiff_t>(this->values.last - first)); //shift right side by one
+				std::memcpy(start.operator->(), first.operator->(), sizeof(value_type) * static_cast<std::ptrdiff_t>(this->values.last - first)); //shift right side by one
 				_Alty MemoryAllocator{};
 				_Alty_traits::destroy(MemoryAllocator, this->values.last);
 			}
@@ -1743,7 +1829,12 @@ namespace mem
 			const _Alty MemoryAllocator{};
 			while (first != end)
 			{
-				if constexpr (std::is_trivially_destructible_v<Object> == false) _Alty_traits::destroy(MemoryAllocator, first.operator->());
+				if constexpr (std::is_trivially_destructible_v<Object> == false)
+				{
+					(*(first)).~Object();
+					//MemoryAllocator.deallocate(first.operator->());
+					//_Alty_traits::destroy(MemoryAllocator, first.operator->());
+				}
 				++first;
 				++count;
 			}
@@ -1786,7 +1877,7 @@ namespace mem
 				const auto first = start + 1;
 				const auto end = this->end();
 				(*(start)).~Object();
-				std::memmove(start.operator->(), first.operator->(), sizeof(value_type) * static_cast<std::size_t>(end - first)); //shift right side by one
+				std::memcpy(start.operator->(), first.operator->(), sizeof(value_type) * static_cast<std::size_t>(end - first)); //shift right side by one
 			}
 			else
 			{
@@ -1812,29 +1903,38 @@ namespace mem
 		{
 			if (this->usize() < index) return;
 
-			const std::size_t right_size{ this->usize() - (index == 0 ? 1 : index) };
+			//const std::size_t right_size{ this->usize() - (index == 0 ? 1 : index) };
 			const std::size_t left_size{ index - 1 < this->usize() && index - 1 >= 0 ? index - 1 : 0 };
 
 			if (left_size < 0) return;
 
 			std::destroy_at(&this->values.first[index]);
 
-			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
-				std::memmove(&this->values.first[left_size], &this->values.first[left_size + 1], sizeof(value_type) * right_size); //shift right side by one
-			else
+			if (!std::is_constant_evaluated())
 			{
-				for (std::size_t i = left_size + 1, newLocation = left_size; i < this->usize(); ++i)
+				if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 				{
-					this->values.first[newLocation] = std::move(this->values.first[i]);
-					++newLocation;
+					const auto start = this->begin() + index;
+					const auto first = start + 1;
+					const auto end = this->end();
+					std::memcpy(start.operator->(), first.operator->(), sizeof(value_type) * static_cast<std::size_t>(end - first)); //shift right side by one
+					//std::memcpy(&this->values.first[left_size], &this->values.first[left_size + 1], sizeof(value_type) * right_size); //shift right side by one
+					--this->values.last;
+					return;
 				}
+			}
+
+			for (std::size_t i = left_size + 1, newLocation = left_size; i < this->usize(); ++i)
+			{
+				this->values.first[newLocation] = std::move(this->values.first[i]);
+				++newLocation;
 			}
 			--this->values.last;
 		};
 
 		constexpr void clear() noexcept
 		{
-			if (this->size() == 0 || this->values.first == nullptr)
+			if (this->size() == 0 || this->values.first == nullptr || this->values.last < this->values.first)
 				return;
 
 			for (long long i = 0; i < this->size(); ++i)
@@ -2406,7 +2506,7 @@ namespace mem
 	static_assert(test_vector() == 3ll, "no");
 #endif
 
-	CONSTEXPR_VAR auto test_mem_vector_empty(int insert_count)
+	CONSTEXPR_VAR auto test_mem_vector_empty(int insert_count) noexcept
 	{
 		mem::vector<int> test{ 4 };
 		for (int i = 0; i < insert_count; ++i) test.emplace_back(i);
@@ -2438,13 +2538,48 @@ namespace mem
 	static_assert(test_mem_vector_begin_last(0) == 0, "vector is not empty");
 	static_assert(test_mem_vector_begin_last(4) == 6, "vector is not empty");
 #endif
+	struct non_trivial
+	{
+		int i{ 0 };
+		non_trivial() noexcept {};
+		non_trivial(int _i) noexcept : i{ _i }
+		{};
+		~non_trivial() noexcept {};
+	};
+	CONSTEXPR_VAR auto test_mem_vector_specific_insert(int insert_count)
+	{
+		mem::vector<non_trivial> test{ 4 };
+		for (int i = 0; i < insert_count; ++i) test.emplace_back(i);
+
+		mem::vector<non_trivial> dest{ test.size() * 3 };
+		for (int i = 30; i < insert_count * 2; ++i)
+			dest.emplace_back(i);
+
+		const auto begin_iter = test.begin();
+		const auto last_iter = test.last();
+		dest.insert(dest.begin(), begin_iter, last_iter);
+
+		int calc = 0;
+		auto dest_iter = dest.begin();
+		while (dest_iter != dest.last())
+		{
+			calc += (*dest_iter).i;
+			++dest_iter;
+		}
+
+		return calc;
+	};
+#ifdef CONSTEXPR_ASSERTS
+	static_assert(test_mem_vector_begin_last(0) == 0, "vector is not empty");
+	static_assert(test_mem_vector_begin_last(4) == 6, "vector is not empty");
+#endif
 
 	struct ice_struct
 	{
 		mem::iterator<mem::vector_value<mem::simple_types<int>>> first{ nullptr };
 		mem::iterator<mem::vector_value<mem::simple_types<int>>> second{ nullptr };
 	};
-	CONSTEXPR_VAR auto test_mem_vector_ice(int insert_count)
+	CONSTEXPR_VAR auto test_mem_vector_ice(int insert_count) noexcept
 	{
 		mem::vector<int> ice{ 4 };
 		mem::vector<ice_struct> test{ 4 };

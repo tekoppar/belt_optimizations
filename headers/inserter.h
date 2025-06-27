@@ -16,7 +16,7 @@
 
 class inserter
 {
-	vec2_uint position{ 0, 0 };
+	vec2_int64 position{ 0, 0 };
 	mem::single_list_block_node<item_groups_type>* item_group{ nullptr };
 	item_uint item;
 	item_type item_need_types[8]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square,
@@ -27,7 +27,7 @@ class inserter
 public:
 	constexpr inserter() noexcept
 	{};
-	constexpr inserter(vec2_uint pos) noexcept :
+	constexpr inserter(vec2_int64 pos) noexcept :
 		position{ pos }
 	{};
 
@@ -50,7 +50,7 @@ public:
 		}
 	};
 	constexpr inserter(inserter&& o) noexcept :
-		position{ std::exchange(o.position, vec2_uint{}) },
+		position{ std::exchange(o.position, vec2_int64{}) },
 		item_group{ std::exchange(o.item_group, nullptr) },
 		item{ std::exchange(o.item, item_uint{}) },
 		is_sleeping{ std::exchange(o.is_sleeping, false) },
@@ -91,7 +91,7 @@ public:
 	};
 	constexpr inserter& operator=(inserter&& o) noexcept
 	{
-		position = std::exchange(o.position, vec2_uint{});
+		position = std::exchange(o.position, vec2_int64{});
 		item_group = std::exchange(o.item_group, nullptr);
 		item = std::exchange(o.item, item_uint{});
 		is_sleeping = std::exchange(o.is_sleeping, false);
@@ -124,7 +124,7 @@ public:
 	{
 		sleep_timer = 1024;
 	};
-	constexpr vec2_uint get_position() const noexcept
+	constexpr vec2_int64 get_position() const noexcept
 	{
 		return position;
 	};

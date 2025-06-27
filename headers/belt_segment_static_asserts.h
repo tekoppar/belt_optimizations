@@ -5,24 +5,24 @@
 
 CONSTEXPR_VAR auto test_belt_segment() noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{255, 0} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0, 0 }, vec2_uint{ 255, 0 });
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 128ll, 0ll } });
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{255, 0} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0, 0 }, vec2_int64{ 255, 0 });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 0ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 64ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 96ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 128ll, 0ll } });
 
 	//return first_segment.get_item(0).get_distance_to_item(2);
 	//return first_segment.get_item(0).get_direction_position() - first_segment.get_item(0).get_distance_to_item(3);
-	//first_segment.add_item(item_uint{ test_arr[5].type, vec2_uint{ 42ll, 0ll } });
+	//first_segment.add_item(item_uint{ test_arr[5].type, vec2_int64{ 42ll, 0ll } });
 	//return first_segment.get_item(0).count();
 	//return first_segment.get_item(0).get(4).type;
 	//used to check support that adding items in between is possible
-	//test_belt.add_item(test_arr[4], vec2_uint{ 0ll, 0ll });
-	//test_belt.add_item(test_arr[5], vec2_uint{ 32ll, 0ll });
+	//test_belt.add_item(test_arr[4], vec2_int64{ 0ll, 0ll });
+	//test_belt.add_item(test_arr[5], vec2_int64{ 32ll, 0ll });
 	//return test_belt.get(4).type; 
-
-	for (int i = 0, l = 128 + 32; i < l; ++i)
+	constexpr int l = 128 + 32;
+	for (int i = 0; i < l; ++i)
 	{
 		first_segment.update();
 	}
@@ -37,15 +37,17 @@ static_assert(test_belt_segment() == 255, "wrong count");
 
 CONSTEXPR_VAR auto test_moving_items_between_belt_segments(std::size_t return_index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{255, 0} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0, 0 }, vec2_uint{ 255, 0 });
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 128ll, 0ll } });
-	belt_segment second_segment{ vec2_uint{255, 0}, vec2_uint{1024, 0} };
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{255, 0} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0, 0 }, vec2_int64{ 255, 0 });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 0ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 64ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 96ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 128ll, 0ll } });
+	belt_segment second_segment{ vec2_int64{255, 0}, vec2_int64{1024, 0} };
 	first_segment.add_end_segment_section(&second_segment);
-	for (int i = 0, l = 127 + 32 + 32; i < l; ++i)
+
+	constexpr int l = 127 + 32 + 32;
+	for (int i = 0; i < l; ++i)
 	{
 		second_segment.update();
 		first_segment.update();
@@ -56,7 +58,7 @@ CONSTEXPR_VAR auto test_moving_items_between_belt_segments(std::size_t return_in
 	//return second_segment.count_item_groups();
 	//return first_segment.get_item_group(0).get(return_index).position.x;
 	//return second_segment.get_item_group(0).get_goal();
-	return second_segment.get_item<direction>(0, tc::sign(return_index)).position.x;
+	return second_segment.get_item<direction>(0, return_index).position.x;
 };
 #ifdef CONSTEXPR_ASSERTS
 constexpr auto moving_items_between_belts_val = test_moving_items_between_belt_segments(0);
@@ -66,15 +68,16 @@ static_assert(test_moving_items_between_belt_segments(0) == 319ll, "item did not
 
 CONSTEXPR_VAR auto test_removing_item_group(std::size_t return_index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{255, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 128ll, 0ll } });
-	belt_segment second_segment{ vec2_uint{255, 0}, vec2_uint{1024, 0} };
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{255, 0} };
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 0ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 64ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 96ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 128ll, 0ll } });
+	belt_segment second_segment{ vec2_int64{255, 0}, vec2_int64{1024, 0} };
 	first_segment.add_end_segment_section(&second_segment);
 
-	for (int i = 0, l = 128 + 32; i < l; ++i)
+	constexpr int l = 128 + 32;
+	for (int i = 0; i < l; ++i)
 	{
 		first_segment.update();
 		second_segment.update();
@@ -93,14 +96,15 @@ static_assert(test_removing_item_group(1) == 2, "item did not jump to the second
 
 CONSTEXPR_VAR auto test_incrementing_if_some_are_stuck(std::size_t return_index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{255, 0} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0, 0 }, vec2_uint{ 255, 0 });
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 128ll, 0ll } });
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{255, 0} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0, 0 }, vec2_int64{ 255, 0 });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 0ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 64ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 96ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 128ll, 0ll } });
 
-	for (int i = 0, l = 127 + 32 + 32; i < l; ++i)
+	constexpr int l = 127 + 32 + 32;
+	for (int i = 0; i < l; ++i)
 	{
 		first_segment.update();
 	}
@@ -121,14 +125,14 @@ static_assert(test_incrementing_if_some_are_stuck(0) == 255, "position is wrong,
 
 CONSTEXPR_VAR auto test_adding_in_middle(std::size_t return_index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{400, 0} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0, 0 }, vec2_uint{ 400, 0 });
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{400, 0} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0, 0 }, vec2_int64{ 400, 0 });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 10ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 160ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 224ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 288ll, 0ll } });
 
-	auto val = first_segment.add_item(item_uint{ item_type::brick, vec2_uint{ 42ll, 0ll } });
+	const auto val = first_segment.add_item(item_uint{ item_type::brick, vec2_int64{ 42ll, 0ll } });
 	//return first_segment.get_item_group(0).count();
 	if (!val) return item_type::pink_square;
 	return first_segment.get_item<direction>(0, return_index).type;
@@ -143,14 +147,15 @@ static_assert(test_adding_in_middle(3) == item_type::brick, "wrong type so addin
 
 CONSTEXPR_VAR auto test_last_item_distance() noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{400, 0} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0, 0 }, vec2_uint{ 400, 0 });
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{400, 0} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0, 0 }, vec2_int64{ 400, 0 });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 10ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 160ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 224ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 288ll, 0ll } });
 
-	for (int i = 0, l = 170; i < l; ++i)
+	constexpr int l = 170;
+	for (int i = 0; i < l; ++i)
 	{
 		first_segment.update();
 	}
@@ -165,11 +170,11 @@ static_assert(test_last_item_distance() == 180, "item distance is incorrect");
 
 CONSTEXPR_VAR auto test_item_distance(std::size_t return_index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{400, 0} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{400, 0} };
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 10ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 160ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 224ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 288ll, 0ll } });
 
 	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[return_index], first_segment.get_item_data_group(0), return_index);
 	//return first_segment.get_item_group(0).get_item_direction_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), return_index);
@@ -183,21 +188,22 @@ static_assert(test_item_distance(1) == 128, "item distance is incorrect");
 
 CONSTEXPR_VAR auto test_inserter_item() noexcept
 {
-	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{400ll, 0ll} };
+	belt_segment first_segment{ vec2_int64{0ll, 0ll}, vec2_int64{400ll, 0ll} };
 
-	first_segment.add_inserter(index_inserter{ vec2_uint{320ll, 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{320ll, 32ll} });
 	first_segment.get_inserter(0).set_item_type(item_type::stone);
 
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 10ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 10ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 160ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 224ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 288ll, 0ll } });
 
-	for (int i = 0, l = 128 + 32; i < l; ++i)
+	constexpr int l = 128 + 32;
+	for (int i = 0; i < l; ++i)
 	{
 		first_segment.update();
 	}
-	//auto test_type_pos = first_segment.get_item_group(0).get_first_item_of_type_before_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), item_type::stone, vec2_uint{ 320ll , 0ll });
+	//auto test_type_pos = first_segment.get_item_group(0).get_first_item_of_type_before_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), item_type::stone, vec2_int64{ 320ll , 0ll });
 	//return test_type_pos;
 	return first_segment.get_inserter(0).get_item().type;
 };
@@ -209,30 +215,30 @@ static_assert(test_inserter_item() == item_type::stone, "inserter hasn't grabbed
 
 CONSTEXPR_VAR auto test_inserter_can_grab_all_items() noexcept
 {
-	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{1024ll, 0ll} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0ll, 0ll }, vec2_uint{ 1024ll, 0ll });
+	belt_segment first_segment{ vec2_int64{0ll, 0ll}, vec2_int64{1024ll, 0ll} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0ll, 0ll }, vec2_int64{ 1024ll, 0ll });
 
-	first_segment.add_inserter(index_inserter{ vec2_uint{448ll, 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{448ll, 32ll} });
 	first_segment.get_inserter(0).set_item_type(item_type::stone);
 
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 32ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 96ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 128ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 160ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 192ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 224ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 256ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 288ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 320ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 352ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 384ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 416ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 448ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 480ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 0ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 32ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 64ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 96ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 128ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 160ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 192ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 224ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 256ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 288ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 320ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 352ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 384ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 416ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 448ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 480ll, 0ll } });
 
-	auto real_pos = first_segment.get_item_group(0).get_item_direction_position<direction>(first_segment.get_end_distance_direction<direction>(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), 13);
+	const auto real_pos = first_segment.get_item_group(0).get_item_direction_position<direction>(first_segment.get_end_distance_direction<direction>(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), 13);
 
 	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 12);
 	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 11);
@@ -245,9 +251,9 @@ CONSTEXPR_VAR auto test_inserter_can_grab_all_items() noexcept
 	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 4);
 	first_segment.get_item_group(0).remove_item(&first_segment.item_groups_distance_between[0], first_segment.get_item_data_group(0), 3);
 
-	auto new_pos = first_segment.get_item_group(0).get_item_direction_position<direction>(first_segment.get_end_distance_direction<direction>(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), first_segment.get_item_group(0).count() - 3);
+	const auto new_pos = first_segment.get_item_group(0).get_item_direction_position<direction>(first_segment.get_end_distance_direction<direction>(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), first_segment.get_item_group(0).count() - 3);
 
-	//auto test_type_pos = first_segment.get_item_group(0).get_first_item_of_type_before_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), item_type::stone, vec2_uint{ 448ll , 0ll });
+	//auto test_type_pos = first_segment.get_item_group(0).get_first_item_of_type_before_position(first_segment.segment_direction, first_segment.get_end_distance_direction(), first_segment.get_new_item_distance(0), first_segment.get_item_data_group(0), item_type::stone, vec2_int64{ 448ll , 0ll });
 	//return test_type_pos;
 	//return real_pos;
 	//return new_pos;
@@ -261,15 +267,15 @@ static_assert(test_inserter_can_grab_all_items() == true, "item position moved w
 
 /*CONSTEXPR_VAR auto test_inserter_moved_to_no_group() noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024, 0} };
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{1024, 0} };
 
-	first_segment.add_inserter(index_inserter{ vec2_uint{256 + 64, 32} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{256 + 64, 32} });
 	first_segment.get_inserter(0).set_item_type(item_type::stone);
 
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 288ll - 278ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 288ll - 128ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 288ll - 64ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 288ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 288ll - 278ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 288ll - 128ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 288ll - 64ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 288ll, 0ll } });
 
 	for (int i = 0, l = 256 + 128; i < l; ++i)
 	{
@@ -285,13 +291,14 @@ static_assert(test_inserter_moved_to_no_group() == true, "inserter hasn't been m
 
 CONSTEXPR_VAR auto test_item_groups_distance_between_value(int index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{2048, 0} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0ll, 0ll }, vec2_uint{ 2048ll, 0ll });
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{2048, 0} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0ll, 0ll }, vec2_int64{ 2048ll, 0ll });
 
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 32ll, 0ll } });
-	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + 4096ll, 0ll } });
-	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + (4096ll + 4096ll), 0ll } });
-	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + (4096ll + 4096ll + 12288ll), 0ll } });
+	constexpr int l = 32;
+	for (int i = 0; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ i * 32ll, 0ll } });
+	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (i * 32ll) + 4096ll, 0ll } });
+	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (i * 32ll) + (4096ll + 4096ll), 0ll } });
+	//for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (i * 32ll) + (4096ll + 4096ll + 12288ll), 0ll } });
 
 
 	//return first_segment.get_item_group(1).get_direction_position(first_segment.get_end_distance_direction(), first_segment.goal_distance_in_group(1));
@@ -310,13 +317,14 @@ static_assert(test_item_groups_distance_between_value(28) == 96ll, "inserter has
 
 CONSTEXPR_VAR auto test_new_item_distance_vectors(int index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024 * 32, 0} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0ll, 0ll }, vec2_uint{ 1024 * 32, 0ll });
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{1024 * 32, 0} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0ll, 0ll }, vec2_int64{ 1024 * 32, 0ll });
 
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 32ll, 0ll } });
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + 4096ll, 0ll } });
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + (4096ll + 4096ll), 0ll } });
-	for (int i = 0, l = 32; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 32ll) + (4096ll + 4096ll + 12288ll), 0ll } });
+	constexpr int l = 32;
+	for (int i = 0; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ i * 32ll, 0ll } });
+	for (int i = 0; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (i * 32ll) + 4096ll, 0ll } });
+	for (int i = 0; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (i * 32ll) + (4096ll + 4096ll), 0ll } });
+	for (int i = 0; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (i * 32ll) + (4096ll + 4096ll + 12288ll), 0ll } });
 
 	//return first_segment.get_item_group(0).count();
 	//return first_segment.get_item_group(1).get_direction_position(first_segment.get_end_distance_direction(), first_segment.goal_distance_in_group(1));
@@ -334,14 +342,14 @@ static_assert(test_new_item_distance_vectors(3) == 1024 + 4096 + 4096 + 12288, "
 
 /*CONSTEXPR_VAR auto test_multiple_inserters_getting_destination_slots(auto i) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{400ll, 0ll} };
+	belt_segment first_segment{ vec2_int64{0ll, 0ll}, vec2_int64{400ll, 0ll} };
 
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 5), 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll, 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 2), 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 1), 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 3), 32ll} });
-	first_segment.add_inserter(index_inserter{ vec2_uint{0ll + ((256 * 32) * 4), 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{0ll + ((256 * 32) * 5), 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{0ll, 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{0ll + ((256 * 32) * 2), 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{0ll + ((256 * 32) * 1), 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{0ll + ((256 * 32) * 3), 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{0ll + ((256 * 32) * 4), 32ll} });
 
 	//return first_segment.get_item_groups_goal_distance_size();
 	//return first_segment.count_inserters();
@@ -374,23 +382,23 @@ struct booleans
 CONSTEXPR_VAR auto test_mixing_inserters_and_item_groups(std::size_t return_index) noexcept
 {
 	booleans count_conditions{};
-	belt_segment first_segment{ vec2_uint{0ll, 0ll}, vec2_uint{14096ll, 0ll} };
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ 0ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::stone, vec2_uint{ 64ll, 0ll } });
+	belt_segment first_segment{ vec2_int64{0ll, 0ll}, vec2_int64{14096ll, 0ll} };
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 0ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::stone, vec2_int64{ 64ll, 0ll } });
 
 	if (first_segment.goal_distance_in_destinations(0) == 14096ll - 64ll) count_conditions.a = true;
 
-	first_segment.add_inserter(index_inserter{ vec2_uint{256ll, 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{256ll, 32ll} });
 
-	first_segment.add_item(item_uint{ item_type::log, vec2_uint{ 96ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::log, vec2_int64{ 96ll, 0ll } });
 
-	first_segment.add_inserter(index_inserter{ vec2_uint{1024ll, 32ll} });
+	first_segment.add_inserter(index_inserter{ vec2_int64{1024ll, 32ll} });
 
-	first_segment.add_item(item_uint{ item_type::copper, vec2_uint{ 128ll + 256ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 2048ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::iron, vec2_uint{ 4048ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::copper, vec2_int64{ 128ll + 256ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 2048ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::iron, vec2_int64{ 4048ll, 0ll } });
 
-	const int l = 128 + 32;
+	constexpr int l = 128 + 32;
 	for (int i = 0; i < l; ++i)
 	{
 		first_segment.update();
@@ -411,11 +419,11 @@ static_assert(test_mixing_inserters_and_item_groups(0) == booleans{ true, false,
 
 CONSTEXPR_VAR auto test_splitting_item_groups(int index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024 * 32, 0} };
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{1024 * 32, 0} };
 
-	const int l = 32;
-	for (int i = 0; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 128ll, 0ll } });
-	first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (10 * 128ll) + 32ll, 0ll } });
+	constexpr int l = 32;
+	for (int i = 0; i < l; ++i) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ i * 128ll, 0ll } });
+	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (10 * 128ll) + 32ll, 0ll } });
 
 	//return first_segment.get_item_group(0).count();
 	//return first_segment.get_item_group(1).get_direction_position(first_segment.get_end_distance_direction(), first_segment.goal_distance_in_group(1));
@@ -432,31 +440,36 @@ static_assert(test_splitting_item_groups(1) == 21ll, "inserter hasn't been moved
 
 CONSTEXPR_VAR auto test_goal_distance_is_all_valid(int index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024 * 32, 0} };
-	for (int i = 0, l = 32; i < l; ++i)
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{1024 * 32, 0} };
+	constexpr int l1 = 32;
+	for (int i = 0; i < l1; ++i)
 	{
 		if (i == 0)
 		{
-			first_segment.add_inserter(index_inserter{ vec2_uint{ i * 128ll, 0ll } });
+			first_segment.add_inserter(index_inserter{ vec2_int64{ i * 128ll, 0ll } });
 			first_segment.get_inserter(i).set_item_type(item_type::wood);
 		}
 		else
 		{
-			auto inserter_old_count = first_segment.count_inserters();
-			first_segment.add_inserter(index_inserter{ vec2_uint{ (i * 128ll) + 256ll, 0ll } });
+#ifdef ENABLE_CPP_EXCEPTION_THROW
+			const auto inserter_old_count = first_segment.count_inserters();
+#endif
+			first_segment.add_inserter(index_inserter{ vec2_int64{ (i * 128ll) + 256ll, 0ll } });
 #ifdef ENABLE_CPP_EXCEPTION_THROW
 			if (inserter_old_count + 1 != first_segment.count_inserters()) throw std::runtime_error("");
 #endif
 			first_segment.get_inserter(i).set_item_type(item_type::wood);
 		}
 	}
-	for (int i = 0, l = 64; i < l; ++i)
+	constexpr int l2 = 64;
+	for (int i = 0; i < l2; ++i)
 	{
-		if (i == 0) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ i * 128ll, 0ll } });
-		else first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (i * 128ll) + 128ll, 0ll } });
+		if (i == 0) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ i * 128ll, 0ll } });
+		else first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (i * 128ll) + 128ll, 0ll } });
 	}
 
-	for (int i = 0, l = 128 + 32; i < l; ++i)
+	constexpr int l3 = 128 + 32;
+	for (int i = 0; i < l3; ++i)
 	{
 		first_segment.update();
 	}
@@ -476,28 +489,31 @@ constexpr auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_v
 
 CONSTEXPR_VAR auto test_real_game_scenario_smelters(int index) noexcept
 {
-	belt_segment first_segment{ vec2_uint{0, 0}, vec2_uint{1024 * 32, 0} };
-	constexpr auto direction = first_segment.direction_construct(vec2_uint{ 0ll, 0ll }, vec2_uint{ 1024 * 32, 0ll });
+	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{1024 * 32, 0} };
+	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0ll, 0ll }, vec2_int64{ 1024 * 32, 0ll });
 
-	for (int i = 0, l = 32; i < l; ++i)
+	constexpr int l = 32;
+	for (long long i = 0; i < l; ++i)
 	{
 		if (i == 0)
 		{
-			first_segment.add_inserter(index_inserter{ vec2_uint{ i * 128ll, 0ll } });
+			first_segment.add_inserter(index_inserter{ vec2_int64{ i * 128ll, 0ll } });
 			first_segment.get_inserter(i).set_item_type(item_type::wood);
 		}
 		else
 		{
-			first_segment.add_inserter(index_inserter{ vec2_uint{ (i * 128ll) + 256ll, 0ll } });
+			first_segment.add_inserter(index_inserter{ vec2_int64{ (i * 128ll) + 256ll, 0ll } });
 			first_segment.get_inserter(i).set_item_type(item_type::wood);
 		}
 	}
-	for (int j = 0, jl = 4; j < jl; ++j)
+	constexpr long long jl = 4;
+	for (long long j = 0; j < jl; ++j)
 	{
-		for (int i = 0, l = 32; i < l; ++i)
+		constexpr long long l2 = 32;
+		for (long long i = 0; i < l2; ++i)
 		{
-			if (j == 0) first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ (l * j + i) * 128ll, 0ll } });
-			else first_segment.add_item(item_uint{ item_type::wood, vec2_uint{ ((l * j + i) * 128ll) + 128ll, 0ll } });
+			if (j == 0) first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ (l2 * j + i) * 128ll, 0ll } });
+			else first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ ((l2 * j + i) * 128ll) + 128ll, 0ll } });
 		}
 	}
 
@@ -505,7 +521,8 @@ CONSTEXPR_VAR auto test_real_game_scenario_smelters(int index) noexcept
 	if (first_segment.get_item_groups_goal_distance_size() < 2ll) throw std::runtime_error("");
 #endif
 
-	for (int i = 0, l = 128 + 32; i < l; ++i)
+	constexpr long long l2 = 128 + 32;
+	for (long long i = 0; i < l2; ++i)
 	{
 		first_segment.update();
 	}

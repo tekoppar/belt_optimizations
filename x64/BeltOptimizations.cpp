@@ -2,7 +2,7 @@
 
 #include "second_test.h"
 
-int main()
+int __cdecl main()
 {
 	second_belt_test();
 	return 0;

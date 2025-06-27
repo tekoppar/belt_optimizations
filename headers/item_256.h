@@ -113,11 +113,11 @@ public:
 
 	constexpr item_uint get(std::size_t arr_index, std::size_t i) noexcept
 	{
-		return { items[arr_index][i].type, vec2_uint{item_position_x[arr_index] - get_distance_to_item(arr_index, i), item_position_y[arr_index]} };
+		return { items[arr_index][i].type, vec2_int64{item_position_x[arr_index] - get_distance_to_item(arr_index, i), item_position_y[arr_index]} };
 	};
 	constexpr const item_uint& get(std::size_t arr_index, std::size_t i) const noexcept
 	{
-		return { items[arr_index][i].type, vec2_uint{item_position_x[arr_index] - get_distance_to_item(arr_index, i), item_position_y[arr_index]} };
+		return { items[arr_index][i].type, vec2_int64{item_position_x[arr_index] - get_distance_to_item(arr_index, i), item_position_y[arr_index]} };
 	};
 
 	constexpr std::size_t get_goal(std::size_t arr_index) const noexcept
@@ -152,7 +152,7 @@ public:
 		return total_distance;
 	};
 
-	constexpr bool add_item(const belt_item& new_item, vec2_uint new_item_position, std::size_t arr_index) noexcept
+	constexpr bool add_item(const belt_item& new_item, vec2_int64 new_item_position, std::size_t arr_index) noexcept
 	{
 		if (item_count[arr_index] == 0)
 		{
@@ -232,7 +232,7 @@ public:
 
 		return true;
 	};
-	constexpr void recalculate_distance(const vec2_uint& old_position, const vec2_uint new_position, std::size_t arr_index) noexcept
+	constexpr void recalculate_distance(const vec2_int64& old_position, const vec2_int64 new_position, std::size_t arr_index) noexcept
 	{
 		std::size_t new_distance = new_position.x - old_position.x;
 		for (int i = 0; i < item_count[arr_index]; ++i)
@@ -314,7 +314,7 @@ public:
 			previous_i_x = current_i_x;
 		}
 	};
-	constexpr bool outside_belt(vec2_uint pos, std::size_t arr_index) const noexcept
+	constexpr bool outside_belt(vec2_int64 pos, std::size_t arr_index) const noexcept
 	{
 		switch (direction[arr_index])
 		{
@@ -401,15 +401,15 @@ constexpr auto test_item_256() noexcept
 	{
 		for (std::size_t y = 0; y < 8; ++y)
 		{
-			if (test_belt.add_item(test_arr[i], vec2_uint{ static_cast<long long>(i) * 32ll, 0ll }, y) != false)
+			if (test_belt.add_item(test_arr[i], vec2_int64{ static_cast<long long>(i) * 32ll, 0ll }, y) != false)
 			{
 			}
 		}
 	}
 
 	//used to check support that adding items inbetween is possible
-	//test_belt.add_item(test_arr[4], vec2_uint{ 0ll, 0ll }, 0);
-	//test_belt.add_item(test_arr[5], vec2_uint{ 32ll, 0ll }, 0);
+	//test_belt.add_item(test_arr[4], vec2_int64{ 0ll, 0ll }, 0);
+	//test_belt.add_item(test_arr[5], vec2_int64{ 32ll, 0ll }, 0);
 	//return test_belt.get(0, 4).type;
 
 	for (int i = 0, l = 127 + 32 + 32; i < l; ++i)

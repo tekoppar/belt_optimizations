@@ -103,6 +103,14 @@ namespace expr
 	static_assert(ceil_div(5ll, 2ll) == 3ll);
 	static_assert(ceil_div(24ll, 2ll) == 12ll);
 
+	inline constexpr auto ceil_div_power2(auto lhs) noexcept
+		requires(std::is_integral_v<decltype(lhs)>)
+	{
+		return lhs + 1 >> 1;
+	};
+	static_assert(ceil_div_power2(5ll) == 3ll);
+	static_assert(ceil_div_power2(24ll) == 12ll);
+
 	template<typename type_size>
 	struct div_rem
 	{

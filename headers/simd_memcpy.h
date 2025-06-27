@@ -44,7 +44,8 @@ namespace mem
 			__m256i* __restrict s_Dest = (__m256i * __restrict)_Dest;
 			const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
 
-			for (int i = 0, l = InitialDoublewordCount; i < l; ++i)
+			const long long l = InitialDoublewordCount;
+			for (long long i = 0; i < l; ++i)
 			{
 				_mm_stream_si64x(&s_Dest->m256i_i64[i], s_Source->m256i_i64[i]);
 			}
@@ -81,7 +82,8 @@ namespace mem
 			const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
 
 			const auto rem = NumDoublewords & 7;
-			for (int i = 0, l = rem; i < l; ++i)
+			const long long l = rem;
+			for (long long i = 0; i < l; ++i)
 			{
 				_mm_stream_si64x(&s_Dest->m256i_i64[i], s_Source->m256i_i64[i]);
 			}
@@ -92,7 +94,8 @@ namespace mem
 			const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
 
 			const auto rem = InitialWordCount & 15;
-			for (int i = 0, l = rem; i < l; ++i)
+			const long long l = rem;
+			for (long long i = 0; i < l; ++i)
 			{
 				_mm_stream_si32(&s_Dest->m256i_i32[i], s_Source->m256i_i32[i]);
 			}

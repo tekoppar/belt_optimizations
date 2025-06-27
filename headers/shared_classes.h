@@ -43,6 +43,7 @@ public:
 	constexpr void set_index_ptr(std::nullptr_t) noexcept
 	{
 		index_ptr = nullptr;
+		//*(unsigned long long*)index_ptr = 0x8fffffffffffffff;
 	};
 	inline constexpr bool is_offset_alive(long long offset, goal_distance_dead_object_t) const noexcept
 	{
@@ -63,11 +64,11 @@ public:
 		if (index_ptr == nullptr) return -1ll;
 		return *index_ptr;
 	};
-	constexpr long long* const get_unsafe_index_ptr() noexcept
+	constexpr long long* get_unsafe_index_ptr() noexcept
 	{
 		return index_ptr;
 	};
-	constexpr const long long* const get_index_ptr() const noexcept
+	constexpr const long long* get_index_ptr() const noexcept
 	{
 		return index_ptr;
 	};
