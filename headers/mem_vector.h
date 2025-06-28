@@ -32,6 +32,7 @@
 #ifdef _DEBUG
 #define _DEAD_DEBUG_CHECK
 #endif
+#include <unordered_map>
 
 namespace mem
 {
@@ -413,7 +414,6 @@ namespace mem
 #else
 				if (!ptr) [[unlikely]] std::terminate();
 #endif
-
 				return ptr;
 			}
 			else if constexpr (mem::Allocating_Type::NEW == allocating_type)
@@ -424,7 +424,6 @@ namespace mem
 #else
 				if (!ptr) [[unlikely]] std::terminate();
 #endif
-
 				return ptr;
 			}
 			else if constexpr (mem::Allocating_Type::ALIGNED_MALLOC == allocating_type)
@@ -446,7 +445,6 @@ namespace mem
 #else
 				if (!ptr) [[unlikely]] std::terminate();
 #endif
-
 				return ptr;
 			}
 			else if constexpr (mem::Allocating_Type::ALIGNED_NEW_32 == allocating_type)
@@ -458,7 +456,6 @@ namespace mem
 #else
 				if (!ptr) [[unlikely]] std::terminate();
 #endif
-
 				return ptr;
 			}
 			else
@@ -471,7 +468,6 @@ namespace mem
 #else
 				if (!ptr) [[unlikely]] std::terminate();
 #endif
-
 				return ptr;
 			}
 		};
@@ -568,6 +564,11 @@ namespace mem
 			first{ first_ },
 			last{ last_ },
 			end{ end_ }
+		{};
+		constexpr vector_value(std::nullptr_t) noexcept :
+			first{ nullptr },
+			last{ nullptr },
+			end{ nullptr }
 		{};
 
 		constexpr void _Swap_val(vector_value& rhs) noexcept
@@ -732,7 +733,7 @@ namespace mem
 			return *this;
 		};
 		constexpr vector(vector&& o) noexcept :
-			values{ std::exchange(o.values, scary_val{nullptr, nullptr, nullptr}) }
+			values{ std::exchange(o.values, { nullptr, nullptr, nullptr }) }
 #ifdef _DEAD_DEBUG_CHECK
 			,
 			is_dead{ std::exchange(o.is_dead, true) }
@@ -740,11 +741,10 @@ namespace mem
 		{};
 		constexpr vector& operator=(vector&& o) noexcept
 		{
-			this->values = std::exchange(o.values, scary_val{ nullptr, nullptr, nullptr });
+			this->values = exchange(std::move(o.values));
 #ifdef _DEAD_DEBUG_CHECK
 			this->is_dead = std::exchange(o.is_dead, true);
 #endif
-
 			return *this;
 		};
 
@@ -924,6 +924,31 @@ namespace mem
 		__forceinline constexpr void increase_capacity(long long min_size) noexcept
 		{
 			this->resize((this->get_capacity() + min_size) * 2ll);
+		};
+
+		__forceinline constexpr bool inside_range(void* ptr) noexcept
+		{
+			return values.first <= ptr && ptr < values.end;
+		};
+
+		inline constexpr scary_val exchange(scary_val&& o) noexcept
+		{
+			if (values.first != nullptr && this->get_capacity() > 0)
+			{
+				if constexpr (std::is_trivially_destructible_v<Object> == false)
+				{
+					if (!std::is_constant_evaluated())
+					{
+						for (iterator iter = begin(); iter != last(); ++iter)
+						{
+							(*(iter)).Object::~Object();
+						}
+					}
+				}
+				const _Alty MemoryAllocator{};
+				MemoryAllocator.deallocate(values.first);// , this->usize());
+			}
+			return std::exchange(o, scary_val{ nullptr, nullptr, nullptr });
 		};
 
 		__forceinline constexpr void resize() noexcept
@@ -1159,27 +1184,27 @@ namespace mem
 						//pre_fetch_cachelines<Object, 4ll>(tmp2 + (i_loop + 4ll));
 					}*/
 					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 1ll));
-					//this->values.first[i_loop] = std::move(old_container.first[i_loop]);
-					new (&this->values.first[i_loop]) value_type{ std::move(old_container.first[i_loop]) };
+					if (std::is_constant_evaluated() == true) this->values.first[i_loop] = std::move(old_container.first[i_loop]);
+					else new (&this->values.first[i_loop]) value_type{ std::move(old_container.first[i_loop]) };
 
 					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 2ll));
-					//this->values.first[i_loop + 1ll] = std::move(old_container.first[i_loop + 1ll]);
-					new (&this->values.first[i_loop + 1ll]) value_type{ std::move(old_container.first[i_loop + 1ll]) };
+					if (std::is_constant_evaluated() == true) this->values.first[i_loop + 1ll] = std::move(old_container.first[i_loop + 1ll]);
+					else new (&this->values.first[i_loop + 1ll]) value_type{ std::move(old_container.first[i_loop + 1ll]) };
 
 					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 3ll));
-					//this->values.first[i_loop + 2ll] = std::move(old_container.first[i_loop + 2ll]);
-					new (&this->values.first[i_loop + 2ll]) value_type{ std::move(old_container.first[i_loop + 2ll]) };
+					if (std::is_constant_evaluated() == true) this->values.first[i_loop + 2ll] = std::move(old_container.first[i_loop + 2ll]);
+					else new (&this->values.first[i_loop + 2ll]) value_type{ std::move(old_container.first[i_loop + 2ll]) };
 
 					//pre_fetch_cachelines<Object, 1ll, _MM_HINT_NTA>(old_container.first + (i_loop + 4ll));
-					//this->values.first[i_loop + 3ll] = std::move(old_container.first[i_loop + 3ll]);
-					new (&this->values.first[i_loop + 3ll]) value_type{ std::move(old_container.first[i_loop + 3ll]) };
+					if (std::is_constant_evaluated() == true) this->values.first[i_loop + 3ll] = std::move(old_container.first[i_loop + 3ll]);
+					else new (&this->values.first[i_loop + 3ll]) value_type{ std::move(old_container.first[i_loop + 3ll]) };
 					i_loop += 4ll;
 				}
 				const long long l = loops.div * 4ll + loops.rem;
 				for (long long i = loops.div * 4ll; i < l; ++i)
 				{
-					new (&this->values.first[i]) value_type{ std::move(old_container.first[i]) };
-					//this->values.first[i] = std::move(old_container.first[i]);
+					if (std::is_constant_evaluated() == true) this->values.first[i] = std::move(old_container.first[i]);
+					else  new (&this->values.first[i]) value_type{ std::move(old_container.first[i]) };
 				}
 			}
 			else
@@ -1187,8 +1212,8 @@ namespace mem
 				for (long long i = 0; i < old_size; ++i)
 				{
 					//if (std::is_constant_evaluated() == false && i + 1 > old_size) _mm_prefetch((char const*)(&old_container.first[i + 1]), _MM_HINT_NTA);
-					//this->values.first[i] = std::move(old_container.first[i]);
-					new (&this->values.first[i]) value_type{ std::move(old_container.first[i]) };
+					if (std::is_constant_evaluated() == true) this->values.first[i] = std::move(old_container.first[i]);
+					else new (&this->values.first[i]) value_type{ std::move(old_container.first[i]) };
 				}
 			}
 			MemoryAllocator.deallocate(old_container.first);
@@ -1244,8 +1269,8 @@ namespace mem
 				this->emplace_resize(std::move(val));
 			else [[likely]]
 			{
-				new (this->values.last) value_type{ std::move(val) };
-				//*(this->values.last) = std::move(val);
+				if (std::is_constant_evaluated() == true) *(this->values.last) = std::move(val);
+				else new (this->values.last) value_type{ std::move(val) };
 				++this->values.last;
 			}
 		};
@@ -1480,7 +1505,7 @@ namespace mem
 			std::size_t loop_index{ 0 };
 			for (iterator* loop_iterator : iterators)
 			{
-				if (indexes.operator[](loop_index) != -1) *loop_iterator = iterator{ this->values.first + indexes[loop_index] };
+				if (indexes.operator[](loop_index) != -1) *loop_iterator = iterator{ this->values.first + indexes.operator[](loop_index) };
 				++loop_index;
 			}
 		};
@@ -1942,6 +1967,199 @@ namespace mem
 				std::destroy_at(&this->values.first[i]);
 			}
 			this->values.last = this->values.first;
+		};
+	};
+
+	namespace utility
+	{
+		template<typename vector_type, typename pointer_container>
+		constexpr static inline auto validate_pointers_get_indexes(const vector_type& vector, pointer_container& pointers) noexcept
+		{
+			mem::vector<mem::vector<long long>> pointer_indexes(pointers.size());
+			for (auto iterator = pointers.begin(); iterator != pointers.last(); ++iterator)
+			{
+				auto& second_vector = *iterator;
+				auto& last_inserted = pointer_indexes.emplace_back();
+				for (auto iterator_second = second_vector.begin(); iterator_second != second_vector.last(); ++iterator_second)
+				{
+					if ((*iterator_second) >= vector.values.first && (*iterator_second) <= vector.values.end)
+					{
+						const auto ptr_diff = ((*iterator_second) - vector.values.first);
+						last_inserted.push_back(static_cast<long long>(ptr_diff));
+					}
+					else last_inserted.push_back(-1ll);
+				}
+			}
+
+			return pointer_indexes;
+		};
+		template<typename vector_type, typename pointer_container>
+		constexpr static inline void validate_pointers_from_indexes(const vector_type& vector, const mem::vector<mem::vector<long long>>& indexes, pointer_container& pointers)
+		{
+			size_t loop_index{ 0 };
+			for (auto loop_iterator = pointers.begin(); loop_iterator != pointers.last(); ++loop_iterator)
+			{
+				size_t loop_index_2 = 0;
+				for (auto iterator_second = (*loop_iterator).begin(); iterator_second != (*loop_iterator).last(); ++iterator_second)
+				{
+					if (indexes.operator[](loop_index).operator[](loop_index_2) != ((*iterator_second) - vector.values.first)) (*iterator_second) = (vector.values.first + indexes.operator[](loop_index).operator[](loop_index_2));
+					++loop_index_2;
+				}
+
+				++loop_index;
+			}
+		};
+
+		template<typename vector_type, typename iterator_container>
+		constexpr static inline mem::vector<long long> validate_iterators_get_indexes(const vector_type& vector, iterator_container& iterators) noexcept
+		{
+			mem::vector<long long> iterator_indexes(iterators.size());
+
+			for (auto iterator = iterators.begin(); iterator != iterators.last(); ++iterator)
+			{
+				if ((*iterator)->operator->() >= vector.values.first && (*iterator)->operator->() <= vector.values.end)
+				{
+					const auto ptr_diff = ((*iterator)->operator->() - vector.values.first);
+					iterator_indexes.push_back(static_cast<long long>(ptr_diff));
+				}
+				else iterator_indexes.push_back(-1ll);
+			}
+
+			return iterator_indexes;
+		};
+
+		template<typename vector_type, typename iterator_container>
+		constexpr static inline void validate_iterators_from_indexes(const vector_type& vector, const mem::vector<long long>& indexes, iterator_container& iterators)
+		{
+			std::size_t loop_index{ 0 };
+			for (auto loop_iterator = iterators.begin(); loop_iterator != iterators.last(); ++loop_iterator)
+			{
+				if (indexes.operator[](loop_index) != -1) *(*loop_iterator) = (vector.begin() + indexes.operator[](loop_index));
+				++loop_index;
+			}
+		};
+
+		template<typename... args>
+		static inline size_t get_iterators_sizes_from() noexcept
+		{
+			return (sizeof(typename args::iterator) + ...);
+		};
+
+		template<typename source_type>
+		static inline void naive_memcpy(char* dest, source_type source) noexcept
+		{
+			const char* source_ptr = (const char*)&source;
+			constexpr size_t l = sizeof(source_type);
+			for (size_t i = 0; i < l; ++i)
+				dest[i] = source_ptr[i];
+		};
+		static inline void naive_memcpy(char* dest, char* source, size_t n) noexcept
+		{
+			for (size_t i = 0; i < n; ++i)
+				dest[i] = source[i];
+		};
+
+		template<typename first>
+		static inline auto get_iterators_from(const first& f) noexcept
+		{
+			constexpr long long first_size = static_cast<long long>(sizeof(first::iterator));
+			mem::vector<char> byte_iterators{ first_size };
+			naive_memcpy((char*)&byte_iterators[0], (size_t) & (*f.begin()));
+			byte_iterators.values.last += first_size;
+			return byte_iterators;
+		};
+		template<typename first, typename... args>
+		static inline auto get_iterators_from(const first& f, const args&... urgs) noexcept
+		{
+			constexpr long long first_size = static_cast<long long>(sizeof(first::iterator));
+			mem::vector<char> byte_iterators{ first_size + static_cast<long long>(get_iterators_sizes_from<args...>()) };
+			naive_memcpy((char*)&byte_iterators[0], (size_t)&(*f.begin()));
+			size_t index = 0;
+			(naive_memcpy((char*)&byte_iterators[index += (sizeof(typename args::iterator))], (size_t)&(*urgs.begin())), ...);
+			byte_iterators.values.last += first_size + static_cast<long long>(get_iterators_sizes_from<args...>());
+			return byte_iterators;
+		};
+
+		template<typename iter>
+		static inline auto bytes_to_iterator(mem::vector<char>::iterator start, mem::vector<char>::iterator end) noexcept
+		{
+			iter tmp{ nullptr };
+			naive_memcpy((char*)&tmp, (char*)&(*start), end - start);
+			return tmp;
+		};
+
+		constexpr static auto test_iterator_validators() noexcept
+		{
+			mem::vector<int> cont_a{ 4 };
+			for (int i = 0, l = 32; i < l; ++i)
+			{
+				cont_a.emplace_back(i);
+			}
+
+			auto start_iter = cont_a.begin();
+			auto iter_5 = cont_a.begin() + 4;
+			auto iter_10 = cont_a.begin() + 9;
+			auto iter_24 = cont_a.begin() + 23;
+
+			mem::vector<mem::vector<int>::iterator*> iterator_cont{ 12 };
+			iterator_cont.emplace_back(&start_iter);
+			iterator_cont.emplace_back(&iter_5);
+			iterator_cont.emplace_back(&iter_10);
+			iterator_cont.emplace_back(&iter_24);
+
+			mem::vector<long long> iterator_indexes{ 2 };
+
+			for (int i = 0, l = 32; i < l; ++i)
+			{
+				const bool cont_resize = cont_a.needs_resize();
+				if (cont_resize)
+				{
+					iterator_indexes = mem::utility::validate_iterators_get_indexes(cont_a, iterator_cont);
+				}
+				cont_a.emplace_back(i);
+				if (cont_resize)
+				{
+					mem::utility::validate_iterators_from_indexes(cont_a, iterator_indexes, iterator_cont);
+
+					auto begin_index = iterator_indexes.begin();
+					for (auto begin_ = iterator_cont.begin(); begin_ != iterator_cont.last(); ++begin_, ++begin_index)
+					{
+						if (cont_a[*begin_index] != *(*(*begin_))) return false;
+					}
+				}
+			}
+
+			return true;
+		};
+		static_assert(test_iterator_validators() == true, "iterator validating didn't work");
+
+		static bool test_weird_iterator_memcpy() noexcept
+		{
+			mem::vector<int> cont_a{ 4 };
+			cont_a.emplace_back(25);
+			mem::vector<long long> iterator_indexes{ 2 };
+			iterator_indexes.emplace_back(1);
+			mem::vector<mem::vector<int>::iterator*> iterator_cont{ 12 };
+			auto cont_a_iter_test = cont_a.begin();
+			auto test_p = &(*cont_a_iter_test);
+			iterator_cont.emplace_back(&cont_a_iter_test);
+
+			auto iters = get_iterators_from(cont_a, iterator_indexes, iterator_cont);
+
+			auto byte_iter_begin = iters.begin();
+			auto byte_iter_last = byte_iter_begin + sizeof(mem::vector<int>::iterator);
+			auto cont_a_iter = bytes_to_iterator<mem::vector<int>::iterator>(byte_iter_begin, byte_iter_last);
+			byte_iter_begin = byte_iter_last;
+			byte_iter_last += sizeof(mem::vector<long long>::iterator);
+			auto iterator_indexes_iter = bytes_to_iterator<mem::vector<long long>::iterator>(byte_iter_begin, byte_iter_last);
+			byte_iter_begin = byte_iter_last;
+			byte_iter_last += sizeof(mem::vector<mem::vector<int>::iterator*>::iterator);
+			auto iterator_cont_iter = bytes_to_iterator<mem::vector<mem::vector<int>::iterator*>::iterator>(byte_iter_begin, byte_iter_last);
+
+			if (cont_a_iter_test != cont_a_iter || iterator_indexes.begin() != iterator_indexes_iter || iterator_cont.begin() != iterator_cont_iter)
+				return false;
+
+			return true;
 		};
 	};
 
