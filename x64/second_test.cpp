@@ -95,10 +95,11 @@ std::size_t second_test_get_total_items_on_belts() noexcept
 
 void second_belt_test()
 {
+	volatile const auto binary_garbage_string = item_32_data{}.getBinaryString();
 	//auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(0);
 	//auto test_new_item_distance_val = test_real_game_scenario_smelters(1);
 	second_test_belt_setup();
-	//std::cout << "Setup finished" << std::endl;
+	std::cout << "Setup finished" << std::endl;
 
 	std::size_t moved_items_per_second = 0;
 	std::size_t while_counter{ 0 };

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?> 
+<?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
 	<Type Name="mem::vector&lt;*&gt;">
 		<DisplayString>{{size = { values.last - values.first }}}</DisplayString>
@@ -9,6 +9,13 @@
 				<Size>values.last - values.first</Size>
 				<ValuePointer>values.first</ValuePointer>
 			</ArrayItems>
+		</Expand>
+	</Type>
+	<Type Name="item_32_data">
+		<Expand>
+			<Item Name="contains_item">contains_item,bb</Item>
+			<Item Name="item_distance">item_distance</Item>
+			<Item Name="items">items</Item>
 		</Expand>
 	</Type>
 </AutoVisualizer>
