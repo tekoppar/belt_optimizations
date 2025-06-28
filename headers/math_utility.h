@@ -106,7 +106,7 @@ namespace expr
 	inline constexpr auto ceil_div_power2(auto lhs) noexcept
 		requires(std::is_integral_v<decltype(lhs)>)
 	{
-		return lhs + 1 >> 1;
+		return (lhs + 1) >> 1;
 	};
 	static_assert(ceil_div_power2(5ll) == 3ll);
 	static_assert(ceil_div_power2(24ll) == 12ll);

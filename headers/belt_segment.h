@@ -1352,7 +1352,7 @@ public:
 	};
 private:
 	template<belt_utility::belt_direction direction>
-	__declspec(noinline) constexpr void update() noexcept
+	constexpr void update() noexcept
 	{
 		if (this->groups_to_update.size() > 0 && tick_count == groups_to_update[0][0]->tick_time)
 		{
