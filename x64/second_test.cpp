@@ -31,6 +31,7 @@ constexpr const std::size_t item_goal_distance_max = (second_test_max_belts_8 / 
 static_assert(item_goal_distance_max > item_max_distance, "item max distance is greater than the goal");
 static_assert(item_goal_distance_max < (std::numeric_limits<long long>::max)(), "max distance is greater then max value of int");
 constexpr std::size_t belts_being_simulated = second_test_max_belts_8 / 4ll;
+belt_segment second_test_all_belts;
 
 std::size_t second_test_loop_counter = 0ull;
 #if __BELT_SWITCH__ == 3
@@ -39,7 +40,7 @@ constexpr const std::size_t second_test_max_belts = second_test_max_belts_8 / 32
 constexpr const std::size_t second_test_max_belts = second_test_max_belts_8 / 256;
 #endif
 
-void second_test_belt_setup(belt_segment& second_test_all_belts) noexcept
+void second_test_belt_setup() noexcept
 {
 #if __BELT_SWITCH__ == 3
 	second_test_all_belts = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
@@ -86,22 +87,21 @@ void second_test_belt_setup(belt_segment& second_test_all_belts) noexcept
 	}
 }
 
-void second_test_belt_loop(belt_segment& second_test_all_belts) noexcept
+void second_test_belt_loop() noexcept
 {
 	second_test_all_belts.update();
 }
 
-std::size_t second_test_get_total_items_on_belts(belt_segment& second_test_all_belts) noexcept
+std::size_t second_test_get_total_items_on_belts() noexcept
 {
 	return second_test_all_belts.count_all_items();
 }
 
 void second_belt_test()
 {
-	belt_segment second_test_all_belts;
 	//auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(0);
 	//auto test_new_item_distance_val = test_real_game_scenario_smelters(1);
-	second_test_belt_setup(second_test_all_belts);
+	second_test_belt_setup();
 	std::cout << "Setup finished" << std::endl;
 
 	std::size_t moved_items_per_second = 0;
@@ -116,7 +116,7 @@ void second_belt_test()
 #endif
 	{
 		const auto t1 = std::chrono::high_resolution_clock::now();
-		second_test_belt_loop(second_test_all_belts);
+		second_test_belt_loop();
 		const auto t2 = std::chrono::high_resolution_clock::now();
 
 		auto ms_int = duration_cast<std::chrono::nanoseconds>(t2 - t1);
@@ -130,7 +130,7 @@ void second_belt_test()
 #endif
 		if (second_counter >= 1000000000)
 		{
-			const auto total_items_on_belt = second_test_get_total_items_on_belts(second_test_all_belts);
+			const auto total_items_on_belt = second_test_get_total_items_on_belts();
 			std::cout << "items moved/s: " << moved_items_per_second << " - tick time: " << ms_int.count() << "nanoseconds - avg time: " << second_counter / loop_counter << " - loops done : " << loop_counter << " - total on belts : " << total_items_on_belt << " \n";
 			if (total_items_on_belt < throw_value) throw std::runtime_error("");
 			moved_items_per_second = 0;
