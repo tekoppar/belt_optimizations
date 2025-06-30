@@ -33,20 +33,6 @@ public:
 	};
 	/*__declspec(align(64))*/ belt_item items[32];
 
-	__declspec(noinline) const char* getBinaryString() const
-	{
-		static char binaryStringBuffer[33]; // 32 bits + null terminator
-		binaryStringBuffer[32] = '\0'; // Null-terminate
-		unsigned int val = contains_item;
-
-		for (int i = 0; i < 32; ++i)
-		{
-			// Build MSB to LSB directly
-			binaryStringBuffer[31 - i] = ((val >> i) & 1) ? '1' : '0';
-		}
-		return binaryStringBuffer; // Return pointer to the static buffer
-	};
-
 	constexpr item_32_data() noexcept
 	{};
 
@@ -139,7 +125,7 @@ public:
 	};
 	constexpr inline void shift_right_contains_item() noexcept
 	{
-		contains_item >>= 1;
+		contains_item = static_cast<long>(static_cast<unsigned long>(contains_item) >> 1);
 	};
 	template<bool bit_value>
 	constexpr inline void set_contains_item_bit(const long i) noexcept
@@ -486,6 +472,16 @@ public:
 		if constexpr (top_bottom == direction) return get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_item(item_data, index);
 		if constexpr (bottom_top == direction) return get_direction_position(segment_end_direction, item_goal_distance) + get_distance_to_item(item_data, index);
 	};
+	template<belt_utility::belt_direction direction>
+	inline constexpr long long get_item_position(long long item_goal_distance, item_32_data& item_data, short index) const noexcept
+	{
+		using enum belt_utility::belt_direction;
+		if constexpr (null == direction) return item_goal_distance - get_distance_to_item(item_data, index);
+		if constexpr (left_right == direction) return item_goal_distance - get_distance_to_item(item_data, index);
+		if constexpr (right_left == direction) return item_goal_distance + get_distance_to_item(item_data, index);
+		if constexpr (top_bottom == direction) return item_goal_distance - get_distance_to_item(item_data, index);
+		if constexpr (bottom_top == direction) return item_goal_distance + get_distance_to_item(item_data, index);
+	};
 
 	template<belt_utility::belt_direction direction>
 	inline constexpr long long get_last_item_direction_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data) const noexcept
@@ -555,10 +551,10 @@ public:
 		{
 			//*item_goal_distance = *item_goal_distance - new_item_position.x;
 			++item_count;
-			item_data.set_contains_item_bit<true>(item_count - 1);
+			item_data.set_contains_item_bit<true>(0);
 			//item_data.contains_item[item_count - 1] = true;
-			item_data.item_distance[item_count - 1] = 0;
-			item_data.items[item_count - 1] = new_item;
+			item_data.item_distance[0] = 0;
+			item_data.items[0] = new_item;
 			return 0;
 		}
 
@@ -623,10 +619,10 @@ public:
 		if (item_count == 0ll)
 		{
 			++item_count;
-			item_data.set_contains_item_bit<true>(item_count - 1);
+			item_data.set_contains_item_bit<true>(0);
 			//item_data.contains_item[item_count - 1] = true;
-			item_data.item_distance[item_count - 1] = static_cast<short>(0);
-			item_data.items[item_count - 1] = new_item;
+			item_data.item_distance[0] = static_cast<short>(0);
+			item_data.items[0] = new_item;
 			return 0;
 		}
 		//if we should add before the first item
@@ -798,6 +794,19 @@ public:
 		{
 			return !(lhs == rhs);
 		};
+	};
+	template<belt_utility::belt_direction direction>
+	constexpr index_item_position_return get_first_item_of_type_before_position_fast(long long item_goal_distance, item_32_data& item_data, item_type type, long long direction_position) const noexcept
+	{
+		const auto calculated_direction_position = direction_position - belt_item_size;
+		for (long long i = 0ll; i < item_count; ++i)
+		{
+			if (item_data.items[i].type != type) continue;
+			const auto item_position = get_item_position<direction>(item_goal_distance, item_data, i);
+			if (item_position >= calculated_direction_position) return index_item_position_return{ i, item_position };
+		}
+
+		return { -1ll, -1ll };
 	};
 	template<belt_utility::belt_direction direction>
 	constexpr index_item_position_return get_first_item_of_type_before_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, item_type type, long long direction_position) const noexcept

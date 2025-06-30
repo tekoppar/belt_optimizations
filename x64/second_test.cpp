@@ -32,6 +32,7 @@ static_assert(item_goal_distance_max > item_max_distance, "item max distance is 
 static_assert(item_goal_distance_max < (std::numeric_limits<long long>::max)(), "max distance is greater then max value of int");
 constexpr std::size_t belts_being_simulated = second_test_max_belts_8 / 4ll;
 belt_segment second_test_all_belts;
+static volatile belt_segment const* second_test_all_belts_ptr = nullptr;
 
 std::size_t second_test_loop_counter = 0ull;
 #if __BELT_SWITCH__ == 3
@@ -44,8 +45,9 @@ void second_test_belt_setup() noexcept
 {
 #if __BELT_SWITCH__ == 3
 	second_test_all_belts = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
+	second_test_all_belts_ptr = &second_test_all_belts;
 #ifdef _DEBUG
-	constexpr long long inserter_pos = 5000;// (32ll * 1024ll) + 16;
+	constexpr long long inserter_pos = 35000;// (32ll * 1024ll) + 16;
 #else
 	constexpr long long inserter_pos = 350000;
 #endif
@@ -130,6 +132,7 @@ void second_belt_test()
 #endif
 		if (second_counter >= 1000000000)
 		{
+			//if (second_test_all_belts_ptr == nullptr) __debugbreak();
 			const auto total_items_on_belt = second_test_get_total_items_on_belts();
 			std::cout << "items moved/s: " << moved_items_per_second << " - tick time: " << ms_int.count() << "nanoseconds - avg time: " << second_counter / loop_counter << " - loops done : " << loop_counter << " - total on belts : " << total_items_on_belt << " \n";
 			if (total_items_on_belt < throw_value) throw std::runtime_error("");

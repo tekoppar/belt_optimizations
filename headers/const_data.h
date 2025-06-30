@@ -22,10 +22,11 @@ using item_groups_type = item_256;
 #define __BELT_SEGMENT_VECTOR_TYPE__
 #ifdef __BELT_SEGMENT_VECTOR_TYPE__
 
-using _data_vector = mem::vector<item_groups_data_type, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<item_groups_data_type, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
-using _vector = mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
-using _vector_distance = mem::vector<long long, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<long long, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
-using _vector_goal_distance = mem::vector<goal_distance, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<goal_distance, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
+using _data_vector = mem::vector<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
+using _vector = mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
+using _vector_distance = mem::vector<long long, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<long long, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
+using _vector_goal_distance = mem::vector<goal_distance, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<goal_distance, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
+
 struct remove_iterators_
 {
 	typename _vector::iterator item_groups_iter{ nullptr };

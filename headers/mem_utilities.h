@@ -54,6 +54,14 @@ namespace mem
 		if (minimum_check <= 2ll && number % 2ll == 0ll) return true;
 		return false;
 	};
+	static_assert(is_power_of_2_to_64(128, 64) == true, "false");
+	static_assert(is_power_of_2_to_64(64, 64) == true, "false");
+	static_assert(is_power_of_2_to_64(32, 32) == true, "false");
+	static_assert(is_power_of_2_to_64(16, 16) == true, "false");
+	static_assert(is_power_of_2_to_64(16, 8) == true, "false");
+	static_assert(is_power_of_2_to_64(8, 8) == true, "false");
+	static_assert(is_power_of_2_to_64(4, 4) == true, "false");
+	static_assert(is_power_of_2_to_64(2, 2) == true, "false");
 
 	template<typename lhs, typename rhs, long long offset_count>
 	constexpr static inline long long ptr_type_offset() noexcept
@@ -94,8 +102,8 @@ namespace mem
 	template<typename T>
 	constexpr inline long long cache_lines_for() noexcept
 	{
-		if constexpr (sizeof(T) >= 64ll) return expr::max<long long>((sizeof(T) / 64ll), 1ll);
-		else return expr::max<long long>(64ll / (sizeof(T)), 1ll);
+		if constexpr (sizeof(T) >= mem::cpu_info::l1d_info.cache_line_size) return expr::max<long long>((sizeof(T) / mem::cpu_info::l1d_info.cache_line_size), 1ll);
+		else return expr::max<long long>(mem::cpu_info::l1d_info.cache_line_size / (sizeof(T)), 1ll);
 	};
 
 	template<long long n>
@@ -131,7 +139,7 @@ namespace mem
 	static_assert(mem::can_be_aligned<bool>());
 
 	template<typename T>
-	constexpr static inline long long get_closest_alignmnet() noexcept
+	constexpr static inline long long get_closest_alignment() noexcept
 	{
 		constexpr long long size = sizeof(T);
 		long long align_size = 1ll;
@@ -142,8 +150,46 @@ namespace mem
 
 		return align_size;
 	};
-	static_assert(mem::get_closest_alignmnet<int>() == 4ll);
-	static_assert(mem::get_closest_alignmnet<int*>() == 8ll);
+	static_assert(mem::get_closest_alignment<int>() == 4ll);
+	static_assert(mem::get_closest_alignment<int*>() == 8ll);
+	template<typename T>
+	constexpr inline long long get_closest_allocation_alignment() noexcept
+	{
+		if constexpr (mem::aligned_by<T, sizeof(T)>() == 0ull)
+		{
+			if constexpr (mem::aligned_by<T, 32ull>() == 0ull)
+				return 32ull;
+			else
+				return (sizeof(T) % 64) < 16 ? 16ll : (sizeof(T) % 64);
+		}
+		else
+			return (sizeof(T) % 64) < 16 ? 16ll : (sizeof(T) % 64);
+	};
+	static_assert(mem::get_closest_allocation_alignment<char>() == 16ll, "no");
+	static_assert(mem::get_closest_allocation_alignment<int>() == 16ll, "no");
+	template<size_t type_size, size_t minimum_size = 16>
+	constexpr inline long long get_closest_power_of_2_alignment() noexcept
+	{
+		size_t align = minimum_size < 16 ? 16 : minimum_size;
+		while (align < type_size)
+		{
+			align <<= 1;
+		}
+		return align;
+	};
+	template<typename T, size_t minimum_size = 16>
+	constexpr inline long long get_closest_power_of_2_alignment() noexcept
+	{
+		return get_closest_power_of_2_alignment<sizeof(T), minimum_size>();
+	};
+	static_assert(mem::get_closest_power_of_2_alignment<char>() == 16ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<int>() == 16ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<19>() == 32ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<long long>() == 16ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<512>() == 512ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<328>() == 512ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<228>() == 256ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<char, 32>() == 32ll, "no");
 
 	//#define _GUARD_CONSTEXPR_CALLS
 	template <long long n, long long n_total, typename T, int prefetch_hint>
@@ -190,35 +236,35 @@ namespace mem
 	template<typename T, long long objects_to_pre_fetch = 32ll, int prefetch_hint = 0, typename in_T = T>
 	__forceinline static void pre_fetch_cachelines(in_T* ptr) noexcept
 	{
-		if constexpr (sizeof(T) > 64ll)
+		if constexpr (sizeof(T) > mem::cpu_info::l1d_info.cache_line_size)
 		{
-			constexpr long long cache_lines_per_object = expr::max<long long>(static_cast<long long>(sizeof(T) / 64ll), 1ll);
+			constexpr long long cache_lines_per_object = expr::max<long long>(static_cast<long long>(sizeof(T) / mem::cpu_info::l1d_info.cache_line_size), 1ll);
 			constexpr long long prefetch_calls = objects_to_pre_fetch * cache_lines_per_object;
 
-			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, 64ll, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
+			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, mem::cpu_info::l1d_info.cache_line_size, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
 		}
 		else
 		{
-			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= 64ll ? 64ll / sizeof(T) : mem::types_in_ptr<T, in_T>()), 1ll);
+			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= mem::cpu_info::l1d_info.cache_line_size ? mem::cpu_info::l1d_info.cache_line_size / sizeof(T) : mem::types_in_ptr<T, in_T>()), 1ll);
 			constexpr long long prefetch_calls = expr::max<long long>(objects_to_pre_fetch / objects_per_cache_line, 1ll);
 
-			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, 64ll, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
+			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, mem::cpu_info::l1d_info.cache_line_size, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
 		}
 	};
 	template<typename T, long long objects_to_pre_fetch = 32ll, int prefetch_hint = 0, typename in_T = T>
 	__forceinline static void pre_fetch_cacheline_ptrs(in_T* ptr) noexcept
 	{
-		if constexpr (static_cast<long long>(sizeof(in_T)) > 64ll)
+		if constexpr (static_cast<long long>(sizeof(in_T)) > mem::cpu_info::l1d_info.cache_line_size)
 		{
-			constexpr long long cache_lines_per_object = expr::max<long long>(64ll / static_cast<long long>(sizeof(T)), 1ll);
+			constexpr long long cache_lines_per_object = expr::max<long long>(mem::cpu_info::l1d_info.cache_line_size / static_cast<long long>(sizeof(T)), 1ll);
 			constexpr long long prefetch_calls = objects_to_pre_fetch * cache_lines_per_object;
 
 			prefetch<prefetch_calls - 1ll, prefetch_calls - 1ll, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
 		}
 		else
 		{
-			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= 64ll ? (sizeof(T) == 64ll ? 1ll : (64ll / sizeof(T)) * sizeof(T)) : mem::types_in_ptr<T, char>()), 1ll);
-			constexpr long long prefetch_calls = expr::max<long long>(sizeof(T) <= 64ll ? objects_to_pre_fetch / objects_per_cache_line : objects_to_pre_fetch, 1ll);
+			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= mem::cpu_info::l1d_info.cache_line_size ? (sizeof(T) == 64ll ? 1ll : (mem::cpu_info::l1d_info.cache_line_size / sizeof(T)) * sizeof(T)) : mem::types_in_ptr<T, char>()), 1ll);
+			constexpr long long prefetch_calls = expr::max<long long>(sizeof(T) <= mem::cpu_info::l1d_info.cache_line_size ? objects_to_pre_fetch / objects_per_cache_line : objects_to_pre_fetch, 1ll);
 
 			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, objects_per_cache_line, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
 		}
@@ -226,19 +272,19 @@ namespace mem
 
 	constexpr static long long find_cache_index(long long byte_ptr) noexcept
 	{
-		return byte_ptr / 64ll;
+		return byte_ptr / mem::cpu_info::l1d_info.cache_line_size;
 	};
 	constexpr static long long find_cache_set(long long byte_ptr) noexcept
 	{
-		return find_cache_index(byte_ptr) % 64ll;
+		return find_cache_index(byte_ptr) % mem::cpu_info::l1d_info.cache_line_size;
 	};
 	static long long find_cache_index(void* ptr) noexcept
 	{
-		return ((long long)ptr / 64ll);
+		return ((long long)ptr / mem::cpu_info::l1d_info.cache_line_size);
 	};
 	static long long find_cache_set(void* ptr) noexcept
 	{
-		return find_cache_index(ptr) % 64ll;
+		return find_cache_index(ptr) % mem::cpu_info::l1d_info.cache_line_size;
 	};
 
 	constexpr static set_loops_before_info find_loops_before_set_collision(long long object_size, long long step_size = 1ll) noexcept
@@ -252,13 +298,13 @@ namespace mem
 
 		++counter.set_counter[active_set];
 		long long loop_counter{ 0ll };
-		long long smallest_bytes_that_can_be_read{ 64ll };
+		long long smallest_bytes_that_can_be_read{ mem::cpu_info::l1d_info.cache_line_size };
 		while (true)
 		{
 			byte_ptr += object_size * step_size;
-			const auto bytes_that_can_be_read = byte_ptr % 64ll;
+			const auto bytes_that_can_be_read = byte_ptr % mem::cpu_info::l1d_info.cache_line_size;
 			long long hit_set = mem::find_cache_set(byte_ptr);
-			if (bytes_that_can_be_read < 0ll || object_size * step_size > 64ll && active_set == hit_set || active_set != hit_set)
+			if (bytes_that_can_be_read < 0ll || object_size * step_size > mem::cpu_info::l1d_info.cache_line_size && active_set == hit_set || active_set != hit_set)
 			{
 				if (counter.set_counter[hit_set] > 0) return { loop_counter, smallest_bytes_that_can_be_read };
 
@@ -289,13 +335,13 @@ namespace mem
 
 		++counter.set_counter[active_set];
 		long long loop_counter{ 0ll };
-		long long smallest_bytes_that_can_be_read{ 64ll };
+		long long smallest_bytes_that_can_be_read{ mem::cpu_info::l1d_info.cache_line_size };
 		while (true)
 		{
 			byte_ptr += object_size * step_size;
-			const auto bytes_that_can_be_read = byte_ptr % 64ll;
+			const auto bytes_that_can_be_read = byte_ptr % mem::cpu_info::l1d_info.cache_line_size;
 			long long hit_set = mem::find_cache_set(byte_ptr);
-			if (bytes_that_can_be_read < 0ll || object_size * step_size > 64ll && active_set == hit_set || active_set != hit_set)
+			if (bytes_that_can_be_read < 0ll || object_size * step_size > mem::cpu_info::l1d_info.cache_line_size && active_set == hit_set || active_set != hit_set)
 			{
 				if (counter.set_counter[hit_set] > 8) return { loop_counter, smallest_bytes_that_can_be_read };
 				++counter.set_counter[hit_set];
