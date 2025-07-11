@@ -1,6 +1,7 @@
 #pragma once
 
 #include "macros.h"
+#include "const_data.h"
 #include "mem_vector.h"
 
 #include "vectors.h"
@@ -89,10 +90,17 @@ namespace belt_utility
 			(o.*m_ptr)()
 		};
 	};
+	template<typename object, typename return_value>
+	concept is_member = requires(object o, return_value object:: * m_ptr)
+	{
+		{
+			(o.*m_ptr)
+		};
+	};
 
 	template<typename value_to_find, typename vector_haystack, typename vector_object = vector_haystack::value_type, typename return_value>
 	static constexpr vector_haystack::iterator binary_find(value_to_find needle, vector_haystack& goal_dist_vec, return_value vector_object::* member_ptr) noexcept
-		requires(is_container<vector_haystack> == true && is_callable_member<typename vector_haystack::value_type, return_value> == true)
+		requires(is_container<vector_haystack> == true && is_member<typename vector_haystack::value_type, return_value> == true)
 	{
 		auto left_goal_iter = goal_dist_vec.begin();
 		auto right_goal_iter = goal_dist_vec.last() - 1ll;
@@ -103,17 +111,17 @@ namespace belt_utility
 			half_size = expr::abs((right_goal_iter - left_goal_iter) / 2ll);
 			auto temp_half_goal_iter = left_goal_iter + half_size;
 
-			if (((*temp_half_goal_iter).*member_ptr)() < needle) right_goal_iter = temp_half_goal_iter;
+			if (((*temp_half_goal_iter).*member_ptr) < needle) right_goal_iter = temp_half_goal_iter;
 			else left_goal_iter = temp_half_goal_iter;
 		}
 
-		if (((*left_goal_iter).*member_ptr)() < needle) return left_goal_iter;
+		if (((*left_goal_iter).*member_ptr) < needle) return left_goal_iter;
 		else return right_goal_iter;
 	};
 
 
-	template<belt_utility::belt_direction segment_direction, typename inserter_iterator>
-	constexpr belt_utility::distance_comparison get_distance_comparison(long long end_distance, long long distance, inserter_iterator first, inserter_iterator last, long long offset_value) noexcept
+	template<belt_utility::belt_direction segment_direction>
+	constexpr belt_utility::distance_comparison get_distance_comparison(long long end_distance, long long distance, _vector_inserters::iterator first, _vector_inserters::iterator last, long long offset_value) noexcept
 	{
 		const auto inserter_distance = end_distance - get_direction_position<segment_direction>(first->operator[](0).get_position());
 		const auto last_inserter_distance = end_distance - get_direction_position<segment_direction>(((*last).last() - 1ll)->get_position());
@@ -129,8 +137,8 @@ namespace belt_utility
 		return belt_utility::distance_comparison::null;
 	};
 
-	template<belt_utility::belt_direction segment_direction, typename inserter_vector, typename inserter_iterator = inserter_vector::iterator>
-	constexpr inserter_iterator find_which_inserter_group_distance_belongs_in(long long end_distance, long long distance, inserter_vector& inserter_vec, long long offset_value) noexcept
+	template<belt_utility::belt_direction segment_direction>
+	constexpr _vector_inserters::iterator find_which_inserter_group_distance_belongs_in(long long end_distance, long long distance, _vector_inserters& inserter_vec, long long offset_value) noexcept
 	{
 		auto begin_inserter_iter = inserter_vec.begin();
 		while (begin_inserter_iter != inserter_vec.last())
@@ -147,72 +155,7 @@ namespace belt_utility
 		return begin_inserter_iter;
 	};
 
-	template<belt_utility::belt_direction direction, typename data_vector, typename vector, typename dist_vector, typename vector_iterator = vector::iterator>
-	static constexpr find_closest_item_group_result<vector_iterator> find_closest_item_group(long long segment_end_direction, data_vector& data_vec, vector& vec, dist_vector& dist_vec, long long position) noexcept
-		requires(class_has_iterator<vector>)
-	{
-		constexpr auto max_distance = vector::value_type::max_distance_between_items;
-		if (vec.empty()) return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, vector_iterator{} };
-
-		auto last_iter = vec.last() - 1;
-		auto last_data_iter = data_vec.last() - 1;
-		auto last_dist_iter = dist_vec.last() - 1;
-		const auto dir_pos_last_iter = last_iter->get_direction_position(segment_end_direction, *last_dist_iter);
-		if (position > dir_pos_last_iter + max_distance) 
-			return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_after_iter, last_iter };
-		else if (position > dir_pos_last_iter)
-		{
-			if (last_iter->count() < 32) 
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::insert_into_group, last_iter };
-			else 
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_after_iter, last_iter };
-		}
-
-		auto begin_iter = vec.begin();
-		auto begin_data_iter = data_vec.begin();
-		auto begin_dist_iter = dist_vec.begin();
-		{
-			const auto last_dir_pos_begin_iter = begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter);
-			if (position < last_dir_pos_begin_iter - max_distance) 
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, begin_iter };
-			else if (position < last_dir_pos_begin_iter)
-			{
-				if (begin_iter->count() < 32) 
-					return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::insert_into_group, begin_iter };
-				else 
-					return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, begin_iter };
-			}
-		}
-
-		long long loop_index{ 0 };
-		auto end_iter = vec.last();
-		for (; begin_iter != end_iter; ++begin_iter, ++begin_data_iter, ++begin_dist_iter)
-		{
-			if (begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter) - max_distance <= position && begin_iter->get_direction_position(segment_end_direction, *begin_dist_iter) + max_distance >= position) //found matching group
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::insert_into_group, begin_iter };
-			else if (loop_index + 1ll < vec.size())
-			{
-				auto tmp = begin_iter + 1ll;
-				if (tmp != end_iter)
-				{
-					auto tmp_data = begin_data_iter + 1ll;
-					auto tmp_dist = begin_dist_iter + 1ll;
-					if (tmp->get_last_item_direction_position<direction>(segment_end_direction, *tmp_dist, *tmp_data) - max_distance > position && begin_iter->get_direction_position(segment_end_direction, *begin_dist_iter) + max_distance < position) //if vector is sorted from low to high
-						return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_after_iter, begin_iter };
-					if (begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter) - max_distance > position && tmp->get_direction_position(segment_end_direction, *tmp_dist) + max_distance < position) //if vector is sorted from high to low
-						return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, tmp };
-				}
-				//begin_iter = tmp;
-				++loop_index;
-			}
-			else return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, end_iter };
-		}
-
-		return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, end_iter };
-	};
-
-	template<typename goal_dist_vector>
-	static constexpr goal_dist_vector::iterator find_closest_goal_binary(long long segment_end_direction, goal_dist_vector& goal_dist_vec, long long position) noexcept
+	static constexpr _vector_item_groups_head_type::iterator find_closest_goal_binary(long long segment_end_direction, _vector_item_groups_head_type& goal_dist_vec, long long position) noexcept
 	{
 		auto distance_position = segment_end_direction - position;
 
@@ -225,20 +168,28 @@ namespace belt_utility
 			half_size = expr::abs((right_goal_iter - left_goal_iter) / 2ll);
 			auto temp_half_goal_iter = left_goal_iter + half_size;
 
-			if ((*temp_half_goal_iter).get_distance() < distance_position) right_goal_iter = temp_half_goal_iter;
+			if ((*temp_half_goal_iter).distance < distance_position) right_goal_iter = temp_half_goal_iter;
 			else left_goal_iter = temp_half_goal_iter;
 		}
 
-		if ((*left_goal_iter).get_distance() > distance_position) return right_goal_iter;
+		if ((*left_goal_iter).distance > distance_position) return right_goal_iter;
 		else return left_goal_iter;
 	};
 
-	template<belt_utility::belt_direction direction, typename data_vector, typename vector, typename dist_vector, typename goal_dist_vector, typename vector_iterator = vector::iterator, typename inserter_vector>
-	static constexpr find_closest_item_group_result<vector_iterator> find_closest_item_group(long long segment_end_direction, data_vector& data_vec, vector& vec, dist_vector& dist_vec, goal_dist_vector& goal_dist_vec, long long position, inserter_vector& inserter_vec) noexcept
-		requires(class_has_iterator<vector>)
+	template<belt_utility::belt_direction direction>
+	static constexpr find_closest_item_group_result<_vector::iterator> find_closest_item_group(
+		long long segment_end_direction,
+		_data_vector& data_vec,
+		_vector& vec,
+		_vector_distance& dist_vec,
+		_vector_item_groups_head_type& goal_dist_vec,
+		long long position,
+		_vector_inserters& inserter_vec
+	) noexcept
+		requires(class_has_iterator<_vector>)
 	{
 		const auto distance_position = segment_end_direction - position;
-		const auto found_goal = belt_utility::binary_find(segment_end_direction - position, goal_dist_vec, &goal_dist_vector::value_type::get_distance);
+		const auto found_goal = belt_utility::binary_find(segment_end_direction - position, goal_dist_vec, &_vector_item_groups_head_type::value_type::distance);
 		const auto found_goal_index = found_goal - goal_dist_vec.begin();
 		auto found_inserter = inserter_vec.begin() + found_goal_index;
 
@@ -265,8 +216,8 @@ namespace belt_utility
 				if (inserter_distance2 < distance_position)
 					previous_inserter_iter = found_inserter - 1ll;
 
-				previous_distance_comp = belt_utility::get_distance_comparison<direction>(segment_end_direction, distance_position, previous_inserter_iter, previous_inserter_iter, vector::value_type::belt_item_size);
-				prev_previous_distance_comp = belt_utility::get_distance_comparison<direction>(segment_end_direction, *(dist_vec.begin() + dist_vec.size() - 1ll).operator->(), previous_inserter_iter, previous_inserter_iter, vector::value_type::belt_item_size);
+				previous_distance_comp = belt_utility::get_distance_comparison<direction>(segment_end_direction, distance_position, previous_inserter_iter, previous_inserter_iter, _vector::value_type::belt_item_size);
+				prev_previous_distance_comp = belt_utility::get_distance_comparison<direction>(segment_end_direction, *(dist_vec.begin() + dist_vec.size() - 1ll).operator->(), previous_inserter_iter, previous_inserter_iter, _vector::value_type::belt_item_size);
 
 				if (!(belt_utility::distance_comparison::distance_is_inside == previous_distance_comp && belt_utility::distance_comparison::distance_is_inside == prev_previous_distance_comp) &&
 					!(belt_utility::distance_comparison::distance_is_inside == previous_distance_comp && belt_utility::distance_comparison::distance_is_before == prev_previous_distance_comp) &&
@@ -281,22 +232,22 @@ namespace belt_utility
 			force_new_group_after = true;
 		}
 
-		constexpr auto max_distance = vector::value_type::max_distance_between_items;
+		constexpr auto max_distance = _vector::value_type::max_distance_between_items;
 		if (vec.empty()) 
-			return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, vector_iterator{} };
+			return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::invalid_value, _vector::iterator{} };
 
 		const auto last_iter = vec.last() - 1;
 		const auto last_data_iter = data_vec.last() - 1;
 		auto last_dist_iter = dist_vec.last() - 1;
 		const auto dir_pos_last_iter = last_iter->get_direction_position(segment_end_direction, *last_dist_iter);
 		if (position > dir_pos_last_iter + max_distance) 
-			return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_after_iter, last_iter };
+			return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::new_group_after_iter, last_iter };
 		else if (position > dir_pos_last_iter)
 		{
 			if (last_iter->count() < 32 && force_new_group_after == false)
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::insert_into_group, last_iter };
+				return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::insert_into_group, last_iter };
 			else 
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_after_iter, last_iter };
+				return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::new_group_after_iter, last_iter };
 		}
 
 		auto begin_iter = vec.begin();
@@ -305,13 +256,13 @@ namespace belt_utility
 		{
 			const auto last_dir_pos_begin_iter = begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter);
 			if (position < last_dir_pos_begin_iter - max_distance) 
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, begin_iter };
+				return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::new_group_before_iter, begin_iter };
 			else if (position < last_dir_pos_begin_iter)
 			{
 				if (begin_iter->count() < 32 && force_new_group_after == false)
-					return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::insert_into_group, begin_iter };
+					return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::insert_into_group, begin_iter };
 				else
-					return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, begin_iter };
+					return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::new_group_before_iter, begin_iter };
 			}
 		}
 
@@ -320,7 +271,7 @@ namespace belt_utility
 		for (; begin_iter != end_iter; ++begin_iter, ++begin_data_iter, ++begin_dist_iter)
 		{
 			if (begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter) - max_distance <= position && begin_iter->get_direction_position(segment_end_direction, *begin_dist_iter) + max_distance >= position) //found matching group
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::insert_into_group, begin_iter };
+				return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::insert_into_group, begin_iter };
 			else if (loop_index + 1ll < vec.size())
 			{
 				const auto tmp = begin_iter + 1ll;
@@ -329,17 +280,17 @@ namespace belt_utility
 					auto tmp_data = begin_data_iter + 1ll;
 					auto tmp_dist = begin_dist_iter + 1ll;
 					if (tmp->get_last_item_direction_position<direction>(segment_end_direction, *tmp_dist, *tmp_data) - max_distance > position && begin_iter->get_direction_position(segment_end_direction, *begin_dist_iter) + max_distance < position) //if vector is sorted from low to high
-						return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_after_iter, begin_iter };
+						return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::new_group_after_iter, begin_iter };
 					if (begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter) - max_distance > position && tmp->get_direction_position(segment_end_direction, *tmp_dist) + max_distance < position) //if vector is sorted from high to low
-						return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::new_group_before_iter, tmp };
+						return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::new_group_before_iter, tmp };
 				}
 				++loop_index;
 			}
 			else 
-				return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, end_iter };
+				return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::invalid_value, end_iter };
 		}
 
-		return find_closest_item_group_result<vector_iterator>{ find_closest_item_group_return_result::invalid_value, end_iter };
+		return find_closest_item_group_result<_vector::iterator>{ find_closest_item_group_return_result::invalid_value, end_iter };
 	};
 
 	template<belt_utility::belt_direction segment_direction, typename type>
@@ -363,8 +314,8 @@ namespace belt_utility
 		return belt_utility::inserter_fits_results::no_fit;
 	};
 
-	template<typename vector, typename items_group, typename items_group_data, typename vector_iterator = vector::iterator>
-	static constexpr find_closest_active_mode_result<vector_iterator> find_closest_active_mode(long long segment_end_direction, vector& vec, items_group* ptr, items_group_data& item_data) noexcept
+	/*template<typename vector, typename items_group, typename items_group_data, typename vector_iterator = vector::iterator>
+	static constexpr find_closest_active_mode_result<vector_iterator> find_closest_active_mode(long long segment_end_direction, vector& vec, _vector* ptr, _data_vector& item_data) noexcept
 		requires(class_has_iterator<vector>)
 	{
 		if (vec.empty()) return find_closest_active_mode_result<vector_iterator>{ find_closest_active_mode_return_result::invalid_value, vector_iterator{} };
@@ -398,10 +349,9 @@ namespace belt_utility
 		}
 
 		return find_closest_active_mode_result<vector_iterator>{ find_closest_active_mode_return_result::invalid_value, end_iter };
-	};
+	};*/
 
-	template<typename distance_iter>
-	constexpr inline long long get_distances_from_to2(distance_iter from, const distance_iter& to) noexcept
+	constexpr inline long long get_distances_from_to2(_vector_distance::iterator from, const _vector_distance::iterator& to) noexcept
 	{
 		if (from == to) return *to;
 		long long real_distance = *from;
@@ -416,20 +366,18 @@ namespace belt_utility
 		if (from == to) return real_distance + *to;
 		return real_distance;
 	};
-	template<typename distance_iter, typename goal_iter>
-	constexpr inline long long get_distances_from_to(distance_iter dist_iter, const distance_iter& end_dist_iter, const goal_iter& iter) noexcept
+	constexpr inline long long get_distances_from_to(_vector_distance::iterator dist_iter, const _vector_distance::iterator& end_dist_iter, const _vector_item_groups_head_type::iterator& iter) noexcept
 	{
 		long long real_distance = *dist_iter;
-		while (dist_iter != end_dist_iter && (*iter).get_index_ptr() != nullptr && *dist_iter != *(*iter).get_index_ptr())
+		while (dist_iter != end_dist_iter && (*iter).distance != -1ll && *dist_iter != (*iter).distance)
 		{
 			real_distance += *dist_iter;
 			++dist_iter;
 		}
 
-		return (*iter).get_distance() - real_distance;
+		return (*iter).distance - real_distance;
 	};
-	template<typename vector_distance_, typename vector_goal_distance_>
-	constexpr inline long long get_item_group_distance_from_destination(vector_distance_& distances, vector_goal_distance_& goal_distances, long long index) noexcept
+	constexpr inline long long get_item_group_distance_from_destination(_vector_distance& distances, _vector_item_groups_head_type& goal_distances, long long index) noexcept
 	{
 		auto begin_iter = distances.begin();
 		auto last_iter = distances.last();
@@ -450,7 +398,7 @@ namespace belt_utility
 				++begin_iter;
 			}
 
-			if (count_index == index) return (*begin_goal_iter).get_distance();
+			if (count_index == index) return (*begin_goal_iter).distance;
 
 			++begin_goal_iter;
 			++begin_iter;
@@ -458,7 +406,7 @@ namespace belt_utility
 
 		return -1ll;
 	};
-	constexpr auto get_goal_object_index(long long index, auto& item_groups_goal_distance, auto& item_groups_distance_between) noexcept
+	constexpr _vector_item_groups_head_type::iterator get_goal_object_index(long long index, _vector_item_groups_head_type& item_groups_goal_distance, _vector_distance& item_groups_distance_between) noexcept
 	{
 		if (index == item_groups_distance_between.size() - 1ll) return item_groups_goal_distance.last() - 1ll;
 
@@ -466,23 +414,14 @@ namespace belt_utility
 		const auto last = item_groups_goal_distance.last();
 		for (auto begin = item_groups_goal_distance.begin(); begin != last; ++begin)
 		{
-			if ((*begin).get_index_from_ptr(item_groups_distance_between_begin.operator->()) >= index) return begin;
+			if ((*begin).next_item_group_index + 1 >= index) return begin;
 		}
 
 		return item_groups_goal_distance.last();
 	};
-	constexpr auto get_goal_object_index_binary(long long index, auto& item_groups_goal_distance, auto& item_groups_distance_between) noexcept
+	constexpr _vector_item_groups_head_type::iterator get_goal_object_index_binary(long long index, _vector_item_groups_head_type& item_groups_goal_distance, _vector_distance& item_groups_distance_between) noexcept
 	{
 		if (index == item_groups_distance_between.size() - 1ll) return item_groups_goal_distance.last() - 1ll;
-
-		/*auto first = item_groups_goal_distance.begin();
-		auto last = item_groups_goal_distance.last();
-		auto it = std::upper_bound(first, last, index, [&](long long idx, const auto& head)
-			{
-				return idx < head.get_index_from_ptr(item_groups_distance_between.begin().operator->());
-			});
-
-		auto found_std = (it == first) ? first : it - 1;*/
 
 		auto left_goal_iter = item_groups_goal_distance.begin();
 		auto right_goal_iter = item_groups_goal_distance.last() - 1ll;
@@ -491,33 +430,30 @@ namespace belt_utility
 
 		while (half_size > 1ll)
 		{
-			half_size = expr::ceil_div_power2(right_goal_iter - left_goal_iter); //expr::ceil_div(right_goal_iter - left_goal_iter, 2ll);
+			half_size = expr::ceil_div_power2(right_goal_iter - left_goal_iter);
 			auto temp_half_goal_iter = left_goal_iter + half_size;
 
-			if ((*temp_half_goal_iter).get_index_from_ptr(between_begin_ptr) > index) right_goal_iter = temp_half_goal_iter;
+			if ((*temp_half_goal_iter).next_item_group_index + 1 > index) right_goal_iter = temp_half_goal_iter;
 			else left_goal_iter = temp_half_goal_iter;
 		}
 
-		/*if (found_std != left_goal_iter && found_std != right_goal_iter)
-			throw 0;
-		*/
-
-		if ((*left_goal_iter).get_index_from_ptr(between_begin_ptr) >= index) return left_goal_iter;
+		if ((*left_goal_iter).next_item_group_index + 1 >= index) return left_goal_iter;
 		else return right_goal_iter;
 	};
-	constexpr auto find_which_goal_object_position_belongs_too(long long position, auto& item_groups_goal_distance) noexcept
+	constexpr _vector_item_groups_head_type::iterator find_which_goal_object_position_belongs_too(long long position, _vector_item_groups_head_type& item_groups_goal_distance) noexcept
 	{
 		if (item_groups_goal_distance.size() > 1ll)
 		{
-			for (auto biter = item_groups_goal_distance.begin(), next = biter + 1ll, last = item_groups_goal_distance.last(); biter != last; ++biter)
+			const auto last = item_groups_goal_distance.last();
+			for (auto biter = item_groups_goal_distance.begin(), next = biter + 1ll; biter != last; ++biter)
 			{
-				if (biter->get_distance() < position && next->get_distance() > position) return biter;
-				if (biter->get_distance() > position && next->get_distance() < position) return next;
+				if (biter->distance < position && next->distance > position) return biter;
+				if (biter->distance > position && next->distance < position) return next;
 			}
 		}
 		else if (!item_groups_goal_distance.empty())
 		{
-			if (item_groups_goal_distance[0].get_distance() >= position) return item_groups_goal_distance.begin();
+			if (item_groups_goal_distance[0].distance >= position) return item_groups_goal_distance.begin();
 		}
 
 		return item_groups_goal_distance.last();

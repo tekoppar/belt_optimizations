@@ -3,14 +3,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "const_data.h"
-
 #include "vectors.h"
-#include "index_iterator.h"
 #include "item.h"
-#include "belt_utility_data.h"
-#include "shared_classes.h"
-#include "belt_utility.h"
 
 class belt_segment;
 
