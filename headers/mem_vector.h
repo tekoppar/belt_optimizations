@@ -2931,4 +2931,73 @@ namespace mem
 	static_assert(test_mem_vector_ice(0) == 0, "vector is not empty");
 	static_assert(test_mem_vector_ice(4) == 0, "vector is not empty");
 #endif
+	struct is_trivial
+	{
+		char i{ 0 };
+		constexpr is_trivial() noexcept {};
+		constexpr is_trivial(char _i) noexcept :
+			i{ _i }
+		{};
+		constexpr ~is_trivial() noexcept {};
+		constexpr operator char() const noexcept
+		{
+			return i;
+		};
+	};
+	template<typename type>
+	static void __declspec(noinline) hidden_copy(type* lhs, const type& rhs) noexcept
+	{
+		volatile void* const vid = lhs;
+		type* ptr = (type*)vid;
+		*ptr = rhs;
+	};
+	static auto __declspec(noinline) test_different_templates_mem() noexcept
+	{
+		constexpr long long capacity = 111111111;
+		mem::vector<is_trivial, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<is_trivial, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off> v_1{ capacity, mem::expected_size_t };
+		for (size_t i = 0; i < capacity; ++i)
+			v_1[i] = i;
+		//v_1.values.last += capacity;
+
+		decltype(v_1) copy;
+		hidden_copy(&copy, v_1);
+
+		return *(copy.values.last - 1ll);
+	};
+	static auto __declspec(noinline) test_different_templates_std() noexcept
+	{
+		constexpr size_t capacity = 111111111;
+		std::vector<is_trivial> v_1;
+		v_1.resize(capacity);
+		for (size_t i = 0; i < capacity; ++i)
+			v_1[i] = i;
+
+		decltype(v_1) copy;
+		hidden_copy(&copy, v_1);
+
+		return *(copy.end() - 1ull);
+	};
+	static auto __declspec(noinline) test_mem_vector_speed(const size_t r_i) noexcept
+	{
+		constexpr long long size{ 111'111'111 };
+		mem::vector<is_trivial, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<is_trivial, mem::Allocating_Type::ALIGNED_NEW>> v{ size, mem::expected_size_t };
+		for (long long i = 0; i < size; ++i)
+			v[i] = i;
+
+		decltype(v) v2;
+		hidden_copy(&v2, v);
+		return v2[r_i];
+	};
+	static auto __declspec(noinline) test_std_vector_speed(const size_t r_i) noexcept
+	{
+		constexpr long long size{ 111'111'111 };
+		std::vector<is_trivial> v;
+		v.resize(size);
+		for (size_t i = 0; i < size; ++i)
+			v[i] = i;
+
+		std::vector<is_trivial> v2;
+		hidden_copy(&v2, v);
+		return v2[r_i];
+	};
 };

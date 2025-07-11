@@ -17,13 +17,11 @@
 
 #include "item_32.h"
 #include "belt_segment.h"
-#include "belt_segment_static_asserts.h"
-#include <cstring>
 
 #ifdef _DEBUG
-constexpr const std::size_t second_test_max_belts_8 = 200000ll;
+constexpr const std::size_t second_test_max_belts_8 = 2'00'000ll;
 #else
-constexpr const std::size_t second_test_max_belts_8 = 20'000'000ll;
+constexpr const std::size_t second_test_max_belts_8 =	20'000'000ll;
 #endif
 constexpr const std::size_t throw_value = static_cast<size_t>(static_cast<double>(second_test_max_belts_8) * 0.6);
 constexpr const std::size_t item_max_distance = second_test_max_belts_8 * 32ll;

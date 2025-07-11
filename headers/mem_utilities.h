@@ -276,7 +276,7 @@ namespace mem
 	};
 	constexpr static long long find_cache_set(long long byte_ptr) noexcept
 	{
-		return find_cache_index(byte_ptr) % mem::cpu_info::l1d_info.cache_line_size;
+		return find_cache_index(byte_ptr) % mem::cpu_info::l1d_info.cache_number_of_sets;
 	};
 	static long long find_cache_index(void* ptr) noexcept
 	{
@@ -284,7 +284,7 @@ namespace mem
 	};
 	static long long find_cache_set(void* ptr) noexcept
 	{
-		return find_cache_index(ptr) % mem::cpu_info::l1d_info.cache_line_size;
+		return find_cache_index(ptr) % mem::cpu_info::l1d_info.cache_number_of_sets;
 	};
 
 	constexpr static set_loops_before_info find_loops_before_set_collision(long long object_size, long long step_size = 1ll) noexcept
@@ -320,7 +320,7 @@ namespace mem
 		return { -1ll, -1ll };
 	};
 	static_assert(mem::find_loops_before_set_collision(192ll, 1ll).loops == 63ll, "fewest collisions should be 63 loops");
-	static_assert(mem::find_loops_before_set_collision(8ll, 1ll).loops == 511ll, "fewest collisions should be 63 loops");
+	static_assert(mem::find_loops_before_set_collision(8ll, 1ll).loops == 511ll, "fewest collisions should be 511 loops");
 
 	constexpr static set_loops_before_info find_loops_before_set_eviction(long long object_size, long long step_size = 1ll) noexcept
 	{
@@ -355,8 +355,8 @@ namespace mem
 
 		return { -1ll, -1ll };
 	};
-	static_assert(mem::find_loops_before_set_eviction(192ll, 1ll).loops == 511ll, "fewest collisions should be 63 loops");
-	static_assert(mem::find_loops_before_set_eviction(8, 1ll).loops == 4095ll, "fewest collisions should be 63 loops");
+	static_assert(mem::find_loops_before_set_eviction(192ll, 1ll).loops == 511ll, "fewest evictions should be 511 loops");
+	static_assert(mem::find_loops_before_set_eviction(8, 1ll).loops == 4095ll, "fewest evictions should be 4095 loops");
 
 	constexpr static set_loop_step_info find_step_rate_with_fewest_collisions(long long object_size, long long max_step_rate = 16ll)
 	{
@@ -383,6 +383,7 @@ namespace mem
 
 		return { highest_loop_counter, highest_step_rate };
 	};
+	//static_assert(mem::find_step_rate_with_fewest_collisions(192ll, 10ll).step_rate == 3ll);
 	//static_assert(mem::find_step_rate_with_fewest_collisions(192ll, 4ll).loops == 63ll);
 
 	constexpr static set_loop_step_info find_step_rate_with_fewest_evictions(long long object_size, long long max_step_rate = 16ll)
@@ -419,10 +420,10 @@ namespace mem
 		alignas(64) unsigned char p[12]{};
 	};
 
-	template<typename object_type>
+	template<size_t n>
 	consteval static long long find_loop_stride() noexcept
 	{
-		constexpr long long object_bytes = static_cast<long long>(sizeof(object_type));
+		constexpr long long object_bytes = static_cast<long long>(n);
 
 		if constexpr (object_bytes <= mem::cpu_info::l1d_info.cache_line_size)
 		{
@@ -450,6 +451,42 @@ namespace mem
 		}
 
 		return -1ll;
+	};
+	static_assert(mem::find_loop_stride<64 + 64 + 32>() == 2ll, "stride should be 2");
+	static_assert(mem::find_loop_stride<192ll>() == 3ll, "stride should be 3");
+	static_assert(mem::find_loop_stride<8ll>() == 1ll, "stride should be 1");
+	template<typename object_type>
+	consteval static long long find_loop_stride() noexcept
+	{
+		return find_loop_stride<sizeof(object_type)>();
+		/*constexpr long long object_bytes = static_cast<long long>(sizeof(object_type));
+
+		if constexpr (object_bytes <= mem::cpu_info::l1d_info.cache_line_size)
+		{
+			return 1ll;
+		}
+		else
+		{
+			if constexpr (!(object_bytes % mem::cpu_info::l1d_info.cache_line_size) & 1ll)
+			{
+				if constexpr (object_bytes % mem::cpu_info::l1d_info.cache_number_of_sets != 0ll) return mem::cpu_info::l1d_info.cache_line_size / (object_bytes % mem::cpu_info::l1d_info.cache_number_of_sets);
+				else return object_bytes / mem::cpu_info::l1d_info.cache_number_of_sets;
+			}
+			else
+			{
+				constexpr long long trailing_bytes = object_bytes % mem::cpu_info::l1d_info.cache_line_size;
+				if constexpr (expr::is_odd(trailing_bytes)) return mem::cpu_info::l1d_info.cache_line_size;
+				else
+				{
+					constexpr long long tb_mod = mem::cpu_info::l1d_info.cache_line_size % trailing_bytes;
+					constexpr long long tb_div = tb_mod == 0ll ? 1ll : expr::round_div(mem::cpu_info::l1d_info.cache_line_size, tb_mod);
+					constexpr long long tb_div_floor = expr::floor_div(mem::cpu_info::l1d_info.cache_line_size, trailing_bytes);
+					return (tb_div * tb_div_floor) % mem::cpu_info::l1d_info.cache_line_size;
+				}
+			}
+		}
+
+		return -1ll;*/
 	};
 	constexpr auto tmp123456 = mem::find_loop_stride<test_loop_stride_1>();
 

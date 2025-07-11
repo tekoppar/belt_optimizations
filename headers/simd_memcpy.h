@@ -383,7 +383,7 @@ namespace mem
 				{
 					// If this is a large copy, start prefetching future cache lines.  This also prefetches the
 					// trailing quadwords that are not part of a whole cache line.
-					_mm_prefetch((char const*)(Source + pre_fetch_limit), _MM_HINT_NTA);
+					//_mm_prefetch((char const*)(Source + pre_fetch_limit), _MM_HINT_NTA);
 					_mm256_stream_si256(Dest, _mm256_stream_load_si256(Source));
 					_mm256_stream_si256(Dest + 1ll, _mm256_stream_load_si256(Source + 1ll));
 					Dest += 2ll;
@@ -407,7 +407,7 @@ namespace mem
 				{
 					// If this is a large copy, start prefetching future cache lines.  This also prefetches the
 					// trailing quadwords that are not part of a whole cache line.
-					_mm_prefetch((char const*)(Source + pre_fetch_limit), _MM_HINT_NTA);
+					//_mm_prefetch((char const*)(Source + pre_fetch_limit), _MM_HINT_NTA);
 					_mm256_stream_si256(Dest, _mm256_loadu_si256(Source));
 					_mm256_stream_si256(Dest + 1ll, _mm256_loadu_si256(Source + 1ll));
 					Dest += 2ll;
@@ -528,12 +528,12 @@ namespace mem
 			switch (CacheLines)
 			{
 				default:
-				case 10: _mm_prefetch((char const*)(Source + 18), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				case 9:  _mm_prefetch((char const*)(Source + 16), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				case 8:  _mm_prefetch((char const*)(Source + 14), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				case 7:  _mm_prefetch((char const*)(Source + 12), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				case 6:  _mm_prefetch((char const*)(Source + 10), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				case 5:  _mm_prefetch((char const*)(Source + 8), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+				//case 10: _mm_prefetch((char const*)(Source + 18), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+				//case 9:  _mm_prefetch((char const*)(Source + 16), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+				//case 8:  _mm_prefetch((char const*)(Source + 14), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+				//case 7:  _mm_prefetch((char const*)(Source + 12), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+				//case 6:  _mm_prefetch((char const*)(Source + 10), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+				//case 5:  _mm_prefetch((char const*)(Source + 8), _MM_HINT_NTA); [[fallthrough]];	// Fall through
 				case 4:  _mm_prefetch((char const*)(Source + 6), _MM_HINT_NTA); [[fallthrough]];	// Fall through
 				case 3:  _mm_prefetch((char const*)(Source + 4), _MM_HINT_NTA); [[fallthrough]];		// Fall through
 				case 2:  _mm_prefetch((char const*)(Source + 2), _MM_HINT_NTA); [[fallthrough]];	// Fall through
@@ -547,7 +547,7 @@ namespace mem
 						{
 							// If this is a large copy, start prefetching future cache lines.  This also prefetches the
 							// trailing quadwords that are not part of a whole cache line.
-							if (i >= 10) _mm_prefetch((char const*)(Source + 20), _MM_HINT_NTA);
+							//if (i >= 10) _mm_prefetch((char const*)(Source + 20), _MM_HINT_NTA);
 
 							_mm256_stream_si256(Dest + 0, _mm256_load_si256(Source + 0));
 							_mm256_stream_si256(Dest + 1, _mm256_load_si256(Source + 1));
@@ -563,8 +563,7 @@ namespace mem
 						{
 							// If this is a large copy, start prefetching future cache lines.  This also prefetches the
 							// trailing quadwords that are not part of a whole cache line.
-							if (i >= 10)
-								_mm_prefetch((char const*)(Source + 20), _MM_HINT_NTA);
+							//if (i >= 10) _mm_prefetch((char const*)(Source + 20), _MM_HINT_NTA);
 
 							_mm256_stream_si256(Dest + 0, _mm256_loadu_si256(Source + 0));
 							_mm256_stream_si256(Dest + 1, _mm256_loadu_si256(Source + 1));
@@ -629,7 +628,7 @@ namespace mem
 				{
 					// If this is a large copy, start prefetching future cache lines.  This also prefetches the
 					// trailing quadwords that are not part of a whole cache line.
-					if (i >= objects_to_prefetch * cache_lines_for_t) _mm_prefetch((char const*)(Source + (objects_to_prefetch * cache_lines_for_t * 2)), _MM_HINT_NTA);
+					//if (i >= objects_to_prefetch * cache_lines_for_t) _mm_prefetch((char const*)(Source + (objects_to_prefetch * cache_lines_for_t * 2)), _MM_HINT_NTA);
 
 					_mm256_stream_si256(&Dest[0], _mm256_stream_load_si256(Source + 0));
 					_mm256_stream_si256(&Dest[1], _mm256_stream_load_si256(Source + 1));
@@ -645,7 +644,7 @@ namespace mem
 				{
 					// If this is a large copy, start prefetching future cache lines.  This also prefetches the
 					// trailing quadwords that are not part of a whole cache line.
-					if (i >= objects_to_prefetch * cache_lines_for_t) _mm_prefetch((char const*)(Source + (objects_to_prefetch * cache_lines_for_t * 2)), _MM_HINT_NTA);
+					//if (i >= objects_to_prefetch * cache_lines_for_t) _mm_prefetch((char const*)(Source + (objects_to_prefetch * cache_lines_for_t * 2)), _MM_HINT_NTA);
 
 					_mm256_stream_si256(Dest + 0, _mm256_loadu_si256(Source + 0));
 					_mm256_stream_si256(Dest + 1, _mm256_loadu_si256(Source + 1));

@@ -24,7 +24,7 @@ private:
 	vec2_int64 position{ 0, 0 };
 	item_type item_need_types[8]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square,
 	item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square };
-	__declspec(align(32)) item_uint item;
+	item_uint item;
 	long long distance_position_plus{ -1ll };
 	long long distance_position_minus{ -1ll };
 #ifdef _DEBUG

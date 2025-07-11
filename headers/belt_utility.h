@@ -245,8 +245,11 @@ namespace belt_utility
 		bool force_new_group_after = false;
 		if (found_inserter != inserter_vec.last())
 		{
-			const auto found_inserter_position = belt_utility::get_direction_position<direction>(((*found_inserter).last() - 1ll)->get_position());
-			force_new_group_after = position >= found_inserter_position + vector::value_type::belt_item_size;
+			//const auto found_inserter_position = belt_utility::get_direction_position<direction>(((*found_inserter).last() - 1ll)->get_position());
+			force_new_group_after = distance_position <= ((*found_inserter).last() - 1ll)->get_distance_position_minus();
+			//force_new_group_after = position >= found_inserter_position + vector::value_type::belt_item_size;
+			//if (force_new_group_after != force_new_group_after2) __debugbreak();
+			
 			//if (position >= found_inserter_position + vector::value_type::belt_item_size)
 				//force_new_group_after = true;
 
@@ -256,8 +259,10 @@ namespace belt_utility
 			{
 				auto previous_inserter_iter = found_inserter;
 
-				const auto inserter_distance = segment_end_direction - belt_utility::get_direction_position<direction>(found_inserter->operator[](0).get_position());
-				if (inserter_distance < distance_position)
+				//const auto inserter_distance = segment_end_direction - belt_utility::get_direction_position<direction>(found_inserter->operator[](0).get_position());
+				const auto inserter_distance2 = found_inserter->operator[](0).get_distance_position_minus();
+				//if ((inserter_distance < distance_position) != (inserter_distance2 < distance_position)) __debugbreak();
+				if (inserter_distance2 < distance_position)
 					previous_inserter_iter = found_inserter - 1ll;
 
 				previous_distance_comp = belt_utility::get_distance_comparison<direction>(segment_end_direction, distance_position, previous_inserter_iter, previous_inserter_iter, vector::value_type::belt_item_size);
