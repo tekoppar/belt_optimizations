@@ -13,6 +13,8 @@ Global
 		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
+		ReleaseAMDuProf|x64 = ReleaseAMDuProf|x64
+		ReleaseAMDuProf|x86 = ReleaseAMDuProf|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.Debug|x64.ActiveCfg = Debug|x64
@@ -23,6 +25,10 @@ Global
 		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.Release|x64.Build.0 = Release|x64
 		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.Release|x86.ActiveCfg = Release|Win32
 		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.Release|x86.Build.0 = Release|Win32
+		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.ReleaseAMDuProf|x64.ActiveCfg = ReleaseAMDuProf|x64
+		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.ReleaseAMDuProf|x64.Build.0 = ReleaseAMDuProf|x64
+		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.ReleaseAMDuProf|x86.ActiveCfg = ReleaseAMDuProf|Win32
+		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.ReleaseAMDuProf|x86.Build.0 = ReleaseAMDuProf|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

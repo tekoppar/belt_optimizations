@@ -1244,25 +1244,28 @@ namespace mem
 	private:
 		__declspec(noinline) void reallocate_m(scary_val old_container) noexcept
 		{
-			const auto new_size = old_container.get_ucapacity() * 2ull;
+			const auto new_size = (old_container.get_ucapacity() == 0ull ? 8ull : old_container.get_ucapacity()) * 2ull;
 			const auto old_size = old_container.usize();
 			constexpr const size_t type_size = sizeof(Object);
 			const std::size_t type_arr_size = type_size * old_size;
 			const _Alty MemoryAllocator{};
 			this->values = scary_val{ MemoryAllocator.allocate(new_size), new_size };
 
-			if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll))
-				mem::simd::mem_copy_256<value_type, true>((void*)values.first, (void*)old_container.first, old_size);
-			else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
-				mem::simd::SIMDMemCopy256((void*)this->values.first, (void*)old_container.first, mem::divide_by_multiple(type_arr_size, 16));
-			else
-				std::memcpy(this->values.first, old_container.first, type_arr_size);
-			MemoryAllocator.deallocate(old_container.first);
+			if (old_container.get_capacity() > 0)
+			{
+				if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll))
+					mem::simd::mem_copy_256<value_type, true>((void*)values.first, (void*)old_container.first, old_size);
+				else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
+					mem::simd::SIMDMemCopy256((void*)this->values.first, (void*)old_container.first, mem::divide_by_multiple(type_arr_size, 16));
+				else
+					std::memcpy(this->values.first, old_container.first, type_arr_size);
+				MemoryAllocator.deallocate(old_container.first);
+			}
 			this->values.last = this->values.first + old_size;
 		};
 		__declspec(noinline) constexpr void reallocate_cm(scary_val old_container) noexcept
 		{
-			std::size_t new_size = old_container.get_ucapacity() * 2ull;
+			std::size_t new_size = (old_container.get_ucapacity() == 0ull ? 8ull : old_container.get_ucapacity()) * 2ull;
 			if (values.end == values.first) new_size = (old_container.get_ucapacity() * 2ull) + 2ull;
 
 			auto old_size = old_container.size();

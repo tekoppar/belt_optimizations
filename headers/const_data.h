@@ -19,7 +19,7 @@ using item_groups_data_type = item_32_data;
 using item_groups_type = item_256;
 #endif
 
-struct item_groups_head
+struct item_groups_head_t
 {
 	long long distance{ -1ll };
 	long long next_item_group_index{ -1ll };
@@ -35,7 +35,7 @@ using _data_vector = mem::vector<item_groups_data_type, mem::Allocating_Type::AL
 using _vector = mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 using _vector_distance = mem::vector<long long, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<long long, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 using _vector_goal_distance = mem::vector<goal_distance, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<goal_distance, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
-using _vector_item_groups_head = mem::vector<item_groups_head, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_head, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
+using _vector_item_groups_head = mem::vector<item_groups_head_t, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_head_t, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 
 using _simple_inserter_vector = mem::vector<index_inserter, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<index_inserter, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
 using _vector_inserters = mem::vector<_simple_inserter_vector, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<_simple_inserter_vector, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;

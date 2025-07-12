@@ -22,7 +22,7 @@ namespace belt_segment_helpers
 	};
 
 	template<typename item_groups_data_type, typename owner_ptr>
-	static __forceinline constexpr item_groups_data_type& get_item_data_group(owner_ptr* b_ptr, std::size_t i) noexcept
+	static __forceinline constexpr item_groups_data_type& get_item_data_group(owner_ptr* b_ptr, size_t i) noexcept
 	{
 		return b_ptr->get_item_data_group(i);
 	};

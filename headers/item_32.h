@@ -13,6 +13,7 @@
 #include "type_conversion.h"
 #include <limits>
 #include <intrin.h>
+#include <emmintrin.h>
 
 class belt_segment;
 
@@ -65,8 +66,11 @@ public:
 		if (std::is_constant_evaluated() == false)
 		{
 			contains_item = o.contains_item;
+			o.contains_item = 0;
 			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
+			memset(&o.item_distance[0], 0, 64);
 			std::memcpy(&items[0], &o.items[0], 64);
+			memset(&o.item_distance[0], 0, 64);
 		}
 		else
 		{
@@ -105,8 +109,11 @@ public:
 		if (std::is_constant_evaluated() == false)
 		{
 			contains_item = o.contains_item;
+			o.contains_item = 0;
 			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
+			memset(&o.item_distance[0], 0, 64);
 			std::memcpy(&items[0], &o.items[0], 64);
+			memset(&o.item_distance[0], 0, 64);
 		}
 		else
 		{
@@ -209,6 +216,57 @@ namespace item_data_utility
 	constexpr item_32_data_split split_from_index(item_32_data& _this, long long index) noexcept
 	{
 		return split_from_index(&_this, index);
+	};
+
+	static inline void fill_add(item_count_type item_count, short new_distance, item_32_data& item_data) noexcept
+	{
+		const __m256i flooded_dist = _mm256_set1_epi16(new_distance);
+		const __m256i zero_vec = _mm256_setzero_si256();
+		constexpr __m256i bit_test_constant_16_lanes = { .m256i_u16
+			{
+				1, 1 << 1, 1 << 2, 1 << 3,
+				1 << 4, 1 << 5, 1 << 6, 1 << 7,
+				1 << 8, 1 << 9, 1 << 10, 1 << 11,
+				1 << 12, 1 << 13, 1 << 14, 1 << 15
+			}
+		};
+
+		if (item_count > 16)
+		{
+			const unsigned short mask_for_first_16 = item_data.contains_item & 0xffff;
+			const __m256i broadcasted_bitmask_vec_1 = _mm256_set1_epi16(mask_for_first_16);
+
+			const unsigned short mask_for_second_16 = item_data.contains_item >> 16;
+			const __m256i broadcasted_bitmask_vec_2 = _mm256_set1_epi16(mask_for_second_16);
+
+			const __m256i anded_bits_1 = _mm256_and_si256(broadcasted_bitmask_vec_1, bit_test_constant_16_lanes);
+			const __m256i final_vector_mask_1 = _mm256_cmpeq_epi16(anded_bits_1, bit_test_constant_16_lanes);
+
+			const __m256i anded_bits_2 = _mm256_and_si256(broadcasted_bitmask_vec_2, bit_test_constant_16_lanes);
+			const __m256i final_vector_mask_2 = _mm256_cmpeq_epi16(anded_bits_2, bit_test_constant_16_lanes);
+
+			const __m256i values_to_add_1 = _mm256_blendv_epi8(zero_vec, flooded_dist, final_vector_mask_1);
+			const __m256i values_to_add_2 = _mm256_blendv_epi8(zero_vec, flooded_dist, final_vector_mask_2);
+
+			const __m256i result_1 = _mm256_add_epi16(*(__m256i*) & item_data.item_distance[0], values_to_add_1);
+			const __m256i result_2 = _mm256_add_epi16(*(__m256i*) & item_data.item_distance[16], values_to_add_2);
+
+			_mm256_storeu_si256((__m256i*) & item_data.item_distance[0], result_1);
+			_mm256_storeu_si256((__m256i*) & item_data.item_distance[16], result_2);
+		}
+		else
+		{
+			const unsigned short mask_for_first_16 = item_data.contains_item & 0xffff;
+			const __m256i broadcasted_bitmask_vec_1 = _mm256_set1_epi16(mask_for_first_16);
+
+			const __m256i anded_bits_1 = _mm256_and_si256(broadcasted_bitmask_vec_1, bit_test_constant_16_lanes);
+			const __m256i final_vector_mask_1 = _mm256_cmpeq_epi16(anded_bits_1, bit_test_constant_16_lanes);
+
+			const __m256i values_to_add_1 = _mm256_blendv_epi8(zero_vec, flooded_dist, final_vector_mask_1);
+
+			const __m256i result_1 = _mm256_add_epi16(*(__m256i*) & item_data.item_distance[0], values_to_add_1);
+			_mm256_storeu_si256((__m256i*) & item_data.item_distance[0], result_1);
+		}
 	};
 
 	constexpr static inline void shift_arrays_left(long long item_count, item_32_data& item_data) noexcept
@@ -413,7 +471,7 @@ public:
 	{};
 
 	constexpr item_32(item_32&& o) noexcept :
-		item_count{ o.item_count }
+		item_count{ std::exchange(o.item_count, 0) }
 	{};
 
 	constexpr item_32& operator=(const item_32& o) noexcept
@@ -425,7 +483,7 @@ public:
 
 	constexpr item_32& operator=(item_32&& o) noexcept
 	{
-		item_count = o.item_count;
+		item_count = std::exchange(o.item_count, 0);
 
 		return *this;
 	};
@@ -602,7 +660,10 @@ public:
 		{
 			const long long new_distance = new_item_position.x - direction_position;
 			*item_goal_distance = *item_goal_distance - new_distance;
-			for (long long i = 0; i < item_count; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
+			const long long l = static_cast<long long>(item_count - 1);
+			for (long long i = l; i >= 0; --i) item_data.item_distance[i] += static_cast<short>(new_distance);
+			//for (long long i = 0; i < l; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
+			//item_data_utility::fill_add(item_count, new_distance, item_data);
 			item_data_utility::shift_arrays_left(item_count, item_data);
 			++item_count;
 			item_data.set_contains_item_bit<true>(0);
@@ -669,7 +730,10 @@ public:
 		{
 			const long long new_distance = new_item_position.x - direction_position;
 			*item_goal_distance = *item_goal_distance - new_distance;
-			for (long long i = 0; i < item_count; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
+			const long long l = static_cast<long long>(item_count - 1);
+			for (long long i = l; i >= 0; --i) item_data.item_distance[i] += static_cast<short>(new_distance);
+			//for (long long i = 0; i < l; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
+			//item_data_utility::fill_add(item_count, new_distance, item_data);
 			item_data_utility::shift_arrays_left(item_count, item_data);
 			++item_count;
 			item_data.set_contains_item_bit<true>(0);
