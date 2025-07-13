@@ -10,10 +10,6 @@
 
 #define optimization_comp
 
-/*
-* See item_32.h for information regarding how the class works. Since item_256 is just 8 arrays of item_32
-*/
-
 class item_256
 {
 	constexpr static short single_belt_length = 128;
@@ -117,11 +113,11 @@ public:
 
 	constexpr item_uint get(std::size_t arr_index, std::size_t i) noexcept
 	{
-		return { items[arr_index][i].type, vec2_uint{item_position_x[arr_index] - get_distance_to_item(arr_index, i), item_position_y[arr_index]} };
+		return { items[arr_index][i].type, vec2_int64{item_position_x[arr_index] - get_distance_to_item(arr_index, i), item_position_y[arr_index]} };
 	};
 	constexpr const item_uint& get(std::size_t arr_index, std::size_t i) const noexcept
 	{
-		return { items[arr_index][i].type, vec2_uint{item_position_x[arr_index] - get_distance_to_item(arr_index, i), item_position_y[arr_index]} };
+		return { items[arr_index][i].type, vec2_int64{item_position_x[arr_index] - get_distance_to_item(arr_index, i), item_position_y[arr_index]} };
 	};
 
 	constexpr std::size_t get_goal(std::size_t arr_index) const noexcept
@@ -156,7 +152,7 @@ public:
 		return total_distance;
 	};
 
-	constexpr bool add_item(const belt_item& new_item, vec2_uint new_item_position, std::size_t arr_index) noexcept
+	constexpr bool add_item(const belt_item& new_item, vec2_int64 new_item_position, std::size_t arr_index) noexcept
 	{
 		if (item_count[arr_index] == 0)
 		{
@@ -185,7 +181,8 @@ public:
 			return true;
 		}
 
-		for (int i = 0, l = count(arr_index) - 1; i < l; ++i)
+		const long long l = static_cast<long long>(count(arr_index)) - 1ll;
+		for (long long i = 0; i < l; ++i)
 		{
 			if (new_item_position.x < get_distance_to_item(arr_index, i) && item_distance[arr_index][i + 1] > 63)
 			{
@@ -235,7 +232,7 @@ public:
 
 		return true;
 	};
-	constexpr void recalculate_distance(const vec2_uint& old_position, const vec2_uint new_position, std::size_t arr_index) noexcept
+	constexpr void recalculate_distance(const vec2_int64& old_position, const vec2_int64 new_position, std::size_t arr_index) noexcept
 	{
 		std::size_t new_distance = new_position.x - old_position.x;
 		for (int i = 0; i < item_count[arr_index]; ++i)
@@ -256,9 +253,9 @@ public:
 		}
 		else
 		{
-			belt_utility::_mm256_slli_si256__p<1>((__m256i*)contains_item[arr_index]);
-			belt_utility::_mm256_slli_si256__p<1>((__m256i*)item_distance[arr_index]);
-			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*)items[arr_index]);
+			belt_utility::_mm256_slli_si256__p<1>((__m256i*)&contains_item[arr_index]);
+			belt_utility::_mm256_slli_si256__p<1>((__m256i*)&item_distance[arr_index]);
+			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*)&items[arr_index]);
 		}
 	};
 	constexpr void shift_arrays_left_from_index(std::size_t arr_index, std::size_t index) noexcept
@@ -293,9 +290,9 @@ public:
 		}
 		else
 		{
-			belt_utility::_mm256_srli_si256__p<1>((__m256i*)contains_item[arr_index]);
-			belt_utility::_mm256_srli_si256__p<1>((__m256i*)item_distance[arr_index]);
-			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*)items[arr_index]);
+			belt_utility::_mm256_srli_si256__p<1>((__m256i*)&contains_item[arr_index]);
+			belt_utility::_mm256_srli_si256__p<1>((__m256i*)&item_distance[arr_index]);
+			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*)&items[arr_index]);
 		}
 	};
 	constexpr void shift_arrays_right_from_index(std::size_t arr_index, std::size_t index) noexcept
@@ -317,7 +314,7 @@ public:
 			previous_i_x = current_i_x;
 		}
 	};
-	constexpr bool outside_belt(vec2_uint pos, std::size_t arr_index) const noexcept
+	constexpr bool outside_belt(vec2_int64 pos, std::size_t arr_index) const noexcept
 	{
 		switch (direction[arr_index])
 		{
@@ -359,8 +356,8 @@ public:
 				items_moved_per_frame += count(i);
 
 #ifdef optimization_comp
-			belt_utility::_mm256_add64_si256__p((__m256i*)item_position_x, _mm256_set1_epi64x(1));
-			belt_utility::_mm256_sub64_si256__p((__m256i*)item_goal_distance, _mm256_set1_epi64x(1));
+			belt_utility::_mm256_add64_si256__p((__m256i*)&item_position_x[0], _mm256_set1_epi64x(1));
+			belt_utility::_mm256_sub64_si256__p((__m256i*)&item_goal_distance[0], _mm256_set1_epi64x(1));
 
 			for (int i = 0, l = 8; i < l; ++i)
 			{
@@ -404,15 +401,15 @@ constexpr auto test_item_256() noexcept
 	{
 		for (std::size_t y = 0; y < 8; ++y)
 		{
-			if (test_belt.add_item(test_arr[i], vec2_uint{ static_cast<long long>(i) * 32ll, 0ll }, y) != false)
+			if (test_belt.add_item(test_arr[i], vec2_int64{ static_cast<long long>(i) * 32ll, 0ll }, y) != false)
 			{
 			}
 		}
 	}
 
 	//used to check support that adding items inbetween is possible
-	//test_belt.add_item(test_arr[4], vec2_uint{ 0ll, 0ll }, 0);
-	//test_belt.add_item(test_arr[5], vec2_uint{ 32ll, 0ll }, 0);
+	//test_belt.add_item(test_arr[4], vec2_int64{ 0ll, 0ll }, 0);
+	//test_belt.add_item(test_arr[5], vec2_int64{ 32ll, 0ll }, 0);
 	//return test_belt.get(0, 4).type;
 
 	for (int i = 0, l = 127 + 32 + 32; i < l; ++i)

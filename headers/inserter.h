@@ -4,6 +4,8 @@
 #include <utility>
 
 #include "const_data.h"
+#include "belt_segment_shared.h"
+#include "belt_segment_shared.inl"
 
 #include "vectors.h"
 #include "single_list.h"
@@ -14,7 +16,7 @@
 
 class inserter
 {
-	vec2_uint position{ 0, 0 };
+	vec2_int64 position{ 0, 0 };
 	mem::single_list_block_node<item_groups_type>* item_group{ nullptr };
 	item_uint item;
 	item_type item_need_types[8]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square,
@@ -25,7 +27,7 @@ class inserter
 public:
 	constexpr inserter() noexcept
 	{};
-	constexpr inserter(vec2_uint pos) noexcept :
+	constexpr inserter(vec2_int64 pos) noexcept :
 		position{ pos }
 	{};
 
@@ -48,7 +50,7 @@ public:
 		}
 	};
 	constexpr inserter(inserter&& o) noexcept :
-		position{ std::exchange(o.position, vec2_uint{}) },
+		position{ std::exchange(o.position, vec2_int64{}) },
 		item_group{ std::exchange(o.item_group, nullptr) },
 		item{ std::exchange(o.item, item_uint{}) },
 		is_sleeping{ std::exchange(o.is_sleeping, false) },
@@ -89,7 +91,7 @@ public:
 	};
 	constexpr inserter& operator=(inserter&& o) noexcept
 	{
-		position = std::exchange(o.position, vec2_uint{});
+		position = std::exchange(o.position, vec2_int64{});
 		item_group = std::exchange(o.item_group, nullptr);
 		item = std::exchange(o.item, item_uint{});
 		is_sleeping = std::exchange(o.is_sleeping, false);
@@ -122,7 +124,7 @@ public:
 	{
 		sleep_timer = 1024;
 	};
-	constexpr vec2_uint get_position() const noexcept
+	constexpr vec2_int64 get_position() const noexcept
 	{
 		return position;
 	};
@@ -184,20 +186,20 @@ public:
 		is_sleeping = sleep_timer == 0;
 		return is_sleeping;
 	};
-	constexpr void update() noexcept
+	constexpr void update(belt_utility::belt_direction direction, long long segment_end_direction, long long segment_y_direction, belt_segment* segment_ptr) noexcept
 	{
 		if (item_group)
 		{
 			long long last_item_position = 0;
 			while (true)
 			{
-				if (item_group->object.get_position().x < position.x)
+				if (item_group->object.get_position(segment_end_direction, segment_y_direction).x < position.x)
 				{
 					item_group = nullptr;
 					return;
 				}
 
-				last_item_position = item_group->object.get_last_item_direction_position();
+				last_item_position = item_group->object.get_last_item_direction_position(direction, segment_end_direction);
 				if (last_item_position > position.x)
 				{
 					if (item_group->prev)
@@ -218,7 +220,7 @@ public:
 			if (last_item_position <= position.x)
 			{
 				auto found_index = item_group->object.get_first_item_of_type(get_item_type(0));
-				if (found_index != -1 && item_group->object.get_item_direction_position(found_index) == position.x)
+				if (found_index != -1 && item_group->object.get_item_direction_position(direction, found_index) == position.x)
 				{
 					grab_item(item_group->object.get(found_index));
 					item_group->object.remove_item(found_index);

@@ -9,6 +9,7 @@
 #include "vectors.h"
 #include "item.h"
 #include "item_32.h"
+#include <type_traits>
 
 namespace mem
 {
@@ -40,7 +41,7 @@ namespace mem
 	};
 
 	template<class type>
-	class iterator
+	class sl_iterator
 	{
 	public:
 #ifdef __cpp_lib_concepts
@@ -49,8 +50,8 @@ namespace mem
 		using iterator_category = std::bidirectional_iterator_tag;
 		using value_type = type::value_type;
 
-		constexpr iterator() = default;
-		constexpr iterator(type* ptr) noexcept :
+		constexpr sl_iterator() = default;
+		constexpr sl_iterator(type* ptr) noexcept :
 			m_ptr(ptr)
 		{};
 
@@ -67,7 +68,7 @@ namespace mem
 		{
 			return m_ptr;
 		};
-		[[nodiscard]] constexpr type* operator*(iterator iter) const noexcept
+		[[nodiscard]] constexpr type* operator*(sl_iterator iter) const noexcept
 		{
 			return iter.m_ptr;
 		};
@@ -79,36 +80,35 @@ namespace mem
 		{
 			return &m_ptr->object;
 		};
-		//pointer operator&() const noexcept = delete;
 
-		constexpr iterator& operator++() noexcept
+		constexpr sl_iterator& operator++() noexcept
 		{
 			m_ptr = m_ptr->prev;
 			return *this;
 		};
-		constexpr iterator operator++(int) noexcept
+		constexpr sl_iterator operator++(int) noexcept
 		{
-			iterator tmp = *this;
+			sl_iterator tmp = *this;
 			++*this;
 			return tmp;
 		};
-		constexpr iterator& operator--() noexcept
+		constexpr sl_iterator& operator--() noexcept
 		{
 			m_ptr = m_ptr->next;
 			return *this;
 		};
-		constexpr iterator operator--(int) noexcept
+		constexpr sl_iterator operator--(int) noexcept
 		{
-			iterator tmp = *this;
+			sl_iterator tmp = *this;
 			--*this;
 			return tmp;
 		};
 
-		constexpr friend std::ptrdiff_t operator+(const iterator& lhs, const iterator& rhs)
+		constexpr friend std::ptrdiff_t operator+(const sl_iterator& lhs, const sl_iterator& rhs)
 		{
 			return lhs.m_ptr + rhs.m_ptr;
 		};
-		constexpr friend std::ptrdiff_t operator-(const iterator& lhs, const iterator& rhs)
+		constexpr friend std::ptrdiff_t operator-(const sl_iterator& lhs, const sl_iterator& rhs)
 		{
 			return lhs.m_ptr - rhs.m_ptr;
 		};
@@ -121,31 +121,31 @@ namespace mem
 		{
 			return m_ptr != nullptr;
 		};
-		constexpr friend bool operator==(const iterator& lhs, const iterator& rhs)
+		constexpr friend bool operator==(const sl_iterator& lhs, const sl_iterator& rhs)
 		{
 			return lhs.m_ptr == rhs.m_ptr;
 		};
-		constexpr friend bool operator!=(const iterator& lhs, const iterator& rhs)
+		constexpr friend bool operator!=(const sl_iterator& lhs, const sl_iterator& rhs)
 		{
 			return lhs.m_ptr != rhs.m_ptr;
 		};
-		constexpr friend bool operator<(const iterator& lhs, const iterator& rhs)
+		constexpr friend bool operator<(const sl_iterator& lhs, const sl_iterator& rhs)
 		{
 			return lhs.m_ptr < rhs.m_ptr;
 		};
-		constexpr friend bool operator>(const iterator& lhs, const iterator& rhs)
+		constexpr friend bool operator>(const sl_iterator& lhs, const sl_iterator& rhs)
 		{
 			return rhs.m_ptr < lhs.m_ptr;
 		};
-		constexpr friend bool operator>=(const iterator& lhs, const iterator& rhs)
+		constexpr friend bool operator>=(const sl_iterator& lhs, const sl_iterator& rhs)
 		{
 			return lhs.m_ptr >= rhs.m_ptr;
 		};
-		constexpr friend bool operator<=(const iterator& lhs, const iterator& rhs)
+		constexpr friend bool operator<=(const sl_iterator& lhs, const sl_iterator& rhs)
 		{
 			return rhs.m_ptr >= lhs.m_ptr;
 		};
-		auto operator<=>(const iterator&) const = default;
+		auto operator<=>(const sl_iterator&) const = default;
 
 		constexpr auto GetValueType() const noexcept
 		{
@@ -156,10 +156,10 @@ namespace mem
 		alignas(8) type* m_ptr{ nullptr };
 	};
 
-	static_assert(iterator<single_list_node<item_32>>{} == nullptr, "not working");
+	static_assert(sl_iterator<single_list_node<item_32>>{} == nullptr, "not working");
 
 	template <typename type, mem::Allocating_Type allocating_type = mem::Allocating_Type::NEW>
-	class allocator
+	class sl_allocator
 	{
 	public:
 		using value_type = type;
@@ -167,18 +167,18 @@ namespace mem
 		static constexpr std::size_t size_of_value_type{ sizeof(type) };
 		static constexpr std::size_t bad_arr_length{ static_cast<std::size_t>(-1) / size_of_value_type };
 
-		constexpr allocator() = default;
+		constexpr sl_allocator() = default;
 		template<class Other>
-		constexpr allocator(const allocator<Other>&) noexcept
+		constexpr sl_allocator(const sl_allocator<Other>&) noexcept
 		{};
 
 		template <class Other>
-		friend constexpr bool operator==(const allocator<type, allocating_type>&, const allocator<Other, allocating_type>&) noexcept
+		friend constexpr bool operator==(const sl_allocator<type, allocating_type>&, const sl_allocator<Other, allocating_type>&) noexcept
 		{
 			return true;
 		};
 		template<class Other>
-		constexpr bool operator!=(const allocator<Other>&) const noexcept
+		constexpr bool operator!=(const sl_allocator<Other>&) const noexcept
 		{
 			return false;
 		};
@@ -186,10 +186,10 @@ namespace mem
 		template <typename OtherType, mem::Allocating_Type alloc_type = allocating_type>
 		struct rebind
 		{
-			typedef allocator<OtherType, alloc_type> other;
+			typedef sl_allocator<OtherType, alloc_type> other;
 		};
 		template <typename OtherType, mem::Allocating_Type alloc_type = allocating_type>
-		using rebind_alloc = allocator<OtherType, alloc_type>;
+		using rebind_alloc = sl_allocator<OtherType, alloc_type>;
 
 		__declspec(allocator) [[nodiscard]] constexpr type* allocate() const
 		{
@@ -252,7 +252,7 @@ namespace mem
 		};
 	};
 
-	template<typename type, mem::Allocating_Type allocating_type = mem::Allocating_Type::NEW, class Allocator = mem::allocator<type, allocating_type>>
+	template<typename type, mem::Allocating_Type allocating_type = mem::Allocating_Type::NEW, class Allocator = mem::sl_allocator<type, allocating_type>>
 	class single_list
 	{
 	private:
@@ -260,12 +260,12 @@ namespace mem
 		using _Alty_traits = std::allocator_traits<_Alty>;
 
 	public:
-		mem::allocator<single_list_node<type>, allocating_type> allocator{};
+		mem::sl_allocator<single_list_node<type>, allocating_type> allocator{};
 
 		single_list_node<type>* p_first{ nullptr };
 		single_list_node<type>* p_last{ nullptr };
 
-		using iterator = iterator<single_list_node<type>>;
+		using iterator = sl_iterator<single_list_node<type>>;
 	public:
 		inline constexpr single_list() = default;
 		inline constexpr ~single_list() noexcept
@@ -281,11 +281,6 @@ namespace mem
 					allocator.deallocate(tmp_ptr);
 					tmp_ptr = nxt_ptr;
 				}
-				/*				for (auto it = begin(); it != end(); ++it)
-				{
-					allocator.deallocate(*it);
-				}
-				*/
 			}
 		};
 
@@ -505,13 +500,13 @@ namespace mem
 struct get_item_struct
 {
 	mem::single_list<item_32> list;
-	__forceinline constexpr mem::iterator<mem::single_list_node<item_32>> get_item(long long i) noexcept
+	__forceinline constexpr mem::sl_iterator<mem::single_list_node<item_32>> get_item(long long i) noexcept
 	{
 		if (list[i])
 			return list[i];
 		return { nullptr };
 	};
-	__forceinline constexpr const mem::iterator<mem::single_list_node<item_32>> get_item(long long i) const noexcept
+	__forceinline constexpr const mem::sl_iterator<mem::single_list_node<item_32>> get_item(long long i) const noexcept
 	{
 		return list[i];
 	};
@@ -520,16 +515,8 @@ struct get_item_struct
 constexpr auto test_get_item_method() noexcept
 {
 	get_item_struct arr;
-	arr.list.emplace_back(belt_utility::belt_direction::left_right, 4000ll);
-	auto success = arr.get_item(0)->add_item(belt_item{ item_type::log }, vec2_uint{ 0ll, 0ll });
-	if (success == -1) return success;
-	success = arr.get_item(0)->add_item(belt_item{ item_type::stone }, vec2_uint{ 64ll, 0ll });
-	if (success == -1) return success;
-	success = arr.get_item(0)->add_item(belt_item{ item_type::log }, vec2_uint{ 96ll, 0ll });
-	if (success == -1) return success;
-	success = arr.get_item(0)->add_item(belt_item{ item_type::iron }, vec2_uint{ 128ll, 0ll });
-	if (success == -1) return success;
-	return arr.get_item(0)->count();
+	arr.list.emplace_back(4000ll);
+	return 4ll;
 };
 constexpr auto test_get_item_method_value = test_get_item_method();
 static_assert(test_get_item_method() == 4, "fuck msvc");

@@ -5,12 +5,16 @@ VisualStudioVersion = 17.8.34322.80
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BeltOptimizations", "BeltOptimizations.vcxproj", "{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tem_library", "..\tem_library\tem_library.vcxitems", "{5979241C-740A-4114-8184-9B4B75F97E3A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
+		ReleaseAMDuProf|x64 = ReleaseAMDuProf|x64
+		ReleaseAMDuProf|x86 = ReleaseAMDuProf|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.Debug|x64.ActiveCfg = Debug|x64
@@ -21,11 +25,19 @@ Global
 		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.Release|x64.Build.0 = Release|x64
 		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.Release|x86.ActiveCfg = Release|Win32
 		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.Release|x86.Build.0 = Release|Win32
+		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.ReleaseAMDuProf|x64.ActiveCfg = ReleaseAMDuProf|x64
+		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.ReleaseAMDuProf|x64.Build.0 = ReleaseAMDuProf|x64
+		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.ReleaseAMDuProf|x86.ActiveCfg = ReleaseAMDuProf|Win32
+		{2FA13EBF-683D-48AD-A70F-EAE90CD65F14}.ReleaseAMDuProf|x86.Build.0 = ReleaseAMDuProf|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FAB00FC6-7DA1-4D75-9A65-8782C9F5163E}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		..\tem_library\tem_library.vcxitems*{2fa13ebf-683d-48ad-a70f-eae90cd65f14}*SharedItemsImports = 4
+		..\tem_library\tem_library.vcxitems*{5979241c-740a-4114-8184-9b4b75f97e3a}*SharedItemsImports = 9
 	EndGlobalSection
 EndGlobal

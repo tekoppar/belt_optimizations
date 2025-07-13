@@ -18,33 +18,21 @@
     <ClCompile Include="x64\BeltOptimizations.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="x64\first_test.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="x64\second_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="headers\cpu_info.h">
+    <ClCompile Include="x64\alignment_testing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="headers\belt.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="headers\item.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\vectors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="headers\belt_8.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="headers\belt_utility.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\belt_32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\item_32.h">
@@ -59,16 +47,10 @@
     <ClInclude Include="headers\inserter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="x64\first_test.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="x64\second_test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\single_list.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\belt_segment_mc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\block_allocator.h">
@@ -125,8 +107,20 @@
     <ClInclude Include="headers\mem_utilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="x64\alignment_testing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\shared_classes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\belt_segment_static_asserts.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="NatvisFile.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

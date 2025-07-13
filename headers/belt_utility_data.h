@@ -118,4 +118,52 @@ namespace belt_utility
 		find_closest_item_group_return_result scan{ find_closest_item_group_return_result::invalid_value };
 		object result = object{};
 	};
+
+	enum class find_closest_active_mode_return_result
+	{
+		inbetween,
+		new_active_mode_before_iter,
+		new_active_mode_after_iter,
+		invalid_value
+	};
+
+	template<typename object>
+	struct find_closest_active_mode_result
+	{
+		find_closest_active_mode_return_result scan{ find_closest_active_mode_return_result::invalid_value };
+		object result = object{};
+	};
+
+	enum class distance_comparison
+	{
+		null = -1,
+		distance_is_before = 0,
+		distance_is_after = 1,
+		distance_is_inside = 2
+	};
+	enum class need_new_slot_result
+	{
+		update_pointer_to_new_index = 0,
+		object_is_between_slots = 1,
+		need_new_slot = 2
+	};
+
+	enum class item_update_state
+	{
+		adding,
+		removing
+	};
+
+	struct add_inserter_return_indexes
+	{
+		long long index{ 0 };
+		long long nested_index{ 0 };
+	};
+
+	enum class distance_slot_inserted_position
+	{
+		new_item_after_last_goal = 0,
+		new_item_after_iter = 1,
+		new_item_before_iter = 2
+	};
 };

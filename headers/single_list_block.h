@@ -42,8 +42,6 @@ namespace mem
 		single_list_block_node* prev{ nullptr };
 		single_list_block_node* next{ nullptr };
 		type object;
-
-		//constexpr void erase() noexcept;
 	};
 
 	template<typename type, std::size_t memory_block_size = 4096>
@@ -270,7 +268,6 @@ namespace mem
 				if (block_index >= capacity) resize();
 
 				::new (all_blocks + block_index) memory_block<type, memory_block_size>{};
-				//all_blocks[block_index] = std::move(memory_block<type, memory_block_size>{});
 				active_block = &all_blocks[block_index];
 				++block_index;
 
@@ -279,11 +276,6 @@ namespace mem
 			else
 			{
 				type* ptr = active_block->get_memory();
-				/*if (ptr == nullptr)
-				{
-					return allocate();
-				}
-				else*/
 				return ptr;
 			}
 		};
@@ -401,7 +393,6 @@ namespace mem
 		{
 			return &m_ptr->object;
 		};
-		//pointer operator&() const noexcept = delete;
 
 		[[nodiscard]] constexpr type* operator[](const std::size_t& index) noexcept
 		{
@@ -577,7 +568,6 @@ namespace mem
 		{
 			return &m_ptr->object;
 		};
-		//pointer operator&() const noexcept = delete;
 
 		constexpr b_iterator& operator++() noexcept
 		{
@@ -677,7 +667,6 @@ namespace mem
 				{
 					nxt_ptr = tmp_ptr->prev;
 					tmp_ptr->object.type::~type();
-					//allocator.deallocate(tmp_ptr);
 					tmp_ptr = nxt_ptr;
 				}
 			}
@@ -816,9 +805,6 @@ namespace mem
 			if (p_first == nullptr)
 			{
 				p_first = allocator.allocate();
-				//p_first->next = nullptr;
-				//p_first->prev = p_last;
-				//p_first->object = std::move(type{ std::forward<Types>(args)... });
 				::new (p_first) single_list_block_node<type>{ nullptr, nullptr, type{ std::forward<Types>(args)... } };
 				p_first->prev = p_last;
 				p_last = p_first;
@@ -827,13 +813,10 @@ namespace mem
 			{
 				single_list_block_node<type>* prev = p_last;
 				p_last = allocator.allocate();
-				//p_last->prev = nullptr;
 				p_first->next = p_last;
-				//p_last->object = std::move(type{ std::forward<Types>(args)... });
 
 				::new (p_last) single_list_block_node<type>{ nullptr, prev, type{ std::forward<Types>(args)... } };
 				prev->prev = p_last;
-				//p_last->next = prev;
 			}
 		};
 
@@ -895,65 +878,4 @@ namespace mem
 			return iterator{ prev };
 		};
 	};
-
-	/*template<typename type>
-	constexpr void single_list_block_node<type>::erase() noexcept
-	{
-		single_list_block_node<type>* _prev = nullptr;
-		single_list_block_node<type>* _next = nullptr;
-		if (next)
-		{
-			_next = next;
-		}
-		if (prev)
-		{
-			_prev = prev;
-		}
-
-		if (_next && _prev)
-		{
-			prev->next = _next;
-			next->prev = _prev;
-		}
-
-		single_list_block<type>::allocator.m_free(this);
-	};*/
 };
-
-/*
-struct poooooop_msvc
-{
-	mem::single_list_block<item_32> list;
-	__forceinline constexpr mem::single_list_block<item_32>::iterator get_item(long long i) noexcept
-	{
-		return list[i];
-	};
-	/*__forceinline constexpr const mem::single_list_block<item_32>::iterator get_item(long long i) const noexcept
-	{
-		return list[i];
-	};
-};
-
-static auto fuck_msvc2() noexcept
-{
-	poooooop_msvc arr;
-	arr.list.emplace_back(belt_direction::left_right, 4000ll);
-	auto iter = arr.get_item(0);
-	auto success = iter->add_item(belt_item{ item_type::log }, vec2_uint{ 0ll, 0ll });
-	//if (success == -1) return success;
-	success = iter->add_item(belt_item{ item_type::stone }, vec2_uint{ 64ll, 0ll });
-	//if (success == -1) return success;
-	success = iter->add_item(belt_item{ item_type::log }, vec2_uint{ 96ll, 0ll });
-	//if (success == -1) return success;
-	success = iter->add_item(belt_item{ item_type::iron }, vec2_uint{ 128ll, 0ll });
-	//if (success == -1) return success;
-
-	long long total = 0;
-	for (auto it = arr.list.begin(); it != arr.list.end(); ++it)
-	{
-		total += it->count();
-	}
-	return total;
-
-	//return arr.get_item(0)->count();
-};*/

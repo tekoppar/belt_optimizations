@@ -38,7 +38,7 @@ namespace belt_utility
 			x.get_position()
 		};
 		{
-			vec2_uint{} == x.get_position()
+			vec2_int64{} == x.get_position()
 		};
 	};
 };

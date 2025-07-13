@@ -1,9 +1,11 @@
 #pragma once
 
 #include <intrin.h>
+#include <limits>
+#include <vadefs.h>
+#include <type_traits>
 
 #include "math_utility.h"
-#include <limits>
 
 namespace mem
 {
@@ -11,7 +13,7 @@ namespace mem
 	class cpu_cache_info
 	{
 		constexpr static inline const long long cache_kb_size = 1024ll;
-		public:
+	public:
 		constexpr static inline const long long cache_total_size_kb = l_n_cache_size_kb;
 		constexpr static inline const long long cache_line_size = c_cache_line_size;
 		constexpr static inline const long long cache_n_ways = l_n_n_ways;
@@ -22,7 +24,7 @@ namespace mem
 	};
 	class cpu_info
 	{
-		public:
+	public:
 		constexpr static inline const mem::cpu_cache_info<32ll, 64ll, 8ll> l1d_info{};
 	};
 
@@ -52,6 +54,14 @@ namespace mem
 		if (minimum_check <= 2ll && number % 2ll == 0ll) return true;
 		return false;
 	};
+	static_assert(is_power_of_2_to_64(128, 64) == true, "false");
+	static_assert(is_power_of_2_to_64(64, 64) == true, "false");
+	static_assert(is_power_of_2_to_64(32, 32) == true, "false");
+	static_assert(is_power_of_2_to_64(16, 16) == true, "false");
+	static_assert(is_power_of_2_to_64(16, 8) == true, "false");
+	static_assert(is_power_of_2_to_64(8, 8) == true, "false");
+	static_assert(is_power_of_2_to_64(4, 4) == true, "false");
+	static_assert(is_power_of_2_to_64(2, 2) == true, "false");
 
 	template<typename lhs, typename rhs, long long offset_count>
 	constexpr static inline long long ptr_type_offset() noexcept
@@ -81,18 +91,31 @@ namespace mem
 	template<typename T, long long alignment>
 	static inline bool is_aligned(const void* ptr) noexcept
 	{
-		return (std::uintptr_t)ptr % alignment == 0ull;
+		return (std::uintptr_t)ptr % alignment == 0ll;
 	};
-	template<typename T, std::size_t alignment>
-	constexpr inline std::size_t aligned_by() noexcept
+	template<typename T, long long alignment>
+	constexpr inline long long aligned_by() noexcept
 	{
 		constexpr double align = sizeof(T) % alignment;
-		return align == 0.0 ? static_cast<std::size_t>(align) : 1ull;
+		return align == 0.0 ? static_cast<long long>(align) : 1ll;
+	};
+	template<typename T, long long alignment>
+	constexpr inline bool aligned_too() noexcept
+	{
+		return sizeof(T) == alignment;
+	};
+	template<typename T, long long alignment>
+	constexpr inline bool aligned_on() noexcept
+	{
+		constexpr double aligns = static_cast<double>(sizeof(T)) / alignment;
+		if constexpr (aligns != static_cast<long long>(aligns)) return false;
+		else return true;
 	};
 	template<typename T>
-	constexpr inline std::size_t cache_lines_for() noexcept
+	constexpr inline long long cache_lines_for() noexcept
 	{
-		return expr::max<std::size_t>((sizeof(T) / 64ull), 1ull);
+		if constexpr (sizeof(T) >= mem::cpu_info::l1d_info.cache_line_size) return expr::max<long long>((sizeof(T) / mem::cpu_info::l1d_info.cache_line_size), 1ll);
+		else return expr::max<long long>(mem::cpu_info::l1d_info.cache_line_size / (sizeof(T)), 1ll);
 	};
 
 	template<long long n>
@@ -128,7 +151,7 @@ namespace mem
 	static_assert(mem::can_be_aligned<bool>());
 
 	template<typename T>
-	constexpr static inline long long get_closest_alignmnet() noexcept
+	constexpr static inline long long get_closest_alignment() noexcept
 	{
 		constexpr long long size = sizeof(T);
 		long long align_size = 1ll;
@@ -139,8 +162,46 @@ namespace mem
 
 		return align_size;
 	};
-	static_assert(mem::get_closest_alignmnet<int>() == 4ll);
-	static_assert(mem::get_closest_alignmnet<int*>() == 8ll);
+	static_assert(mem::get_closest_alignment<int>() == 4ll);
+	static_assert(mem::get_closest_alignment<int*>() == 8ll);
+	template<typename T>
+	constexpr inline long long get_closest_allocation_alignment() noexcept
+	{
+		if constexpr (mem::aligned_by<T, sizeof(T)>() == 0ull)
+		{
+			if constexpr (mem::aligned_by<T, 32ull>() == 0ull)
+				return 32ull;
+			else
+				return (sizeof(T) % 64) < 16 ? 16ll : (sizeof(T) % 64);
+		}
+		else
+			return (sizeof(T) % 64) < 16 ? 16ll : (sizeof(T) % 64);
+	};
+	static_assert(mem::get_closest_allocation_alignment<char>() == 16ll, "no");
+	static_assert(mem::get_closest_allocation_alignment<int>() == 16ll, "no");
+	template<size_t type_size, size_t minimum_size = 16>
+	constexpr inline long long get_closest_power_of_2_alignment() noexcept
+	{
+		size_t align = minimum_size < 16 ? 16 : minimum_size;
+		while (align < type_size)
+		{
+			align <<= 1;
+		}
+		return align;
+	};
+	template<typename T, size_t minimum_size = 16>
+	constexpr inline long long get_closest_power_of_2_alignment() noexcept
+	{
+		return get_closest_power_of_2_alignment<sizeof(T), minimum_size>();
+	};
+	static_assert(mem::get_closest_power_of_2_alignment<char>() == 16ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<int>() == 16ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<19>() == 32ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<long long>() == 16ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<512>() == 512ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<328>() == 512ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<228>() == 256ll, "no");
+	static_assert(mem::get_closest_power_of_2_alignment<char, 32>() == 32ll, "no");
 
 	//#define _GUARD_CONSTEXPR_CALLS
 	template <long long n, long long n_total, typename T, int prefetch_hint>
@@ -185,76 +246,77 @@ namespace mem
 	};
 
 	template<typename T, long long objects_to_pre_fetch = 32ll, int prefetch_hint = 0, typename in_T = T>
-	__forceinline static void pre_fetch_cachelines(in_T* ptr)
+	__forceinline static void pre_fetch_cachelines(in_T* ptr) noexcept
 	{
-		if constexpr (sizeof(T) > 64ull)
+		if constexpr (sizeof(T) > mem::cpu_info::l1d_info.cache_line_size)
 		{
-			constexpr long long cache_lines_per_object = expr::max<long long>(static_cast<long long>(sizeof(T) / 64ll), 1ll);
+			constexpr long long cache_lines_per_object = expr::max<long long>(static_cast<long long>(sizeof(T) / mem::cpu_info::l1d_info.cache_line_size), 1ll);
 			constexpr long long prefetch_calls = objects_to_pre_fetch * cache_lines_per_object;
 
-			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, 64ll, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
+			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, mem::cpu_info::l1d_info.cache_line_size, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
 		}
 		else
 		{
-			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= 64ll ? 64ll / sizeof(T) : mem::types_in_ptr<T, in_T>()), 1ll);
+			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= mem::cpu_info::l1d_info.cache_line_size ? mem::cpu_info::l1d_info.cache_line_size / sizeof(T) : mem::types_in_ptr<T, in_T>()), 1ll);
 			constexpr long long prefetch_calls = expr::max<long long>(objects_to_pre_fetch / objects_per_cache_line, 1ll);
 
-			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, 64ll, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
+			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, mem::cpu_info::l1d_info.cache_line_size, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
 		}
 	};
 	template<typename T, long long objects_to_pre_fetch = 32ll, int prefetch_hint = 0, typename in_T = T>
-	__forceinline static void pre_fetch_cacheline_ptrs(in_T* ptr)
+	__forceinline static void pre_fetch_cacheline_ptrs(in_T* ptr) noexcept
 	{
-		if constexpr (static_cast<long long>(sizeof(in_T)) > 64ll)
+		if constexpr (static_cast<long long>(sizeof(in_T)) > mem::cpu_info::l1d_info.cache_line_size)
 		{
-			constexpr long long cache_lines_per_object = expr::max<long long>(64ll / static_cast<long long>(sizeof(T)), 1ll);
+			constexpr long long cache_lines_per_object = expr::max<long long>(mem::cpu_info::l1d_info.cache_line_size / static_cast<long long>(sizeof(T)), 1ll);
 			constexpr long long prefetch_calls = objects_to_pre_fetch * cache_lines_per_object;
 
 			prefetch<prefetch_calls - 1ll, prefetch_calls - 1ll, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
 		}
 		else
 		{
-			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= 64ll ? (64ll / sizeof(T)) * sizeof(T) : mem::types_in_ptr<T, char>()), 1ll);
-			constexpr long long prefetch_calls = expr::max<long long>(sizeof(T) <= 64ll ? objects_to_pre_fetch / objects_per_cache_line : objects_to_pre_fetch, 1ll);
+			constexpr long long objects_per_cache_line = expr::max<long long>(static_cast<long long>(sizeof(T) <= mem::cpu_info::l1d_info.cache_line_size ? (sizeof(T) == 64ll ? 1ll : (mem::cpu_info::l1d_info.cache_line_size / sizeof(T)) * sizeof(T)) : mem::types_in_ptr<T, char>()), 1ll);
+			constexpr long long prefetch_calls = expr::max<long long>(sizeof(T) <= mem::cpu_info::l1d_info.cache_line_size ? objects_to_pre_fetch / objects_per_cache_line : objects_to_pre_fetch, 1ll);
 
 			prefetch_offset<prefetch_calls - 1ll, prefetch_calls - 1ll, objects_per_cache_line, T, prefetch_hint>{}.___mm_prefetch___((T*)ptr);
 		}
 	};
 
-	constexpr static long long find_cache_index(long long byte_ptr)
+	constexpr static long long find_cache_index(long long byte_ptr) noexcept
 	{
-		return byte_ptr / 64ll;
+		return byte_ptr / mem::cpu_info::l1d_info.cache_line_size;
 	};
-	constexpr static long long find_cache_set(long long byte_ptr)
+	constexpr static long long find_cache_set(long long byte_ptr) noexcept
 	{
-		return find_cache_index(byte_ptr) % 64ll;
+		return find_cache_index(byte_ptr) % mem::cpu_info::l1d_info.cache_number_of_sets;
 	};
-	static long long find_cache_index(void* ptr)
+	static long long find_cache_index(void* ptr) noexcept
 	{
-		return ((long long)ptr / 64ll);
+		return ((long long)ptr / mem::cpu_info::l1d_info.cache_line_size);
 	};
-	static long long find_cache_set(void* ptr)
+	static long long find_cache_set(void* ptr) noexcept
 	{
-		return find_cache_index(ptr) % 64ll;
+		return find_cache_index(ptr) % mem::cpu_info::l1d_info.cache_number_of_sets;
 	};
 
-	constexpr static set_loops_before_info find_loops_before_set_collision(long long object_size, long long step_size = 1ll)
+	constexpr static set_loops_before_info find_loops_before_set_collision(long long object_size, long long step_size = 1ll) noexcept
 	{
 		if (object_size < 1ll) return { -1ll, -1ll };
 		long long byte_ptr = 0ll;
 		long long active_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		for (int i = 0, l = mem::cpu_info::l1d_info.cache_number_of_sets; i < l; ++i) counter.set_counter[i] = 0;
+		constexpr int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[active_set];
 		long long loop_counter{ 0ll };
-		long long smallest_bytes_that_can_be_read{ 64ll };
+		long long smallest_bytes_that_can_be_read{ mem::cpu_info::l1d_info.cache_line_size };
 		while (true)
 		{
 			byte_ptr += object_size * step_size;
-			auto bytes_that_can_be_read = byte_ptr % 64ll;
+			const auto bytes_that_can_be_read = byte_ptr % mem::cpu_info::l1d_info.cache_line_size;
 			long long hit_set = mem::find_cache_set(byte_ptr);
-			if (bytes_that_can_be_read < 0ll || object_size * step_size > 64ll && active_set == hit_set || active_set != hit_set)
+			if (bytes_that_can_be_read < 0ll || object_size * step_size > mem::cpu_info::l1d_info.cache_line_size && active_set == hit_set || active_set != hit_set)
 			{
 				if (counter.set_counter[hit_set] > 0) return { loop_counter, smallest_bytes_that_can_be_read };
 
@@ -270,27 +332,28 @@ namespace mem
 		return { -1ll, -1ll };
 	};
 	static_assert(mem::find_loops_before_set_collision(192ll, 1ll).loops == 63ll, "fewest collisions should be 63 loops");
-	static_assert(mem::find_loops_before_set_collision(8ll, 1ll).loops == 511ll, "fewest collisions should be 63 loops");
+	static_assert(mem::find_loops_before_set_collision(8ll, 1ll).loops == 511ll, "fewest collisions should be 511 loops");
 
-	constexpr static set_loops_before_info find_loops_before_set_eviction(long long object_size, long long step_size = 1ll)
+	constexpr static set_loops_before_info find_loops_before_set_eviction(long long object_size, long long step_size = 1ll) noexcept
 	{
 		if (object_size < 1ll) return { -1ll, -1ll };
-		auto ret_val = mem::find_loops_before_set_collision(object_size, step_size);
+		const auto ret_val = mem::find_loops_before_set_collision(object_size, step_size);
 		return { ((ret_val.loops + 1) * 7ll) + ret_val.loops, ret_val.smallest_bytes_that_can_be_read };
 		long long byte_ptr = 0ll;
 		long long active_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		for (int i = 0, l = mem::cpu_info::l1d_info.cache_number_of_sets; i < l; ++i) counter.set_counter[i] = 0;
+		constexpr int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[active_set];
 		long long loop_counter{ 0ll };
-		long long smallest_bytes_that_can_be_read{ 64ll };
+		long long smallest_bytes_that_can_be_read{ mem::cpu_info::l1d_info.cache_line_size };
 		while (true)
 		{
 			byte_ptr += object_size * step_size;
-			auto bytes_that_can_be_read = byte_ptr % 64ll;
+			const auto bytes_that_can_be_read = byte_ptr % mem::cpu_info::l1d_info.cache_line_size;
 			long long hit_set = mem::find_cache_set(byte_ptr);
-			if (bytes_that_can_be_read < 0ll || object_size * step_size > 64ll && active_set == hit_set || active_set != hit_set)
+			if (bytes_that_can_be_read < 0ll || object_size * step_size > mem::cpu_info::l1d_info.cache_line_size && active_set == hit_set || active_set != hit_set)
 			{
 				if (counter.set_counter[hit_set] > 8) return { loop_counter, smallest_bytes_that_can_be_read };
 				++counter.set_counter[hit_set];
@@ -304,16 +367,17 @@ namespace mem
 
 		return { -1ll, -1ll };
 	};
-	static_assert(mem::find_loops_before_set_eviction(192ll, 1ll).loops == 511ll, "fewest collisions should be 63 loops");
-	static_assert(mem::find_loops_before_set_eviction(8, 1ll).loops == 4095ll, "fewest collisions should be 63 loops");
+	static_assert(mem::find_loops_before_set_eviction(192ll, 1ll).loops == 511ll, "fewest evictions should be 511 loops");
+	static_assert(mem::find_loops_before_set_eviction(8, 1ll).loops == 4095ll, "fewest evictions should be 4095 loops");
 
 	constexpr static set_loop_step_info find_step_rate_with_fewest_collisions(long long object_size, long long max_step_rate = 16ll)
 	{
-		if (object_size < 1ll) return { -1ll, -1ll };
-		long long byte_ptr = 0ll;
+		if (object_size < 1ll) return { {-1ll}, -1ll };
+		constexpr long long byte_ptr = 0ll;
 		long long first_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		for (int i = 0, l = mem::cpu_info::l1d_info.cache_number_of_sets; i < l; ++i) counter.set_counter[i] = 0;
+		constexpr int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[first_set];
 		set_loops_before_info loop_counter{ 0ll };
@@ -331,15 +395,17 @@ namespace mem
 
 		return { highest_loop_counter, highest_step_rate };
 	};
+	//static_assert(mem::find_step_rate_with_fewest_collisions(192ll, 10ll).step_rate == 3ll);
 	//static_assert(mem::find_step_rate_with_fewest_collisions(192ll, 4ll).loops == 63ll);
 
 	constexpr static set_loop_step_info find_step_rate_with_fewest_evictions(long long object_size, long long max_step_rate = 16ll)
 	{
-		if (object_size < 1ll) return { -1ll, -1ll };
-		long long byte_ptr = 0ll;
+		if (object_size < 1ll) return { {-1ll}, -1ll };
+		constexpr long long byte_ptr = 0ll;
 		long long first_set = mem::find_cache_set(byte_ptr);
 		mem::cache_set_counter counter{};
-		for (int i = 0, l = mem::cpu_info::l1d_info.cache_number_of_sets; i < l; ++i) counter.set_counter[i] = 0;
+		constexpr int l = mem::cpu_info::l1d_info.cache_number_of_sets;
+		for (int i = 0; i < l; ++i) counter.set_counter[i] = 0;
 
 		++counter.set_counter[first_set];
 		set_loops_before_info loop_counter{ 0ll };
@@ -366,10 +432,10 @@ namespace mem
 		alignas(64) unsigned char p[12]{};
 	};
 
-	template<typename object_type>
+	template<size_t n>
 	consteval static long long find_loop_stride() noexcept
 	{
-		constexpr long long object_bytes = static_cast<long long>(sizeof(object_type));
+		constexpr long long object_bytes = static_cast<long long>(n);
 
 		if constexpr (object_bytes <= mem::cpu_info::l1d_info.cache_line_size)
 		{
@@ -398,6 +464,42 @@ namespace mem
 
 		return -1ll;
 	};
+	static_assert(mem::find_loop_stride<64 + 64 + 32>() == 2ll, "stride should be 2");
+	static_assert(mem::find_loop_stride<192ll>() == 3ll, "stride should be 3");
+	static_assert(mem::find_loop_stride<8ll>() == 1ll, "stride should be 1");
+	template<typename object_type>
+	consteval static long long find_loop_stride() noexcept
+	{
+		return find_loop_stride<sizeof(object_type)>();
+		/*constexpr long long object_bytes = static_cast<long long>(sizeof(object_type));
+
+		if constexpr (object_bytes <= mem::cpu_info::l1d_info.cache_line_size)
+		{
+			return 1ll;
+		}
+		else
+		{
+			if constexpr (!(object_bytes % mem::cpu_info::l1d_info.cache_line_size) & 1ll)
+			{
+				if constexpr (object_bytes % mem::cpu_info::l1d_info.cache_number_of_sets != 0ll) return mem::cpu_info::l1d_info.cache_line_size / (object_bytes % mem::cpu_info::l1d_info.cache_number_of_sets);
+				else return object_bytes / mem::cpu_info::l1d_info.cache_number_of_sets;
+			}
+			else
+			{
+				constexpr long long trailing_bytes = object_bytes % mem::cpu_info::l1d_info.cache_line_size;
+				if constexpr (expr::is_odd(trailing_bytes)) return mem::cpu_info::l1d_info.cache_line_size;
+				else
+				{
+					constexpr long long tb_mod = mem::cpu_info::l1d_info.cache_line_size % trailing_bytes;
+					constexpr long long tb_div = tb_mod == 0ll ? 1ll : expr::round_div(mem::cpu_info::l1d_info.cache_line_size, tb_mod);
+					constexpr long long tb_div_floor = expr::floor_div(mem::cpu_info::l1d_info.cache_line_size, trailing_bytes);
+					return (tb_div * tb_div_floor) % mem::cpu_info::l1d_info.cache_line_size;
+				}
+			}
+		}
+
+		return -1ll;*/
+	};
 	constexpr auto tmp123456 = mem::find_loop_stride<test_loop_stride_1>();
 
 	struct test_ss
@@ -420,23 +522,23 @@ namespace mem
 
 		constexpr auto loop_stride = mem::find_loop_stride<object_type>();
 		constexpr auto trailing_bytes = object_byte_size % mem::cpu_info::l1d_info.cache_line_size;
-		
+
 		/*
 		* if you plan to read the entire object like copying it to another buffer ignore this.
 		* But if you plan to iterate over it and accessing anything with an offset less then 64 bytes - it's alignment
 		* trailing bytes can cause issues as each object will be offset by said amount in memory.
-		* 
+		*
 		* from buffer[0+n] to buffer[loop_stride] the object being accessed won't be
-		* loaded in at the start of a cache line, but will be offset by 
+		* loaded in at the start of a cache line, but will be offset by
 		* cache_line_size - (((trailing_bytes(0x0) * n) + offset) % cache_line_size)
-		* 
+		*
 		* if trailing bytes is odd the cache stride will always be 64 (occurs with 1 byte alignments)
-		* 
+		*
 		* the reason this can be bad is that if you try access the object with an offset that's greater
 		* than the remaining bytes in the cache line is that a new cache line will need to be loaded.
 		* this means any instructions will still for that to happen but you will also start using up
 		* more cache lines and potentially evicting existing ones faster than if you changed alignment
-		* 
+		*
 		* you might think to use the easy solution by aligning the object to the size of the cache line.
 		* but a ptr can only belong the a specific set of cache lines. if you had an object that had a
 		* size of 96 bytes and aligned that to 64. it would occupy 2 cache lines, and if you only ever

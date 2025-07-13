@@ -1,13 +1,8 @@
 #pragma once
 
-#include <numbers>
 #include <limits>
 #include <type_traits>
-#include <algorithm>
-#include <utility>
-#include <stdexcept>
 #include <source_location>
-#include <string>
 
 namespace tc
 {
@@ -151,7 +146,7 @@ namespace tc
 		constexpr auto max_return = (std::numeric_limits<return_type>::max)();
 		constexpr auto lowest_return = std::numeric_limits<return_type>::lowest();
 		constexpr auto max_input = (std::numeric_limits<input_type>::max)();
-		constexpr auto lowest_input = std::numeric_limits<input_type>::lowest();
+		//constexpr auto lowest_input = std::numeric_limits<input_type>::lowest();
 
 		if (value == static_cast<input_type>(0)) return static_cast<return_type>(0);
 		if constexpr (static_cast<std::size_t>(max_return) < static_cast<std::size_t>(max_input)) //max_input is greater then max_return
@@ -177,7 +172,7 @@ namespace tc
 		}
 
 		//if (std::is_constant_evaluated() == false) throw std::runtime_error(std::string(location.file_name()) + "(" + std::to_string(location.line()) + "," + std::to_string(location.column()) + "): " + location.function_name() + " warning: missing return value");
-		return (std::numeric_limits<std::size_t>::max)();
+		return (std::numeric_limits<return_type>::max)();
 	};
 	template<typename input_type>
 	constexpr std::make_unsigned_t<input_type> unsign(input_type value, const std::source_location location = std::source_location::current())

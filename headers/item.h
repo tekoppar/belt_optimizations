@@ -65,15 +65,15 @@ class item_uint
 	constexpr static short item_length = 32;
 
 public:
-	__declspec(align(8)) item_type type{ item_type::pink_square };
-	__declspec(align(8)) vec2_uint position{ 0, 0 };
+	vec2_int64 position{ 0, 0 };
+	item_type type{ item_type::pink_square };
 
 	constexpr item_uint() noexcept
 	{};
 	constexpr item_uint(item_type _type) noexcept :
 		type{ _type }
 	{};
-	constexpr item_uint(item_type _type, vec2_uint pos) noexcept :
+	constexpr item_uint(item_type _type, vec2_int64 pos) noexcept :
 		type{ _type },
 		position{ pos }
 	{};
@@ -86,7 +86,7 @@ public:
 	{};
 	constexpr item_uint(item_uint&& o) noexcept :
 		type{ std::exchange(o.type, item_type::pink_square) },
-		position{ std::exchange(o.position, vec2_uint{}) }
+		position{ std::exchange(o.position, vec2_int64{}) }
 	{};
 	constexpr item_uint& operator=(const item_uint& o) noexcept
 	{
@@ -98,9 +98,14 @@ public:
 	constexpr item_uint& operator=(item_uint&& o) noexcept
 	{
 		this->type = std::exchange(o.type, item_type::pink_square);
-		this->position = std::exchange(o.position, vec2_uint{});
+		this->position = std::exchange(o.position, vec2_int64{});
 
 		return *this;
+	};
+
+	friend constexpr bool operator==(const item_uint& lhs, const item_uint& rhs) noexcept
+	{
+		return lhs.type == rhs.type && lhs.position == rhs.position;
 	};
 
 	constexpr operator belt_item() noexcept
