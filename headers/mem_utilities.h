@@ -99,6 +99,18 @@ namespace mem
 		constexpr double align = sizeof(T) % alignment;
 		return align == 0.0 ? static_cast<long long>(align) : 1ll;
 	};
+	template<typename T, long long alignment>
+	constexpr inline bool aligned_too() noexcept
+	{
+		return sizeof(T) == alignment;
+	};
+	template<typename T, long long alignment>
+	constexpr inline bool aligned_on() noexcept
+	{
+		constexpr double aligns = static_cast<double>(sizeof(T)) / alignment;
+		if constexpr (aligns != static_cast<long long>(aligns)) return false;
+		else return true;
+	};
 	template<typename T>
 	constexpr inline long long cache_lines_for() noexcept
 	{

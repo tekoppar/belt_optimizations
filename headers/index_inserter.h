@@ -16,8 +16,7 @@ public:
 
 private:
 	vec2_int64 position{ 0, 0 };
-	item_type item_need_types[8]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square,
-	item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square };
+	item_type item_need_types[4]{ item_type::pink_square, item_type::pink_square, item_type::pink_square, item_type::pink_square };
 	item_uint item;
 	long long distance_position_plus{ -1ll };
 	long long distance_position_minus{ -1ll };
@@ -186,6 +185,11 @@ public:
 	};
 
 public:
+	inline constexpr void grab_item(vec2_int64&& pos, item_type&& t) noexcept
+	{
+		item.position = std::move(pos);
+		item.type = std::move(t);
+	};
 	inline constexpr void grab_item(const item_uint& _item) noexcept
 	{
 		item = _item;

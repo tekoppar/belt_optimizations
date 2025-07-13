@@ -28,13 +28,11 @@ public:
 	false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
 	false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false
 	};*/
-	long contains_item{ 0 };
-	static_assert(sizeof(decltype(contains_item)) == 4, "wrong byte size, wont fit 32 bits");
-	/*__declspec(align(64))*/ short item_distance[32]{
+	__declspec(align(32)) short item_distance[32]{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	};
-	/*__declspec(align(64))*/ belt_item items[32];
+	__declspec(align(32)) belt_item items[32];
 
 	constexpr item_32_data() noexcept
 	{};
@@ -46,13 +44,11 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			contains_item = o.contains_item;
 			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
 			std::memcpy(&items[0], &o.items[0], 64);
 		}
 		else
 		{
-			contains_item = o.contains_item;
 			for (long long i = 0; i < 32; ++i)
 			{
 				item_distance[i] = o.item_distance[i];
@@ -65,8 +61,6 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			contains_item = o.contains_item;
-			o.contains_item = 0;
 			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
 			memset(&o.item_distance[0], 0, 64);
 			std::memcpy(&items[0], &o.items[0], 64);
@@ -74,7 +68,6 @@ public:
 		}
 		else
 		{
-			contains_item = o.contains_item;
 			for (long long i = 0; i < 32; ++i)
 			{
 				item_distance[i] = o.item_distance[i];
@@ -87,13 +80,11 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			contains_item = o.contains_item;
 			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
 			std::memcpy(&items[0], &o.items[0], 64);
 		}
 		else
 		{
-			contains_item = o.contains_item;
 			for (long long i = 0; i < 32; ++i)
 			{
 				item_distance[i] = o.item_distance[i];
@@ -108,8 +99,6 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			contains_item = o.contains_item;
-			o.contains_item = 0;
 			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
 			memset(&o.item_distance[0], 0, 64);
 			std::memcpy(&items[0], &o.items[0], 64);
@@ -117,7 +106,6 @@ public:
 		}
 		else
 		{
-			contains_item = o.contains_item;
 			for (long long i = 0; i < 32; ++i)
 			{
 				item_distance[i] = o.item_distance[i];
@@ -126,41 +114,6 @@ public:
 		}
 
 		return *this;
-	};
-
-	constexpr inline void shift_left_contains_item() noexcept
-	{
-		contains_item <<= 1;
-	};
-	constexpr inline void shift_right_contains_item() noexcept
-	{
-		contains_item = static_cast<long>(static_cast<unsigned long>(contains_item) >> 1);
-	};
-	template<bool bit_value>
-	constexpr inline void set_contains_item_bit(const long long i) noexcept
-	{
-		if constexpr (bit_value) set_contains_item_bit_true(i);
-		else set_contains_item_bit_false(i);
-	};
-	constexpr inline void set_contains_item_bit_true(const long long i) noexcept
-	{
-		if (std::is_constant_evaluated()) contains_item |= (1L << i);
-		else _bittestandset(&contains_item, i);
-	};
-	constexpr inline void set_contains_item_bit_false(const long long i) noexcept
-	{
-		if (std::is_constant_evaluated()) contains_item &= ~(1L << i);
-		else _bittestandreset(&contains_item, i);
-	};
-	constexpr inline bool get_contains_item_bit(const long long i) const noexcept
-	{
-		if (std::is_constant_evaluated()) return (contains_item & (1L << i)) != 0;
-		else return _bittest(&contains_item, i);
-	};
-	constexpr inline void set_contains_item_bit(const unsigned char bit_value, const long long i) noexcept
-	{
-		if (bit_value) set_contains_item_bit_true(i);
-		else set_contains_item_bit_false(i);
 	};
 
 	inline constexpr friend bool operator==(const item_32_data& lhs, const item_32_data& rhs) noexcept
@@ -189,7 +142,6 @@ namespace item_data_utility
 		const auto missing_distance = remove_distance - split_left.item_distance[index];
 		for (long long i = 0; i < new_count; ++i)
 		{
-			split_left.set_contains_item_bit(split_left.get_contains_item_bit(l + i), i);
 			//split_left.contains_item[i] = split_left.contains_item[l + i];
 			split_left.item_distance[i] = split_left.item_distance[l + i] - remove_distance;
 			split_left.items[i] = split_left.items[l + i];
@@ -197,14 +149,12 @@ namespace item_data_utility
 
 		for (long long i = new_count; i < 32; ++i)
 		{
-			split_left.set_contains_item_bit<false>(i);
 			//split_left.contains_item[i] = false;
 			split_left.item_distance[i] = 0;
 			split_left.items[i] = belt_item{};
 		}
 		for (long long i = l; i < 32; ++i)
 		{
-			_this->set_contains_item_bit<false>(i);
 			//_this->contains_item[i] = false;
 			_this->item_distance[i] = 0;
 			_this->items[i] = belt_item{};
@@ -218,62 +168,10 @@ namespace item_data_utility
 		return split_from_index(&_this, index);
 	};
 
-	static inline void fill_add(item_count_type item_count, short new_distance, item_32_data& item_data) noexcept
-	{
-		const __m256i flooded_dist = _mm256_set1_epi16(new_distance);
-		const __m256i zero_vec = _mm256_setzero_si256();
-		constexpr __m256i bit_test_constant_16_lanes = { .m256i_u16
-			{
-				1, 1 << 1, 1 << 2, 1 << 3,
-				1 << 4, 1 << 5, 1 << 6, 1 << 7,
-				1 << 8, 1 << 9, 1 << 10, 1 << 11,
-				1 << 12, 1 << 13, 1 << 14, 1 << 15
-			}
-		};
-
-		if (item_count > 16)
-		{
-			const unsigned short mask_for_first_16 = item_data.contains_item & 0xffff;
-			const __m256i broadcasted_bitmask_vec_1 = _mm256_set1_epi16(mask_for_first_16);
-
-			const unsigned short mask_for_second_16 = item_data.contains_item >> 16;
-			const __m256i broadcasted_bitmask_vec_2 = _mm256_set1_epi16(mask_for_second_16);
-
-			const __m256i anded_bits_1 = _mm256_and_si256(broadcasted_bitmask_vec_1, bit_test_constant_16_lanes);
-			const __m256i final_vector_mask_1 = _mm256_cmpeq_epi16(anded_bits_1, bit_test_constant_16_lanes);
-
-			const __m256i anded_bits_2 = _mm256_and_si256(broadcasted_bitmask_vec_2, bit_test_constant_16_lanes);
-			const __m256i final_vector_mask_2 = _mm256_cmpeq_epi16(anded_bits_2, bit_test_constant_16_lanes);
-
-			const __m256i values_to_add_1 = _mm256_blendv_epi8(zero_vec, flooded_dist, final_vector_mask_1);
-			const __m256i values_to_add_2 = _mm256_blendv_epi8(zero_vec, flooded_dist, final_vector_mask_2);
-
-			const __m256i result_1 = _mm256_add_epi16(*(__m256i*) & item_data.item_distance[0], values_to_add_1);
-			const __m256i result_2 = _mm256_add_epi16(*(__m256i*) & item_data.item_distance[16], values_to_add_2);
-
-			_mm256_storeu_si256((__m256i*) & item_data.item_distance[0], result_1);
-			_mm256_storeu_si256((__m256i*) & item_data.item_distance[16], result_2);
-		}
-		else
-		{
-			const unsigned short mask_for_first_16 = item_data.contains_item & 0xffff;
-			const __m256i broadcasted_bitmask_vec_1 = _mm256_set1_epi16(mask_for_first_16);
-
-			const __m256i anded_bits_1 = _mm256_and_si256(broadcasted_bitmask_vec_1, bit_test_constant_16_lanes);
-			const __m256i final_vector_mask_1 = _mm256_cmpeq_epi16(anded_bits_1, bit_test_constant_16_lanes);
-
-			const __m256i values_to_add_1 = _mm256_blendv_epi8(zero_vec, flooded_dist, final_vector_mask_1);
-
-			const __m256i result_1 = _mm256_add_epi16(*(__m256i*) & item_data.item_distance[0], values_to_add_1);
-			_mm256_storeu_si256((__m256i*) & item_data.item_distance[0], result_1);
-		}
-	};
-
 	constexpr static inline void shift_arrays_left(long long item_count, item_32_data& item_data) noexcept
 	{
 		if (std::is_constant_evaluated())
 		{
-			item_data.shift_left_contains_item();
 			for (long long i = item_count - 1ll; i >= 0ll; --i)
 			{
 				//item_data.contains_item[i + 1] = item_data.contains_item[i];
@@ -283,7 +181,6 @@ namespace item_data_utility
 		}
 		else
 		{
-			item_data.shift_left_contains_item();
 			//belt_utility::_mm256_slli_si256__p<1>((__m256i*) & item_data.contains_item[0]);
 			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.item_distance[0]);
 			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.items[0]);
@@ -295,7 +192,6 @@ namespace item_data_utility
 
 	constexpr static inline void forced_shift_arrays_left(long long item_count, item_32_data& item_data) noexcept
 	{
-		item_data.shift_left_contains_item();
 		for (long long i = item_count - 1ll; i >= 0ll; --i)
 		{
 			//item_data.contains_item[i + 1] = item_data.contains_item[i];
@@ -306,7 +202,6 @@ namespace item_data_utility
 
 	constexpr static inline void shift_arrays_left_from_index(long long item_count, item_32_data& item_data, long long index) noexcept
 	{
-		item_data.shift_left_contains_item();
 		for (long long i = item_count - 1ll; i >= index; --i)
 		{
 			//item_data.contains_item[i + 1] = item_data.contains_item[i];
@@ -317,7 +212,6 @@ namespace item_data_utility
 
 	constexpr static inline void forced_shift_arrays_right(long long item_count, item_32_data& item_data) noexcept
 	{
-		item_data.shift_right_contains_item();
 		//bool previous_b_x = item_data.contains_item[item_count - 1], current_b_x = false;
 		short previous_c_x = item_data.item_distance[item_count - 1], current_c_x = 0;
 		belt_item previous_i_x = item_data.items[item_count - 1], current_i_x = {};
@@ -346,11 +240,10 @@ namespace item_data_utility
 		}
 	};
 
-	constexpr static inline void shift_arrays_right(long long item_count, item_32_data& item_data) noexcept
+	inline constexpr static void shift_arrays_right(long long item_count, item_32_data& item_data) noexcept
 	{
 		if (std::is_constant_evaluated())
 		{
-			item_data.shift_right_contains_item();
 			//bool previous_b_x = item_data.contains_item[item_count - 1], current_b_x = false;
 			short previous_c_x = item_data.item_distance[item_count - 1], current_c_x = 0;
 			belt_item previous_i_x = item_data.items[item_count - 1], current_i_x = {};
@@ -380,7 +273,6 @@ namespace item_data_utility
 		}
 		else
 		{
-			item_data.shift_right_contains_item();
 			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.item_distance[0]);
 			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.items[0]);
 			//item_data.contains_item[item_count - 1] = false;
@@ -393,7 +285,6 @@ namespace item_data_utility
 
 	constexpr static inline void shift_arrays_right_from_index(long long item_count, item_32_data& item_data, long long index) noexcept
 	{
-		item_data.shift_right_contains_item();
 		//bool previous_b_x = false, current_b_x = item_data.contains_item[item_count - 1];
 		short previous_c_x = 0, current_c_x = item_data.item_distance[item_count - 1];
 		belt_item previous_i_x = {}, current_i_x = item_data.items[item_count - 1];
@@ -453,6 +344,9 @@ public:
 private:
 	//short item_count{ 0 }; //32-39
 	item_count_type item_count{ 0 };
+	long contains_item{ 0 };
+
+	static_assert(sizeof(decltype(contains_item)) == 4, "wrong byte size, wont fit 32 bits");
 
 	constexpr static belt_utility::belt_color color{ belt_utility::belt_color::gray };
 public:
@@ -467,16 +361,19 @@ public:
 	{};
 
 	constexpr item_32(const item_32& o) noexcept :
-		item_count{ o.item_count }
+		item_count{ o.item_count },
+		contains_item{ o.contains_item }
 	{};
 
 	constexpr item_32(item_32&& o) noexcept :
-		item_count{ std::exchange(o.item_count, 0) }
+		item_count{ std::exchange(o.item_count, 0) },
+		contains_item{ std::exchange(o.contains_item, 0) }
 	{};
 
 	constexpr item_32& operator=(const item_32& o) noexcept
 	{
 		item_count = o.item_count;
+		contains_item = o.contains_item;
 
 		return *this;
 	};
@@ -484,6 +381,7 @@ public:
 	constexpr item_32& operator=(item_32&& o) noexcept
 	{
 		item_count = std::exchange(o.item_count, 0);
+		contains_item = std::exchange(o.contains_item, 0);
 
 		return *this;
 	};
@@ -491,6 +389,41 @@ public:
 	inline constexpr friend bool operator==(const item_32& lhs, const item_32& rhs) noexcept
 	{
 		return lhs.item_count == rhs.item_count && &lhs == &rhs;
+	};
+
+	constexpr inline void shift_left_contains_item() noexcept
+	{
+		contains_item <<= 1;
+	};
+	constexpr inline void shift_right_contains_item() noexcept
+	{
+		contains_item = static_cast<long>(static_cast<unsigned long>(contains_item) >> 1);
+	};
+	template<bool bit_value>
+	constexpr inline void set_contains_item_bit(const long long i) noexcept
+	{
+		if constexpr (bit_value) set_contains_item_bit_true(i);
+		else set_contains_item_bit_false(i);
+	};
+	constexpr inline void set_contains_item_bit_true(const long long i) noexcept
+	{
+		if (std::is_constant_evaluated()) contains_item |= (1L << i);
+		else _bittestandset(&contains_item, i);
+	};
+	constexpr inline void set_contains_item_bit_false(const long long i) noexcept
+	{
+		if (std::is_constant_evaluated()) contains_item &= ~(1L << i);
+		else _bittestandreset(&contains_item, i);
+	};
+	constexpr inline bool get_contains_item_bit(const long long i) const noexcept
+	{
+		if (std::is_constant_evaluated()) return (contains_item & (1L << i)) != 0;
+		else return _bittest(&contains_item, i);
+	};
+	constexpr inline void set_contains_item_bit(const unsigned char bit_value, const long long i) noexcept
+	{
+		if (bit_value) set_contains_item_bit_true(i);
+		else set_contains_item_bit_false(i);
 	};
 
 	constexpr item_32 split_from_index(long long index) noexcept
@@ -541,7 +474,7 @@ public:
 	};
 
 	template<belt_utility::belt_direction direction>
-	inline constexpr long long get_item_direction_position(const long long segment_end_direction, long long item_goal_distance, item_32_data& item_data, long long index) const noexcept
+	inline constexpr long long get_item_direction_position(const long long segment_end_direction, long long item_goal_distance, const item_32_data& item_data, long long index) const noexcept
 	{
 		using enum belt_utility::belt_direction;
 		if constexpr (null == direction) return get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_item(item_data, index);
@@ -551,7 +484,7 @@ public:
 		if constexpr (bottom_top == direction) return get_direction_position(segment_end_direction, item_goal_distance) + get_distance_to_item(item_data, index);
 	};
 	template<belt_utility::belt_direction direction>
-	inline constexpr long long get_item_position(long long item_goal_distance, item_32_data& item_data, long long index) const noexcept
+	inline constexpr long long get_item_position(const long long item_goal_distance, const item_32_data& item_data, const long long index) const noexcept
 	{
 		using enum belt_utility::belt_direction;
 		if constexpr (null == direction) return item_goal_distance + get_distance_to_item(item_data, index);
@@ -561,7 +494,7 @@ public:
 		if constexpr (bottom_top == direction) return item_goal_distance - get_distance_to_item(item_data, index);
 	};
 	template<belt_utility::belt_direction direction>
-	inline constexpr long long get_item_position(long long item_goal_distance, item_32_data* item_data, long long index) const noexcept
+	inline constexpr long long get_item_position(const long long item_goal_distance, item_32_data const* const item_data, const long long index) const noexcept
 	{
 		using enum belt_utility::belt_direction;
 		if constexpr (null == direction) return item_goal_distance + get_distance_to_item(item_data, index);
@@ -597,32 +530,32 @@ public:
 		return item_count < belt_item_size;
 	};
 
-	constexpr long long get_distance_to_last_item(item_32_data& item_data) const noexcept
+	constexpr long long get_distance_to_last_item(const item_32_data& item_data) const noexcept
 	{
 		return item_data.item_distance[item_count - 1];
 	};
 
-	constexpr long long get_item_distance(item_32_data item_data, long long item_index) const noexcept
+	constexpr long long get_item_distance(const item_32_data item_data, long long item_index) const noexcept
 	{
 		if constexpr (__DEBUG_BUILD) if (item_index >= item_count) return 0;
 
 		return item_data.item_distance[item_index];
 	};
 
-	constexpr long long get_distance_to_item(item_32_data& item_data, long long item_index) const noexcept
+	constexpr long long get_distance_to_item(const item_32_data& item_data, const long long item_index) const noexcept
 	{
 		if constexpr (__DEBUG_BUILD) if (item_index >= item_count) return 0;
 
 		return item_data.item_distance[item_index];
 	};
-	constexpr long long get_distance_to_item(item_32_data* item_data, long long item_index) const noexcept
+	constexpr long long get_distance_to_item(item_32_data const* const item_data, const long long item_index) const noexcept
 	{
 		if constexpr (__DEBUG_BUILD) if (item_index >= item_count) return 0;
 
 		return item_data->item_distance[item_index];
 	};
 
-	constexpr bool can_add_item(const long long segment_end_direction, long long* item_goal_distance, item_32_data& item_data, vec2_int64 new_item_position) const noexcept
+	constexpr bool can_add_item(const long long segment_end_direction, long long* item_goal_distance, const item_32_data& item_data, vec2_int64 new_item_position) const noexcept
 	{
 		if (*item_goal_distance >= belt_item_size) return true;
 		if (new_item_position.x >= get_direction_position(segment_end_direction, *item_goal_distance) + belt_item_size) return true;
@@ -645,7 +578,7 @@ public:
 		{
 			//*item_goal_distance = *item_goal_distance - new_item_position.x;
 			++item_count;
-			item_data.set_contains_item_bit<true>(0);
+			set_contains_item_bit<true>(0);
 			//item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[0] = 0;
 			item_data.items[0] = new_item;
@@ -664,9 +597,10 @@ public:
 			for (long long i = l; i >= 0; --i) item_data.item_distance[i] += static_cast<short>(new_distance);
 			//for (long long i = 0; i < l; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
 			//item_data_utility::fill_add(item_count, new_distance, item_data);
+			shift_left_contains_item();
 			item_data_utility::shift_arrays_left(item_count, item_data);
 			++item_count;
-			item_data.set_contains_item_bit<true>(0);
+			set_contains_item_bit<true>(0);
 			//item_data.contains_item[0] = true;
 			item_data.item_distance[0] = 0;
 			item_data.item_distance[1] = static_cast<short>(new_distance);
@@ -681,7 +615,7 @@ public:
 		if (direction_position - get_distance_to_last_item(item_data) > new_item_position.x && distance_to_last_item <= 255u)
 		{
 			++item_count;
-			item_data.set_contains_item_bit<true>(item_count - 1);
+			set_contains_item_bit<true>(item_count - 1);
 			//item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[item_count - 1] = static_cast<short>(new_item_position.x - direction_position);
 			item_data.items[item_count - 1] = new_item;
@@ -693,9 +627,10 @@ public:
 		{
 			if (new_item_position.x > direction_position - get_distance_to_item(item_data, i + 1) && item_data.item_distance[i + 1] >= 64)
 			{
+				shift_right_contains_item();
 				item_data_utility::shift_arrays_right_from_index(item_count, item_data, i + 1);
 				++item_count;
-				item_data.set_contains_item_bit<true>(i + 1);
+				set_contains_item_bit<true>(i + 1);
 				//item_data.contains_item[i + 1] = true;
 				item_data.item_distance[i + 1] = static_cast<short>(new_item_position.x - direction_position);
 				item_data.items[i + 1] = new_item;
@@ -716,7 +651,7 @@ public:
 		if (item_count == 0ll)
 		{
 			++item_count;
-			item_data.set_contains_item_bit<true>(0);
+			set_contains_item_bit<true>(0);
 			//item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[0] = static_cast<short>(0);
 			item_data.items[0] = new_item;
@@ -734,9 +669,10 @@ public:
 			for (long long i = l; i >= 0; --i) item_data.item_distance[i] += static_cast<short>(new_distance);
 			//for (long long i = 0; i < l; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
 			//item_data_utility::fill_add(item_count, new_distance, item_data);
+			shift_left_contains_item();
 			item_data_utility::shift_arrays_left(item_count, item_data);
 			++item_count;
-			item_data.set_contains_item_bit<true>(0);
+			set_contains_item_bit<true>(0);
 			//item_data.contains_item[0] = true;
 			item_data.item_distance[0] = static_cast<short>(0);
 			item_data.item_distance[1] = static_cast<short>(new_distance);
@@ -751,7 +687,7 @@ public:
 		if (direction_position - get_distance_to_last_item(item_data) > new_item_position.x && distance_to_last_item <= 255u)
 		{
 			++item_count;
-			item_data.set_contains_item_bit<true>(item_count - 1);
+			set_contains_item_bit<true>(item_count - 1);
 			//item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[item_count - 1] = static_cast<short>(new_item_position.x - direction_position);
 			item_data.items[item_count - 1] = new_item;
@@ -763,9 +699,10 @@ public:
 		{
 			if (new_item_position.x > direction_position - get_distance_to_item(item_data, i + 1) && item_data.item_distance[i + 1] >= 64)
 			{
+				shift_right_contains_item();
 				item_data_utility::shift_arrays_right_from_index(item_count, item_data, i + 1);
 				++item_count;
-				item_data.set_contains_item_bit<true>(i + 1);
+				set_contains_item_bit<true>(i + 1);
 				//item_data.contains_item[i + 1] = true;
 				item_data.item_distance[i + 1] = static_cast<short>(new_item_position.x - direction_position);
 				item_data.items[i + 1] = new_item;
@@ -776,7 +713,7 @@ public:
 		return -1;
 	};
 
-	constexpr item_removal_result remove_item(long long* const item_goal_distance, item_32_data& item_data, long long index) noexcept
+	__forceinline constexpr item_removal_result remove_item(long long* const item_goal_distance, item_32_data& item_data, long long index) noexcept
 	{
 		if constexpr (__DEBUG_BUILD) if (index >= 32) return item_removal_result::item_not_removed;
 
@@ -785,22 +722,22 @@ public:
 		{
 			if (index == 0)
 			{
-				//if (*item_goal_distance >= 12429984) __debugbreak();
 				new_goal_distance = item_count >= 2ll ? get_distance_to_item(item_data, 1ll) : 0ll;
-				item_data.set_contains_item_bit<false>(index);
+				set_contains_item_bit<false>(index);
 				//item_data.contains_item[index] = false;
 				item_data.item_distance[index] = 0;
+				shift_right_contains_item();
 				item_data_utility::shift_arrays_right(item_count, item_data);
 				//*item_goal_distance += new_goal_distance; //shouldn't this be here since I'm using it in remove_first_item
 				--item_count;
 			}
 			else
 			{
-				//if (*item_goal_distance >= 12429984) __debugbreak();
-				item_data.set_contains_item_bit<false>(index);
+				set_contains_item_bit<false>(index);
 				//item_data.contains_item[index] = false;
 				item_data.item_distance[index] = 0;
 				item_data.items[index] = belt_item{};
+				shift_right_contains_item();
 				item_data_utility::shift_arrays_right_from_index(item_count, item_data, index);
 				--item_count;
 			}
@@ -810,15 +747,13 @@ public:
 		else
 		{
 			*item_goal_distance += item_data.item_distance[index];
-			--item_count;
-			item_data.set_contains_item_bit<false>(index);
+			set_contains_item_bit<false>(index);
 			//item_data.contains_item[index] = false;
 			item_data.item_distance[index] = 0;
 			item_data.items[index] = belt_item{};
+			--item_count;
 			return item_removal_result::item_removed_zero_remains;
 		}
-
-		return item_removal_result::item_not_removed;
 	};
 
 	constexpr item_removal_result remove_first_item(long long* const item_goal_distance, item_32_data& item_data) noexcept
@@ -828,9 +763,10 @@ public:
 		if (item_count > 1ll)
 		{
 			const long long new_goal_distance = item_count >= 2ll ? item_data.item_distance[1ll] : 0ll;
-			item_data.set_contains_item_bit<false>(0);
+			set_contains_item_bit<false>(0);
 			//item_data.contains_item[0ll] = false;
 			item_data.item_distance[0ll] = 0;
+			shift_right_contains_item();
 			item_data_utility::shift_arrays_right(item_count, item_data);
 			*item_goal_distance += new_goal_distance;
 			--item_count;
@@ -839,7 +775,7 @@ public:
 		{
 			--item_count;
 			*item_goal_distance -= item_data.item_distance[0ll];
-			item_data.set_contains_item_bit<false>(0);
+			set_contains_item_bit<false>(0);
 			//item_data.contains_item[0ll] = false;
 			item_data.item_distance[0ll] = 0;
 			item_data.items[0ll] = belt_item{};
@@ -852,7 +788,7 @@ public:
 	constexpr void remove_last_item(item_32_data& item_data) noexcept
 	{
 		--item_count;
-		item_data.set_contains_item_bit<false>(0);
+		set_contains_item_bit<false>(0);
 		//item_data.contains_item[0ll] = false;
 		item_data.item_distance[0ll] = 0;
 		item_data.items[0ll] = belt_item{};
@@ -863,7 +799,7 @@ public:
 		for (long long i = 0ll; i < item_count; ++i)
 		{
 			//if (item_data.contains_item[i] && item_data.items[i].type == type) return i;
-			if (item_data.get_contains_item_bit(i) && item_data.items[i].type == type) return i;
+			if (get_contains_item_bit(i) && item_data.items[i].type == type) return i;
 		}
 
 		return -1;
@@ -884,7 +820,8 @@ public:
 	template<belt_utility::belt_direction direction>
 	constexpr index_item_position_return get_first_item_of_type_before_position_fast(long long item_goal_distance, item_32_data& item_data, item_type type, long long direction_position) const noexcept
 	{
-		for (long long i = 0ll; i < item_count; ++i)
+		const long long l_count = static_cast<long long>(item_count);
+		for (long long i = 0ll; i < l_count; ++i)
 		{
 			if (item_data.items[i].type != type) continue;
 			const auto item_position = get_item_position<direction>(item_goal_distance, item_data, i);
@@ -924,7 +861,7 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			if (item_data.item_distance[belt_item_size - 1] == 0 && item_data.get_contains_item_bit(belt_item_size - 1))
+			if (item_data.item_distance[belt_item_size - 1] == 0 && get_contains_item_bit(belt_item_size - 1))
 				//if (item_data.item_distance[belt_item_size - 1] == 0 && item_data.contains_item[belt_item_size - 1])
 			{
 				return remove_item(item_goal_distance->get_unsafe_index_ptr(), item_data, belt_item_size - 1);
@@ -994,7 +931,6 @@ public:
 constexpr auto test_item_32_data_split(int split_index) noexcept
 {
 	item_32_data data{};
-	data.contains_item = 0xFFFFFFFF;
 	for (short i = 0; i < 32; ++i)
 	{
 		//data.contains_item[i] = true;
@@ -1010,27 +946,6 @@ constexpr auto test_item_32_data_split(int split_index) noexcept
 	if (!(0 < split_left && split_left < 32)) return false;
 	if (!(0 < split_right && split_right < 32)) return false;
 
-	for (long long i = 0; i < split_right; ++i)
-	{
-		if (data.get_contains_item_bit(i) != true) return false;
-	}
-	for (long long i = 0; i < split_left; ++i)
-	{
-		if (split_data.get_contains_item_bit(i) != true) return false;
-	}
-	for (long long i = split_right; i < 32; ++i)
-	{
-		if (data.get_contains_item_bit(i) != false) return false;
-	}
-	for (long long i = split_left; i < 32; ++i)
-	{
-		if (split_data.get_contains_item_bit(i) != false) return false;
-	}
-
-	if (split_right >= 1 && data.get_contains_item_bit(split_right - 1) != true) return false;
-	if (split_left >= 1 && split_data.get_contains_item_bit(split_left - 1) != true) return false;
-	if (data.get_contains_item_bit(split_right) != false) return false;
-	if (split_data.get_contains_item_bit(split_left) != false) return false;
 	if (data.item_distance[0] != 0) return false;
 	if (split_data.item_distance[0] + split_result.missing_distance != 32) return false;
 	if (data.item_distance[1] != 32) return false;

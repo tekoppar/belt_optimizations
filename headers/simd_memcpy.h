@@ -383,7 +383,7 @@ namespace mem
 				{
 					// If this is a large copy, start prefetching future cache lines.  This also prefetches the
 					// trailing quadwords that are not part of a whole cache line.
-					//_mm_prefetch((char const*)(Source + pre_fetch_limit), _MM_HINT_NTA);
+					_mm_prefetch((char const*)(Source + pre_fetch_limit), _MM_HINT_NTA);
 					_mm256_stream_si256(Dest, _mm256_stream_load_si256(Source));
 					_mm256_stream_si256(Dest + 1ll, _mm256_stream_load_si256(Source + 1ll));
 					Dest += 2ll;
@@ -407,7 +407,7 @@ namespace mem
 				{
 					// If this is a large copy, start prefetching future cache lines.  This also prefetches the
 					// trailing quadwords that are not part of a whole cache line.
-					//_mm_prefetch((char const*)(Source + pre_fetch_limit), _MM_HINT_NTA);
+					_mm_prefetch((char const*)(Source + pre_fetch_limit), _MM_HINT_NTA);
 					_mm256_stream_si256(Dest, _mm256_loadu_si256(Source));
 					_mm256_stream_si256(Dest + 1ll, _mm256_loadu_si256(Source + 1ll));
 					Dest += 2ll;
@@ -528,12 +528,12 @@ namespace mem
 			switch (CacheLines)
 			{
 				default:
-				//case 10: _mm_prefetch((char const*)(Source + 18), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				//case 9:  _mm_prefetch((char const*)(Source + 16), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				//case 8:  _mm_prefetch((char const*)(Source + 14), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				//case 7:  _mm_prefetch((char const*)(Source + 12), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				//case 6:  _mm_prefetch((char const*)(Source + 10), _MM_HINT_NTA); [[fallthrough]];	// Fall through
-				//case 5:  _mm_prefetch((char const*)(Source + 8), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+					//case 10: _mm_prefetch((char const*)(Source + 18), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+					//case 9:  _mm_prefetch((char const*)(Source + 16), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+					//case 8:  _mm_prefetch((char const*)(Source + 14), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+					//case 7:  _mm_prefetch((char const*)(Source + 12), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+					//case 6:  _mm_prefetch((char const*)(Source + 10), _MM_HINT_NTA); [[fallthrough]];	// Fall through
+					//case 5:  _mm_prefetch((char const*)(Source + 8), _MM_HINT_NTA); [[fallthrough]];	// Fall through
 				case 4:  _mm_prefetch((char const*)(Source + 6), _MM_HINT_NTA); [[fallthrough]];	// Fall through
 				case 3:  _mm_prefetch((char const*)(Source + 4), _MM_HINT_NTA); [[fallthrough]];		// Fall through
 				case 2:  _mm_prefetch((char const*)(Source + 2), _MM_HINT_NTA); [[fallthrough]];	// Fall through
@@ -662,9 +662,20 @@ namespace mem
 		{
 			//don't directly call this function instead call SIMDMemCopy256 since these functions depend on pre-requisites from said function
 			template<typename T, bool is_ptr_aligned>
+			inline void mem_copy_256_64(__m256i* __restrict Dest, const __m256i* __restrict Source, long long objects_to_copy, long long NumQuadwords) noexcept
+			{
+				static_assert(mem::aligned_on<T, 64ll>(), "type is not 32 byte aligned");
+
+				const long long cache_lines = NumQuadwords;
+				mem_copy_256_loop<T>(Dest, Source, cache_lines);
+
+				_mm_sfence();
+			};
+			//don't directly call this function instead call SIMDMemCopy256 since these functions depend on pre-requisites from said function
+			template<typename T, bool is_ptr_aligned>
 			inline void mem_copy_256_32(__m256i* __restrict Dest, const __m256i* __restrict Source, long long objects_to_copy, long long NumQuadwords) noexcept
 			{
-				static_assert(mem::aligned_by<T, 32ll>() == 0ll, "type is not 32 byte aligned");
+				static_assert(mem::aligned_too<T, 32ll>(), "type is not 32 byte aligned");
 				if constexpr (is_ptr_aligned == false)
 				{
 					if (std::is_constant_evaluated() == false)
@@ -674,7 +685,7 @@ namespace mem
 						assert(is_aligned(Source, 32));
 #endif
 						// Discover how many quadwords precede a cache line boundary.  Copy them separately.
-						long long InitialQuadwordCount = ((long long)Dest % 64ll) / 16ll;
+						long long InitialQuadwordCount = ((long long)Dest % 64ll) / 32ll;
 
 						cache_line_copy(InitialQuadwordCount, Dest, Source);
 						Dest = (__m256i*)((__m128i*)Dest + InitialQuadwordCount);
@@ -683,7 +694,7 @@ namespace mem
 					}
 				}
 
-				const long long cache_lines = NumQuadwords >> 2;
+				const long long cache_lines = NumQuadwords >> 1;
 				mem_copy_256_loop<T>(Dest, Source, cache_lines);
 
 				if constexpr (is_ptr_aligned == false) remaining_cache_line(NumQuadwords, Dest, Source);
@@ -693,22 +704,25 @@ namespace mem
 			template<typename T, bool is_ptr_aligned>
 			inline void mem_copy_256_16(__m256i* __restrict Dest, const __m256i* __restrict Source, long long objects_to_copy, long long NumQuadwords) noexcept
 			{
-				static_assert(mem::aligned_by<T, 16ll>() == 0ll, "type is not 16 byte aligned");
-				if constexpr (is_ptr_aligned == false)
+				static_assert(mem::aligned_too<T, 16ll>(), "type is not 16 byte aligned");
+				//if constexpr (is_ptr_aligned == false)
 				{
 					if (std::is_constant_evaluated() == false)
 					{
+						if (!(is_aligned(Source, 32ll) && is_aligned(Dest, 32ll)))
+						{
 #ifdef _DEBUG
-						assert(is_aligned(Dest, sizeof(T)));
-						assert(is_aligned(Source, sizeof(T)));
+							assert(is_aligned(Dest, sizeof(T)));
+							assert(is_aligned(Source, sizeof(T)));
 #endif
-						// Discover how many quadwords precede a cache line boundary.  Copy them separately.
-						long long InitialQuadwordCount = ((long long)Dest % 64) / 16;
+							// Discover how many quadwords precede a cache line boundary.  Copy them separately.
+							long long InitialQuadwordCount = ((long long)Dest % 64) / 16;
 
-						cache_line_copy(InitialQuadwordCount, Dest, Source);
-						Dest = (__m256i*)((__m128i*)Dest + InitialQuadwordCount);
-						Source = (__m256i*)((__m128i*)Source + InitialQuadwordCount);
-						NumQuadwords -= InitialQuadwordCount;
+							cache_line_copy(InitialQuadwordCount, Dest, Source);
+							Dest = (__m256i*)((__m128i*)Dest + InitialQuadwordCount);
+							Source = (__m256i*)((__m128i*)Source + InitialQuadwordCount);
+							NumQuadwords -= InitialQuadwordCount;
+						}
 					}
 				}
 
@@ -722,23 +736,26 @@ namespace mem
 			template<typename T, bool is_ptr_aligned>
 			inline void mem_copy_256_8(__m256i* __restrict Dest, const __m256i* __restrict Source, long long objects_to_copy, long long NumQuadwords) noexcept
 			{
-				static_assert(mem::aligned_by<T, 8ll>() == 0ll, "type is not 8 byte aligned");
-				if constexpr (is_ptr_aligned == false)
+				static_assert(mem::aligned_too<T, 8ll>(), "type is not 8 byte aligned");
+				//if constexpr (is_ptr_aligned == false)
 				{
 					if (std::is_constant_evaluated() == false)
 					{
+						if (!(is_aligned(Source, 32ll) && is_aligned(Dest, 32ll)))
+						{
 #ifdef _DEBUG
-						assert(is_aligned(Dest, sizeof(T)));
-						assert(is_aligned(Source, sizeof(T)));
+							assert(is_aligned(Dest, sizeof(T)));
+							assert(is_aligned(Source, sizeof(T)));
 #endif
-						// Discover how many quadwords precede a cache line boundary.  Copy them separately.
-						auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
-						long long InitialQuadwordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 8ll;
+							// Discover how many quadwords precede a cache line boundary.  Copy them separately.
+							auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
+							long long InitialQuadwordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 8ll;
 
-						cache_line_copy_8(InitialQuadwordCount, Dest, Source);
-						Dest = (__m256i*)(((long long*)Dest) + InitialQuadwordCount);
-						Source = (__m256i*)(((long long*)Source) + InitialQuadwordCount);
-						NumQuadwords -= InitialQuadwordCount;
+							cache_line_copy_8(InitialQuadwordCount, Dest, Source);
+							Dest = (__m256i*)(((long long*)Dest) + InitialQuadwordCount);
+							Source = (__m256i*)(((long long*)Source) + InitialQuadwordCount);
+							NumQuadwords -= InitialQuadwordCount;
+						}
 					}
 				}
 
@@ -752,23 +769,26 @@ namespace mem
 			template<typename T, bool is_ptr_aligned>
 			inline void mem_copy_256_4(__m256i* __restrict Dest, const __m256i* __restrict Source, long long objects_to_copy, long long NumDoublewords) noexcept
 			{
-				static_assert(mem::aligned_by<T, 4ll>() == 0ll, "type is not 8 byte aligned");
-				if constexpr (is_ptr_aligned == false)
+				static_assert(mem::aligned_too<T, 4ll>(), "type is not 8 byte aligned");
+				//if constexpr (is_ptr_aligned == false)
 				{
 					if (std::is_constant_evaluated() == false)
 					{
+						if (!(is_aligned(Source, 32ll) && is_aligned(Dest, 32ll)))
+						{
 #ifdef _DEBUG
-						assert(is_aligned(Dest, sizeof(T)));
-						assert(is_aligned(Source, sizeof(T)));
+							assert(is_aligned(Dest, sizeof(T)));
+							assert(is_aligned(Source, sizeof(T)));
 #endif
-						// Discover how many doublewords precede a cache line boundary.  Copy them separately.
-						auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
-						long long InitialDoublewordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 4ll;//aligned_ptr_number == 64 || aligned_ptr_number == 0 ? 0 : (64 - aligned_ptr_number) / 4;
+							// Discover how many doublewords precede a cache line boundary.  Copy them separately.
+							auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
+							long long InitialDoublewordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 4ll;//aligned_ptr_number == 64 || aligned_ptr_number == 0 ? 0 : (64 - aligned_ptr_number) / 4;
 
-						cache_line_copy_4(InitialDoublewordCount, (int*)Dest, (const int*)Source);
-						Dest = (__m256i*)(((int*)Dest) + InitialDoublewordCount);
-						Source = (__m256i*)(((int*)Source) + InitialDoublewordCount);
-						NumDoublewords -= InitialDoublewordCount;
+							cache_line_copy_4(InitialDoublewordCount, (int*)Dest, (const int*)Source);
+							Dest = (__m256i*)(((int*)Dest) + InitialDoublewordCount);
+							Source = (__m256i*)(((int*)Source) + InitialDoublewordCount);
+							NumDoublewords -= InitialDoublewordCount;
+						}
 					}
 				}
 
@@ -783,26 +803,80 @@ namespace mem
 			inline void mem_copy_256_1(__m256i* __restrict Dest, const __m256i* __restrict Source, long long objects_to_copy, long long NumDoublewords, long long remaining_chars) noexcept
 			{
 				static_assert(sizeof(T) == 1ull, "type is not 8 byte aligned");
-				if constexpr (is_ptr_aligned == false)
+				//if constexpr (is_ptr_aligned == false)
 				{
 					if (std::is_constant_evaluated() == false)
 					{
+						if (!(is_aligned(Source, 32ll) && is_aligned(Dest, 32ll)))
+						{
 #ifdef _DEBUG
-						assert(is_aligned(Dest, sizeof(T)));
-						assert(is_aligned(Source, sizeof(T)));
+							assert(is_aligned(Dest, sizeof(T)));
+							assert(is_aligned(Source, sizeof(T)));
 #endif
-						// Discover how many doublewords precede a cache line boundary.  Copy them separately.
-						auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
-						long long InitialDoublewordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 4ll;//aligned_ptr_number == 64 || aligned_ptr_number == 0 ? 0 : (64 - aligned_ptr_number) / 4;
+							// Discover how many doublewords precede a cache line boundary.  Copy them separately.
+							auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
+							long long InitialDoublewordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 4ll;//aligned_ptr_number == 64 || aligned_ptr_number == 0 ? 0 : (64 - aligned_ptr_number) / 4;
 
-						cache_line_copy_4(InitialDoublewordCount, (int*)Dest, (const int*)Source);
-						Dest = (__m256i*)(((int*)Dest) + InitialDoublewordCount);
-						Source = (__m256i*)(((int*)Source) + InitialDoublewordCount);
-						NumDoublewords -= InitialDoublewordCount;
+							cache_line_copy_4(InitialDoublewordCount, (int*)Dest, (const int*)Source);
+							Dest = (__m256i*)(((int*)Dest) + InitialDoublewordCount);
+							Source = (__m256i*)(((int*)Source) + InitialDoublewordCount);
+							NumDoublewords -= InitialDoublewordCount;
+						}
 					}
 				}
 
-				const long long cache_lines = NumDoublewords >> 2;
+				const long long cache_lines = NumDoublewords >> 6;
+				mem_copy_256_loop<T>(Dest, Source, cache_lines);
+
+				if (remaining_chars > 0)
+				{
+					if constexpr (is_ptr_aligned == false) remaining_cache_line_unaligned(remaining_chars, Dest + cache_lines, Source + cache_lines);
+					else remaining_cache_line_aligned(remaining_chars, Dest + cache_lines, Source + cache_lines);
+				}
+				/*if (remaining_chars > 0)
+				{
+					remaining_cache_line_m();
+
+					auto offset = cache_lines * 64;
+					char* _dest = ((char*)Dest) + offset;
+					const char* _source = ((char*)Source) + offset;
+
+					for (long long i = 0; i < remaining_chars; ++i)
+						_dest[i] = _source[i];
+				}*/
+
+				if constexpr (is_ptr_aligned == false)
+					remaining_cache_line_4(NumDoublewords, Dest, Source);
+				_mm_sfence();
+			};
+			//don't directly call this function instead call SIMDMemCopy256 since these functions depend on pre-requisites from said function
+			template<typename T, bool is_ptr_aligned, size_t allocation_alignment = 0ull>
+			inline void mem_copy_256_global(__m256i* __restrict Dest, const __m256i* __restrict Source, long long objects_to_copy, long long NumDoublewords, long long remaining_chars) noexcept
+			{
+				static_assert(allocation_alignment != 0ull, "no alignment size sent in");
+				//if constexpr (is_ptr_aligned == false)
+				{
+					if (std::is_constant_evaluated() == false)
+					{
+						if (!(is_aligned(Source, 32ll) && is_aligned(Dest, 32ll)))
+						{
+#ifdef _DEBUG
+							assert(is_aligned(Dest, allocation_alignment));
+							assert(is_aligned(Source, allocation_alignment));
+#endif
+							// Discover how many doublewords precede a cache line boundary.  Copy them separately.
+							auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
+							long long InitialDoublewordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 4ll;//aligned_ptr_number == 64 || aligned_ptr_number == 0 ? 0 : (64 - aligned_ptr_number) / 4;
+
+							cache_line_copy_4(InitialDoublewordCount, (int*)Dest, (const int*)Source);
+							Dest = (__m256i*)(((int*)Dest) + InitialDoublewordCount);
+							Source = (__m256i*)(((int*)Source) + InitialDoublewordCount);
+							NumDoublewords -= InitialDoublewordCount;
+						}
+					}
+				}
+
+				const long long cache_lines = NumDoublewords >> 6;
 				mem_copy_256_loop<T>(Dest, Source, cache_lines);
 
 				if (remaining_chars > 0)
@@ -828,44 +902,61 @@ namespace mem
 			};
 		};
 
-		template<typename T, bool is_ptr_aligned>
+		template<typename T, bool is_ptr_aligned, size_t allocation_alignment = 0ull>
 		constexpr inline void mem_copy_256(void* __restrict _Dest, const void* __restrict _Source, const long long objects_to_copy) noexcept
 		{
 			__m256i* __restrict Dest = (__m256i * __restrict)_Dest;
 			const __m256i* __restrict Source = (const __m256i * __restrict)_Source;
 
-			if constexpr (mem::aligned_by<T, 4ll>() == 0ll)
+			if constexpr (mem::aligned_too<T, 4ll>())
 			{
-				long long NumDoublewords = divide_by_multiple(sizeof(T) * objects_to_copy, 4ll);
+				const long long NumDoublewords = divide_by_multiple(sizeof(T) * objects_to_copy, 4ll);
 				if (NumDoublewords < 16) cache_line_copy_4(NumDoublewords, (int*)_Dest, (const int*)_Source);
 				else no_direct_calls::mem_copy_256_4<T, is_ptr_aligned>(Dest, Source, objects_to_copy, NumDoublewords);
 			}
-			else if constexpr (mem::aligned_by<T, 8ll>() == 0ll)
+			else if constexpr (mem::aligned_too<T, 8ll>())
 			{
-				long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 8ll);
+				const long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 8ll);
 				if (NumQuadwords < 8) cache_line_copy_8(NumQuadwords, _Dest, _Source);
 				else no_direct_calls::mem_copy_256_8<T, is_ptr_aligned>(Dest, Source, objects_to_copy, NumQuadwords);
 			}
-			else if constexpr (mem::aligned_by<T, 16ll>() == 0ll)
+			else if constexpr (mem::aligned_too<T, 16ll>())
 			{
-				long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 16ll);
+				const long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 16ll);
 				if (NumQuadwords < 4) cache_line_copy(NumQuadwords, _Dest, _Source);
-				else no_direct_calls::mem_copy_256_16<T, is_ptr_aligned>(Dest, Source, objects_to_copy);
+				else no_direct_calls::mem_copy_256_16<T, is_ptr_aligned>(Dest, Source, objects_to_copy, NumQuadwords);
 			}
-			else if constexpr (mem::aligned_by<T, 32ll>() == 0ll)
+			else if constexpr (mem::aligned_too<T, 32ll>())
 			{
-				long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 16ll);
-				if (NumQuadwords < 4) cache_line_copy(NumQuadwords, _Dest, _Source);
-				else no_direct_calls::mem_copy_256_32<T, is_ptr_aligned>(Dest, Source, objects_to_copy);
+				const long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 32ll);
+				if (NumQuadwords < 2) cache_line_copy(NumQuadwords, _Dest, _Source);
+				else no_direct_calls::mem_copy_256_32<T, is_ptr_aligned>(Dest, Source, objects_to_copy, NumQuadwords);
+			}
+			else if constexpr (mem::aligned_too<T, 64ll>() || mem::aligned_on<T, 64ll>())
+			{
+				const long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 64ll);
+				if (NumQuadwords < 2) cache_line_copy(NumQuadwords, _Dest, _Source);
+				else no_direct_calls::mem_copy_256_64<T, is_ptr_aligned>(Dest, Source, objects_to_copy, NumQuadwords);
 			}
 			else if constexpr (sizeof(T) == 1ull)
 			{
-				long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 16ll);
-				long long remaining = objects_to_copy % 64;
+				const long long NumQuadwords = divide_by_multiple(sizeof(T) * objects_to_copy, 1ll);
+				const long long remaining = objects_to_copy % 64;
 				if (NumQuadwords < 4) cache_line_copy(NumQuadwords, _Dest, _Source);
 				else no_direct_calls::mem_copy_256_1<T, is_ptr_aligned>(Dest, Source, objects_to_copy, NumQuadwords, remaining);
 			}
-			else static_assert(mem::aligned_by<T, -1ll>() == 0ll, "T is not aligned on 4, 8, 16, 32 or 64 bytes");
+			else if constexpr (allocation_alignment % 32ull == 0)
+			{
+				long long num_bytes = divide_by_multiple(sizeof(T) * objects_to_copy, 1ll);
+				long long remaining_bytes = objects_to_copy % 64;
+				if (num_bytes < 64) cache_line_copy(num_bytes, _Dest, _Source);
+				else no_direct_calls::mem_copy_256_global<T, false, allocation_alignment>(Dest, Source, objects_to_copy, num_bytes, remaining_bytes);
+			}
+			else
+			{
+				throw 0; //just to get error from where it occurs
+				static_assert(mem::aligned_by<T, -1ll>() == 1ll, "T is not aligned on 4, 8, 16, 32 or 64 bytes");
+			}
 		};
 	};
 };

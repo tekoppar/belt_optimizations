@@ -1139,7 +1139,7 @@ namespace mem
 			__ASSUME__(values.first != nullptr);
 
 			if (this->values.first && !this->empty()) this->clear();
-			_Alty MemoryAllocator{};
+			const _Alty MemoryAllocator{};
 			if (this->get_capacity() < vector.get_capacity())
 			{
 				if (values.get_capacity() > 0ll)
@@ -1151,10 +1151,11 @@ namespace mem
 
 			const std::size_t type_arr_size = vector.size();
 
-			if constexpr (mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type)
-				mem::simd::mem_copy_256<value_type, true>((void*)values.first, (void*)vector.values.first, type_arr_size);
-			else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
-				mem::simd::mem_copy_256<value_type, false>((void*)values.first, (void*)vector.values.first, type_arr_size); //mem::simd::SIMDMemCopy256((void*)this->values.first, (void*)vector.values.first, mem::divide_by_multiple(type_arr_size, 16));
+			if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll || sizeof(Object) == 64ll))
+				mem::simd::mem_copy_256<value_type, true, mem::get_closest_power_of_2_alignment<value_type, 32>()>((void*)values.first, (void*)vector.values.first, type_arr_size);
+			else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type ||
+				mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type)
+				mem::simd::mem_copy_256<value_type, false, mem::get_closest_power_of_2_alignment<value_type, 32>()>((void*)values.first, (void*)vector.values.first, type_arr_size); //mem::simd::SIMDMemCopy256((void*)this->values.first, (void*)vector.values.first, mem::divide_by_multiple(type_arr_size, 16));
 			else
 				std::memcpy(this->values.first, vector.values.first, sizeof(value_type) * type_arr_size);
 			this->values.last = this->values.first + type_arr_size;
@@ -1230,8 +1231,8 @@ namespace mem
 
 			const std::size_t type_arr_size = vector.size();
 
-			if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll))
-				mem::simd::mem_copy_256<value_type, true>((void*)values.first, (void*)vector.values.first, type_arr_size);
+			if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) || (sizeof(Object) == 32ll || sizeof(Object) == 16ll || sizeof(Object) == 64ll))
+				mem::simd::mem_copy_256<value_type, true, mem::get_closest_power_of_2_alignment<value_type, 32>()>((void*)values.first, (void*)vector.values.first, type_arr_size);
 			else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
 				mem::simd::SIMDMemCopy256((void*)this->values.first, (void*)vector.values.first, mem::divide_by_multiple(type_arr_size, 16));
 			else
@@ -1253,8 +1254,8 @@ namespace mem
 
 			if (old_container.get_capacity() > 0)
 			{
-				if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) && (sizeof(Object) == 32ll || sizeof(Object) == 16ll))
-					mem::simd::mem_copy_256<value_type, true>((void*)values.first, (void*)old_container.first, old_size);
+				if constexpr ((mem::Allocating_Type::ALIGNED_NEW == allocating_type || mem::Allocating_Type::ALIGNED_MALLOC == allocating_type) || (sizeof(Object) == 32ll || sizeof(Object) == 16ll || sizeof(Object) == 64ll))
+					mem::simd::mem_copy_256<value_type, true, mem::get_closest_power_of_2_alignment<value_type, 32>()>((void*)values.first, (void*)old_container.first, old_size);
 				else if constexpr (mem::Allocating_Type::NEW == allocating_type || mem::Allocating_Type::MALLOC == allocating_type)
 					mem::simd::SIMDMemCopy256((void*)this->values.first, (void*)old_container.first, mem::divide_by_multiple(type_arr_size, 16));
 				else

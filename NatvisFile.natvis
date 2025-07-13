@@ -11,11 +11,10 @@
 			</ArrayItems>
 		</Expand>
 	</Type>
-	<Type Name="item_32_data">
+	<Type Name="item_32">
 		<Expand>
-			<Item Name="contains_item">contains_item,bb</Item>
-			<Item Name="item_distance">item_distance</Item>
-			<Item Name="items">items</Item>
+			<Item Name="item_count">item_count</Item>
+			<Item Name="item_count">contains_item,bb</Item>
 		</Expand>
 	</Type>
 </AutoVisualizer>

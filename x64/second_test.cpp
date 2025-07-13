@@ -23,7 +23,7 @@
 #endif
 
 #ifdef _DEBUG
-constexpr const std::size_t second_test_max_belts_8 = 2'00'000ll;
+constexpr const std::size_t second_test_max_belts_8 = 10'000'000ll;
 #else
 constexpr const std::size_t second_test_max_belts_8 = 200'000'000ll;
 #endif
@@ -49,7 +49,7 @@ void second_test_belt_setup() noexcept
 	second_test_all_belts = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
 	second_test_all_belts_ptr = &second_test_all_belts;
 #ifdef _DEBUG
-	constexpr long long inserter_pos = 35000;// (32ll * 1024ll) + 16;
+	constexpr long long inserter_pos = 350000;// (32ll * 1024ll) + 16;
 #else
 	constexpr long long inserter_pos = 350000;// *((second_test_max_belts * 32ll * 32ll) / 350000 - 1ll);
 #endif
@@ -75,6 +75,7 @@ void second_test_belt_setup() noexcept
 	long long belt_x_position = 0ll;
 	constexpr size_t l2 = second_test_max_belts;
 	std::cout << "Starting to add items" << std::endl;
+	const auto t1 = std::chrono::high_resolution_clock::now();
 	for (std::size_t i = 0; i < l2; ++i)
 	{
 #if __BELT_SWITCH__ == 3
@@ -96,6 +97,10 @@ void second_test_belt_setup() noexcept
 	//second_test_all_belts.update_all_event_ticks<belt_utility::belt_direction::left_right>();
 
 	std::cout << "Finished adding items" << std::endl;
+	const auto t2 = std::chrono::high_resolution_clock::now();
+
+	auto ms_int = duration_cast<std::chrono::milliseconds>(t2 - t1);
+	std::cout << "Adding items took: " << ms_int.count() << "ms" << std::endl;
 }
 
 void second_test_belt_loop() noexcept

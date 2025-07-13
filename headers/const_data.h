@@ -24,6 +24,7 @@ struct item_groups_head_t
 	long long distance{ -1ll };
 	long long next_item_group_index{ -1ll };
 	item_groups_type item_group;
+	char item_to_grab{ -1 };
 	item_groups_data_type item_group_data;
 };
 
