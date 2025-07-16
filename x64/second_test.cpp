@@ -22,6 +22,8 @@
 #include <AMDProfileController.h>
 #endif
 
+#include <retard_wrapper.h>
+
 #ifdef _DEBUG
 constexpr const std::size_t second_test_max_belts_8 = 10'000'000ll;
 #else
@@ -162,7 +164,7 @@ void second_belt_test()
 		{
 			const auto total_items_on_belt = second_test_get_total_items_on_belts();
 			std::cout << "items moved/s: " << moved_items_per_second << " - tick time: " << ms_int.count() << "nanoseconds - avg time: " << second_counter / loop_counter << " - second counter: " << second_counter << " - loops done : " << loop_counter << " - total on belts : " << total_items_on_belt << " \n";
-			throw std::runtime_error("");
+			return;
 
 #ifdef AMDUPROF_
 			if (!amdProfilePauseImpl()) throw std::runtime_error("");
@@ -179,7 +181,7 @@ void second_belt_test()
 #ifdef AMDUPROF_
 				if (!amdProfilePauseImpl()) throw std::runtime_error("");
 #endif
-				throw std::runtime_error("");
+				return;
 			}
 			moved_items_per_second = 0;
 			second_counter = 0;

@@ -76,10 +76,6 @@ namespace mem
 					return;
 			}
 			throw 0;
-			/*char* __restrict _dest = ((char* __restrict)_Dest) + trailing_bytes;
-			const char* __restrict _source = ((char* __restrict) _Source) + trailing_bytes;
-			for (long long i = trailing_bytes; i < bytes; ++i)
-				_dest[i] = _source[i];*/
 		};
 		inline void remaining_cache_line_aligned(long long bytes, void* __restrict _Dest, const void* __restrict _Source) noexcept
 		{

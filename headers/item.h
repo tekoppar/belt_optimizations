@@ -65,8 +65,8 @@ class item_uint
 	constexpr static short item_length = 32;
 
 public:
-	vec2_int64 position{ 0, 0 };
 	item_type type{ item_type::pink_square };
+	vec2_int64 position{ 0, 0 };
 
 	constexpr item_uint() noexcept
 	{};
