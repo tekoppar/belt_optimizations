@@ -65,15 +65,26 @@ namespace belt_utility
 	};
 
 	template<std::size_t shift_right>
-	__forceinline static constexpr void _mm512_srli2x256_si512__(__m256i* a)
+	__forceinline static constexpr void _mm512_srli2x256_si512__(__m256i* __restrict a) noexcept
 	{
 		/*a[0] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(2, 0, 0, 1)), a[0], shift_right);
 		a[0].m256i_i16[15] = a[1].m256i_i16[0];
 		a[1] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(2, 0, 0, 1)), a[1], shift_right);*/
 
-		a[0] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(2, 0, 0, 1)), a[0], shift_right);
+		/*const auto real_shift = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(2, 0, 0, 1)), a[0], shift_right);
+		const auto shifted = _mm256_srli_si256(a[0], 2);
+		const auto loaded = _mm256_load_si256(a + 1);
+		_mm256_store_si256((__m256i*)&(shifted.m256i_i16[15]), loaded);*/
+
+		_mm256_store_si256((__m256i*) & a[0].m256i_i16[0], _mm256_loadu_si256((__m256i*) & a[0].m256i_i16[1]));
+		_mm256_store_si256((__m256i*) & a[1].m256i_i16[0], _mm256_loadu_si256((__m256i*) & a[1].m256i_i16[1]));
+
+		//_mm256_storeu_si256((__m256i*)&a[0].m256i_i16[-1], _mm256_load_si256(&a[0]));
+		//_mm256_storeu_si256((__m256i*)&a[0].m256i_i16[15], _mm256_load_si256(&a[1]));
+
+		/*a[0] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(2, 0, 0, 1)), a[0], shift_right);
 		const auto shuffled = _mm_shuffle_epi8(_mm256_castsi256_si128(a[1]), _mm_setr_epi8(14, 15, 12, 13, 10, 11, 8, 9, 6, 7, 4, 5, 2, 3, 0, 1));
 		a[1] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(2, 0, 0, 1)), a[1], shift_right);
-		a[0] = _mm256_inserti128_si256(a[0], _mm_blend_epi16(_mm256_extracti128_si256(a[0], 1), shuffled, 0b1000'0000), 1);
+		a[0] = _mm256_inserti128_si256(a[0], _mm_blend_epi16(_mm256_extracti128_si256(a[0], 1), shuffled, 0b1000'0000), 1);*/
 	};
 };

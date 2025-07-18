@@ -78,7 +78,7 @@ namespace belt_utility
 	};
 
 	//pixels per frame
-	enum belt_speed
+	enum class belt_speed
 	{
 		slow = 1,
 		normal = 2,

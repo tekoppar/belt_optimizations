@@ -136,7 +136,7 @@ void second_belt_test()
 	size_t while_counter{ 0 };
 	size_t second_counter{ 0 };
 	size_t loop_counter{ 0 };
-	size_t zero_items_moved_counter{ 0 };
+	//size_t zero_items_moved_counter{ 0 };
 
 #if __BELT_SWITCH__ == 3
 	while (while_counter < second_test_max_belts * 10000)
@@ -157,7 +157,7 @@ void second_belt_test()
 #elif __BELT_SWITCH__ == 4
 		moved_items_per_second += item_256::items_moved_per_frame;
 #endif
-		if (item_32::items_moved_per_frame == 0) ++zero_items_moved_counter;
+		/*if (item_32::items_moved_per_frame == 0) ++zero_items_moved_counter;
 		else zero_items_moved_counter = 0;
 
 		if (zero_items_moved_counter >= 1024)
@@ -169,7 +169,7 @@ void second_belt_test()
 #ifdef AMDUPROF_
 			if (!amdProfilePauseImpl()) throw std::runtime_error("");
 #endif
-		}
+		}*/
 
 		if (second_counter >= 1000000000)
 		{

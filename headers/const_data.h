@@ -19,13 +19,14 @@ using item_groups_data_type = item_32_data;
 using item_groups_type = item_256;
 #endif
 
-struct item_groups_head_t
+struct alignas(32) item_groups_head_t
 {
-	long long distance{ -1ll };
-	long long next_item_group_index{ -1ll };
-	item_groups_type item_group;
-	char item_to_grab{ -1 };
-	item_groups_data_type item_group_data;
+	/*0-7*/ long long distance{-1ll};
+	/*8-15*/ long long next_item_group_index{-1ll};
+	/*16-23*/ item_groups_type item_group;
+	/*24*/ char item_to_grab{ -1 }; //index of what item event triggered wants
+	//int event_trigger_index{ -1 }; //index into what triggered the event
+	/*32-159*/ item_groups_data_type item_group_data;
 };
 
 #define __BELT_SEGMENT_VECTOR_ITERATORS__

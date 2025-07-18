@@ -32,8 +32,6 @@
 #ifdef _DEBUG
 #define _DEAD_DEBUG_CHECK
 #endif
-#include <unordered_map>
-#include <execution>
 
 namespace mem
 {
@@ -2240,27 +2238,27 @@ namespace mem
 		};
 
 		template<typename... args>
-		static inline size_t get_iterators_sizes_from() noexcept
+		static constexpr inline size_t get_iterators_sizes_from() noexcept
 		{
 			return (sizeof(typename args::iterator) + ...);
 		};
 
 		template<typename source_type>
-		static inline void naive_memcpy(char* dest, source_type source) noexcept
+		static constexpr inline void naive_memcpy(char* dest, source_type source) noexcept
 		{
 			const char* source_ptr = (const char*)&source;
 			constexpr size_t l = sizeof(source_type);
 			for (size_t i = 0; i < l; ++i)
 				dest[i] = source_ptr[i];
 		};
-		static inline void naive_memcpy(char* dest, char* source, size_t n) noexcept
+		static constexpr inline void naive_memcpy(char* dest, char* source, size_t n) noexcept
 		{
 			for (size_t i = 0; i < n; ++i)
 				dest[i] = source[i];
 		};
 
 		template<typename first>
-		static inline auto get_iterators_from(const first& f) noexcept
+		static constexpr inline auto get_iterators_from(const first& f) noexcept
 		{
 			constexpr long long first_size = static_cast<long long>(sizeof(first::iterator));
 			mem::vector<char> byte_iterators{ first_size };
@@ -2269,11 +2267,11 @@ namespace mem
 			return byte_iterators;
 		};
 		template<typename first, typename... args>
-		static inline auto get_iterators_from(const first& f, const args&... urgs) noexcept
+		static constexpr inline auto get_iterators_from(const first& f, const args&... urgs) noexcept
 		{
 			constexpr long long first_size = static_cast<long long>(sizeof(first::iterator));
 			mem::vector<char> byte_iterators{ first_size + static_cast<long long>(get_iterators_sizes_from<args...>()) };
-			naive_memcpy((char*)&byte_iterators[0], (size_t) & (*f.begin()));
+			naive_memcpy((char*)&byte_iterators[0], (size_t)&(*f.begin()));
 			size_t index = 0;
 			(naive_memcpy((char*)&byte_iterators[index += (sizeof(typename args::iterator))], (size_t) & (*urgs.begin())), ...);
 			byte_iterators.values.last += first_size + static_cast<long long>(get_iterators_sizes_from<args...>());
@@ -2281,7 +2279,7 @@ namespace mem
 		};
 
 		template<typename iter>
-		static inline auto bytes_to_iterator(mem::vector<char>::iterator start, mem::vector<char>::iterator end) noexcept
+		static constexpr inline auto bytes_to_iterator(mem::vector<char>::iterator start, mem::vector<char>::iterator end) noexcept
 		{
 			iter tmp{ nullptr };
 			naive_memcpy((char*)&tmp, (char*)&(*start), end - start);
