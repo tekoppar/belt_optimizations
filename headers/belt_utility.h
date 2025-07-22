@@ -159,7 +159,7 @@ namespace belt_utility
 
 	static constexpr _vector_item_groups_head_type::iterator find_closest_goal_binary(long long segment_end_direction, _vector_item_groups_head_type& goal_dist_vec, long long position) noexcept
 	{
-		auto distance_position = segment_end_direction - position;
+		const auto distance_position = segment_end_direction - position;
 
 		auto left_goal_iter = goal_dist_vec.begin();
 		auto right_goal_iter = goal_dist_vec.last() - 1ll;
@@ -241,7 +241,7 @@ namespace belt_utility
 				return { find_closest_item_group_return_result::new_group_after_iter, end_iter };
 			else if (position > dir_pos_last_iter)
 			{
-				if (head_iter->item_group.count() < 32 && force_new_group_after == false)
+				if (head_iter->item_group.count() < item_32_settings::max_item_count && force_new_group_after == false)
 					return { find_closest_item_group_return_result::insert_into_group, end_iter };
 				else
 					return { find_closest_item_group_return_result::new_group_after_iter, end_iter };
@@ -258,7 +258,7 @@ namespace belt_utility
 			return { find_closest_item_group_return_result::new_group_after_iter, last_iter };
 		else if (position > dir_pos_last_iter)
 		{
-			if (last_iter->count() < 32 && force_new_group_after == false)
+			if (last_iter->count() < item_32_settings::max_item_count && force_new_group_after == false)
 				return { find_closest_item_group_return_result::insert_into_group, last_iter };
 			else
 				return { find_closest_item_group_return_result::new_group_after_iter, last_iter };
@@ -273,7 +273,7 @@ namespace belt_utility
 				return { find_closest_item_group_return_result::new_group_before_iter, begin_iter };
 			else if (position < last_dir_pos_begin_iter)
 			{
-				if (begin_iter->count() < 32 && force_new_group_after == false)
+				if (begin_iter->count() < item_32_settings::max_item_count && force_new_group_after == false)
 					return { find_closest_item_group_return_result::insert_into_group, begin_iter };
 				else
 					return { find_closest_item_group_return_result::new_group_before_iter, begin_iter };
@@ -402,9 +402,9 @@ namespace belt_utility
 	constexpr inline long long get_item_group_distance_from_destination(_vector_distance& distances, _vector_item_groups_head_type& goal_distances, long long index) noexcept
 	{
 		auto begin_iter = distances.begin();
-		auto last_iter = distances.last();
+		const auto last_iter = distances.last();
 		auto begin_goal_iter = goal_distances.begin();
-		auto last_goal_iter = goal_distances.last();
+		const auto last_goal_iter = goal_distances.last();
 
 		long long count_index = 0ll;
 		while (begin_iter != last_iter && begin_goal_iter != last_goal_iter)
@@ -448,7 +448,7 @@ namespace belt_utility
 		auto left_goal_iter = item_groups_goal_distance.begin();
 		auto right_goal_iter = item_groups_goal_distance.last() - 1ll;
 		auto half_size = item_groups_goal_distance.size();
-		const auto between_begin_ptr = item_groups_distance_between.begin().operator->();
+		//const auto between_begin_ptr = item_groups_distance_between.begin().operator->();
 
 		while (half_size > 1ll)
 		{

@@ -21,12 +21,12 @@ using item_groups_type = item_256;
 
 struct alignas(32) item_groups_head_t
 {
-	/*0-7*/ long long distance{-1ll};
-	/*8-15*/ long long next_item_group_index{-1ll};
-	/*16-23*/ item_groups_type item_group;
-	/*24*/ char item_to_grab{ -1 }; //index of what item event triggered wants
+	/*0-7*/ long long distance{ -1ll };
+	/*8-15*/ long long next_item_group_index{ -1ll };
+	/*16*/ item_groups_type item_group;
+	/*17*/ char item_to_grab{ -1 }; //index of what item event triggered wants
 	//int event_trigger_index{ -1 }; //index into what triggered the event
-	/*32-159*/ item_groups_data_type item_group_data;
+	/*32-159*/ __declspec(align(32)) item_groups_data_type item_group_data;
 };
 
 #define __BELT_SEGMENT_VECTOR_ITERATORS__

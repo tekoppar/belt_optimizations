@@ -1078,8 +1078,10 @@ namespace mem
 				}
 			}
 
-			new (this->values.last) value_type{ std::move(object) };
-			//*(this->values.last) = std::move(object);
+			if (std::is_constant_evaluated() == false)
+				new (this->values.last) value_type{ std::move(object) };
+			else
+				*(this->values.last) = std::move(object);
 			++this->values.last;
 		};
 
@@ -1713,7 +1715,7 @@ namespace mem
 					if (tmp_start != values.last)
 					{
 						const iterator _end = last();
-						const std::size_t count = _end - iter_position;
+						const size_t count = _end - iter_position;
 						std::memmove(tmp_start.operator->(), iter_position.operator->(), sizeof(value_type) * count);
 					}
 					else *values.last = *iter_position;
@@ -2029,7 +2031,7 @@ namespace mem
 
 		constexpr void remove_unsafe(const long long index) noexcept
 		{
-			if (this->usize() < index) return;
+			if (this->size() < index) return;
 
 			if constexpr (mem::concepts::get_is_trivially_copyable_v<value_type> == true)
 			{
@@ -2271,7 +2273,7 @@ namespace mem
 		{
 			constexpr long long first_size = static_cast<long long>(sizeof(first::iterator));
 			mem::vector<char> byte_iterators{ first_size + static_cast<long long>(get_iterators_sizes_from<args...>()) };
-			naive_memcpy((char*)&byte_iterators[0], (size_t)&(*f.begin()));
+			naive_memcpy((char*)&byte_iterators[0], (size_t) & (*f.begin()));
 			size_t index = 0;
 			(naive_memcpy((char*)&byte_iterators[index += (sizeof(typename args::iterator))], (size_t) & (*urgs.begin())), ...);
 			byte_iterators.values.last += first_size + static_cast<long long>(get_iterators_sizes_from<args...>());
@@ -2346,13 +2348,13 @@ namespace mem
 
 			auto byte_iter_begin = iters.begin();
 			auto byte_iter_last = byte_iter_begin + sizeof(mem::vector<int>::iterator);
-			auto cont_a_iter = bytes_to_iterator<mem::vector<int>::iterator>(byte_iter_begin, byte_iter_last);
+			const auto cont_a_iter = bytes_to_iterator<mem::vector<int>::iterator>(byte_iter_begin, byte_iter_last);
 			byte_iter_begin = byte_iter_last;
 			byte_iter_last += sizeof(mem::vector<long long>::iterator);
-			auto iterator_indexes_iter = bytes_to_iterator<mem::vector<long long>::iterator>(byte_iter_begin, byte_iter_last);
+			const auto iterator_indexes_iter = bytes_to_iterator<mem::vector<long long>::iterator>(byte_iter_begin, byte_iter_last);
 			byte_iter_begin = byte_iter_last;
 			byte_iter_last += sizeof(mem::vector<mem::vector<int>::iterator*>::iterator);
-			auto iterator_cont_iter = bytes_to_iterator<mem::vector<mem::vector<int>::iterator*>::iterator>(byte_iter_begin, byte_iter_last);
+			const auto iterator_cont_iter = bytes_to_iterator<mem::vector<mem::vector<int>::iterator*>::iterator>(byte_iter_begin, byte_iter_last);
 
 			if (cont_a_iter_test != cont_a_iter || iterator_indexes.begin() != iterator_indexes_iter || iterator_cont.begin() != iterator_cont_iter)
 				return false;
@@ -2854,7 +2856,7 @@ namespace mem
 		iterator_indexes_1.emplace_back(250ll);
 		iterator_indexes_1.emplace(iterator_indexes_1.begin(), -250ll);
 
-		return iterator_indexes_1[1ll] == -250ll;
+		return iterator_indexes_1[0ll] == -250ll;
 	};
 #ifdef CONSTEXPR_ASSERTS
 	static_assert(test_insert() == true, "no");

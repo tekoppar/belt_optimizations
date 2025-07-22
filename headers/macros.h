@@ -12,7 +12,7 @@ static constinit const bool _BOUNDS_CHECKING_ = false;
 #endif
 
 //#define CPLUSPLUS_EXCEPTIONS_THROWING
-//#define CONSTEXPR_ASSERTS
+#define CONSTEXPR_ASSERTS
 #ifdef CONSTEXPR_ASSERTS
 #define CONSTEXPR_VAR constexpr
 #else

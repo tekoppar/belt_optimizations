@@ -61,6 +61,266 @@ namespace mem
 			}
 		};
 
+		template<long long trailing_bytes, typename dest, typename source>
+		inline void remaining_trailing_bytes(long long bytes, dest* __restrict _Dest, const source* __restrict _Source) noexcept
+		{
+			switch (bytes - trailing_bytes)
+			{
+				case 3: ((short* __restrict)(((char* __restrict)_Dest) + trailing_bytes))[0] = ((short* __restrict)(((char* __restrict) _Source) + trailing_bytes))[0];
+					(((char* __restrict)_Dest) + trailing_bytes)[3] = (((char* __restrict) _Source) + trailing_bytes)[3];
+					return;
+				case 2: ((short* __restrict)(((char* __restrict)_Dest) + trailing_bytes))[0] = ((short* __restrict)(((char* __restrict) _Source) + trailing_bytes))[0];
+					return;
+				case 1: (((char* __restrict)_Dest) + trailing_bytes)[0] = (((char* __restrict) _Source) + trailing_bytes)[0];
+					return;
+				default:
+					return;
+			}
+		};
+		template<long long trailing_bytes, long long bytes, typename dest, typename source>
+		inline void remaining_trailing_bytes(dest* __restrict _Dest, const source* __restrict _Source) noexcept
+		{
+			remaining_trailing_bytes<trailing_bytes>(bytes, _Dest, _Source);
+		};
+		template<typename dest, typename source>
+		inline void cache_line_copy_unaligned(long long bytes, dest* __restrict _Dest, const source* __restrict _Source) noexcept
+		{
+			__m256i* __restrict s_Dest = (__m256i * __restrict)_Dest;
+			const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
+
+			long long byte_words = bytes / 4;
+			switch (byte_words)
+			{
+				case 15:
+				{
+					_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+					_mm_storeu_si128((__m128i*) & (s_Dest + 1)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source + 1)->m256i_i32[0])); // 8 - 11
+					(s_Dest + 1)->m256i_i32[4] = (s_Source + 1)->m256i_i32[4]; // 12 - 13
+					(s_Dest + 1)->m256i_i32[6] = (s_Source + 1)->m256i_i32[6]; // 14
+					remaining_trailing_bytes<32ll + 16 + 8 + 4>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 14:
+				{
+					_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+					_mm_storeu_si128((__m128i*) & (s_Dest + 1)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source + 1)->m256i_i32[0])); // 8 - 11
+					(s_Dest + 1)->m256i_i32[4] = (s_Source + 1)->m256i_i32[4]; // 12 - 13
+					remaining_trailing_bytes<32ll + 16 + 8>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 13:
+				{
+					_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+					_mm_storeu_si128((__m128i*) & (s_Dest + 1)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source + 1)->m256i_i32[0])); // 8 - 11
+					(s_Dest + 1)->m256i_i32[4] = (s_Source + 1)->m256i_i32[4]; // 12
+					remaining_trailing_bytes<32ll + 16 + 4>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 12:
+				{
+					_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+					_mm_storeu_si128((__m128i*) & (s_Dest + 1)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source + 1)->m256i_i32[0])); // 8 - 11
+					remaining_trailing_bytes<32ll + 16>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 11:
+				{
+					_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+					(s_Dest + 1)->m256i_i64[0] = (s_Source + 1)->m256i_i64[0]; // 8 - 9
+					(s_Dest + 1)->m256i_i32[3] = (s_Source + 1)->m256i_i32[3]; // 10
+					remaining_trailing_bytes<32ll + 8 + 4>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 10:
+				{
+					_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+					(s_Dest + 1)->m256i_i64[0] = (s_Source + 1)->m256i_i64[0]; // 8 - 9
+					remaining_trailing_bytes<32ll + 8>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 9:
+				{
+					_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+					(s_Dest + 1)->m256i_i32[0] = (s_Source + 1)->m256i_i32[0]; // 8
+					remaining_trailing_bytes<32ll + 4>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 8:
+				{
+					_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+					remaining_trailing_bytes<32ll>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 7:
+				{
+					_mm_storeu_si128((__m128i*) & (s_Dest)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source)->m256i_i32[0])); // 0 - 3
+					(s_Dest)->m256i_i32[4] = (s_Source)->m256i_i32[4]; // 4 - 5
+					(s_Dest)->m256i_i32[6] = (s_Source)->m256i_i32[6]; // 6
+					remaining_trailing_bytes<16ll + 8 + 4>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 6:
+				{
+					_mm_storeu_si128((__m128i*) & (s_Dest)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source)->m256i_i32[0])); // 0 - 3
+					(s_Dest)->m256i_i32[4] = (s_Source)->m256i_i32[4]; // 4 - 5
+					remaining_trailing_bytes<16ll + 8>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 5:
+				{
+					_mm_storeu_si128((__m128i*) & (s_Dest)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source)->m256i_i32[0])); // 0 - 3
+					(s_Dest)->m256i_i32[4] = (s_Source)->m256i_i32[4]; // 4
+					remaining_trailing_bytes<16ll + 4>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 4:
+				{
+					_mm_storeu_si128((__m128i*) & (s_Dest)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source)->m256i_i32[0])); // 0 - 3
+					remaining_trailing_bytes<16ll>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 3:
+				{
+					(s_Dest)->m256i_i32[0] = (s_Source)->m256i_i32[0]; // 0 - 1
+					(s_Dest)->m256i_i32[3] = (s_Source)->m256i_i32[3]; // 3
+					remaining_trailing_bytes<8ll + 4>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 2:
+				{
+					(s_Dest)->m256i_i32[0] = (s_Source)->m256i_i32[0]; // 0 - 1
+					remaining_trailing_bytes<8ll>(bytes, s_Dest, s_Source);
+				}
+				break;
+				case 1:
+				{
+					(s_Dest)->m256i_i32[0] = (s_Source)->m256i_i32[0]; // 0
+					remaining_trailing_bytes<4ll>(bytes, s_Dest, s_Source);
+				}
+				break;
+				default:
+					remaining_trailing_bytes<0>(bytes, s_Dest, s_Source);
+					break;
+			}
+		};
+		template<long long bytes, typename dest, typename source>
+		inline void cache_line_copy_unaligned(dest* __restrict _Dest, const source* __restrict _Source) noexcept
+		{
+			__m256i* __restrict s_Dest = (__m256i * __restrict)_Dest;
+			const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
+
+			constexpr long long byte_words = bytes / 4;
+			if constexpr (byte_words == 15)
+			{
+				_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+				_mm_storeu_si128((__m128i*) & (s_Dest + 1)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source + 1)->m256i_i32[0])); // 8 - 11
+				(s_Dest + 1)->m256i_i32[4] = (s_Source + 1)->m256i_i32[4]; // 12 - 13
+				(s_Dest + 1)->m256i_i32[6] = (s_Source + 1)->m256i_i32[6]; // 14
+				remaining_trailing_bytes<32ll + 16 + 8 + 4, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 14)
+			{
+				_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+				_mm_storeu_si128((__m128i*) & (s_Dest + 1)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source + 1)->m256i_i32[0])); // 8 - 11
+				(s_Dest + 1)->m256i_i32[4] = (s_Source + 1)->m256i_i32[4]; // 12 - 13
+				remaining_trailing_bytes<32ll + 16 + 8, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 13)
+			{
+				_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+				_mm_storeu_si128((__m128i*) & (s_Dest + 1)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source + 1)->m256i_i32[0])); // 8 - 11
+				(s_Dest + 1)->m256i_i32[4] = (s_Source + 1)->m256i_i32[4]; // 12
+				remaining_trailing_bytes<32ll + 16 + 4, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 12)
+			{
+				_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+				_mm_storeu_si128((__m128i*) & (s_Dest + 1)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source + 1)->m256i_i32[0])); // 8 - 11
+				remaining_trailing_bytes<32ll + 16, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 11)
+			{
+				_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+				(s_Dest + 1)->m256i_i64[0] = (s_Source + 1)->m256i_i64[0]; // 8 - 9
+				(s_Dest + 1)->m256i_i32[3] = (s_Source + 1)->m256i_i32[3]; // 10
+				remaining_trailing_bytes<32ll + 8 + 4, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 10)
+			{
+				_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+				(s_Dest + 1)->m256i_i64[0] = (s_Source + 1)->m256i_i64[0]; // 8 - 9
+				remaining_trailing_bytes<32ll + 8, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 9)
+			{
+				_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+				(s_Dest + 1)->m256i_i32[0] = (s_Source + 1)->m256i_i32[0]; // 8
+				remaining_trailing_bytes<32ll + 4, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 8)
+			{
+				_mm256_storeu_si256(s_Dest, _mm256_loadu_si256(s_Source)); //0 - 7
+				remaining_trailing_bytes<32ll, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 7)
+			{
+				_mm_storeu_si128((__m128i*) & (s_Dest)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source)->m256i_i32[0])); // 0 - 3
+				(s_Dest)->m256i_i32[4] = (s_Source)->m256i_i32[4]; // 4 - 5
+				(s_Dest)->m256i_i32[6] = (s_Source)->m256i_i32[6]; // 6
+				remaining_trailing_bytes<16ll + 8 + 4, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 6)
+			{
+				_mm_storeu_si128((__m128i*) & (s_Dest)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source)->m256i_i32[0])); // 0 - 3
+				(s_Dest)->m256i_i32[4] = (s_Source)->m256i_i32[4]; // 4 - 5
+				remaining_trailing_bytes<16ll + 8, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 5)
+			{
+				_mm_storeu_si128((__m128i*) & (s_Dest)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source)->m256i_i32[0])); // 0 - 3
+				(s_Dest)->m256i_i32[4] = (s_Source)->m256i_i32[4]; // 4
+				remaining_trailing_bytes<16ll + 4, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 4)
+			{
+				_mm_storeu_si128((__m128i*) & (s_Dest)->m256i_i32[0], _mm_loadu_si128((const __m128i*) & (s_Source)->m256i_i32[0])); // 0 - 3
+				remaining_trailing_bytes<16ll, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 3)
+			{
+				(s_Dest)->m256i_i32[0] = (s_Source)->m256i_i32[0]; // 0 - 1
+				(s_Dest)->m256i_i32[3] = (s_Source)->m256i_i32[3]; // 3
+				remaining_trailing_bytes<8ll + 4, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 2)
+			{
+				(s_Dest)->m256i_i32[0] = (s_Source)->m256i_i32[0]; // 0 - 1
+				remaining_trailing_bytes<8ll, bytes>(s_Dest, s_Source);
+				return;
+			}
+			if constexpr (byte_words == 1)
+			{
+				(s_Dest)->m256i_i32[0] = (s_Source)->m256i_i32[0]; // 0
+				remaining_trailing_bytes<4ll, bytes>(s_Dest, s_Source);
+				return;
+			}
+
+			remaining_trailing_bytes<0, bytes>(s_Dest, s_Source);
+		};
+
 		template<long long trailing_bytes>
 		inline void remaining_trailing_bytes(const long long bytes, void* __restrict _Dest, const void* __restrict _Source) noexcept
 		{
@@ -81,9 +341,6 @@ namespace mem
 		{
 			__m256i* __restrict s_Dest = (__m256i * __restrict)_Dest;
 			const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
-
-			static_assert(64 / 4 == 16, "no");
-			static_assert(61 / 4 == 15, "no");
 
 			const long long byte_words = bytes / 4;
 			switch (byte_words)
@@ -204,9 +461,6 @@ namespace mem
 		{
 			__m256i* __restrict s_Dest = (__m256i * __restrict)_Dest;
 			const __m256i* __restrict s_Source = (const __m256i * __restrict)_Source;
-
-			static_assert(64 / 4 == 16, "no");
-			static_assert(61 / 4 == 15, "no");
 
 			const long long byte_words = bytes / 4;
 			switch (byte_words)
@@ -744,7 +998,7 @@ namespace mem
 							assert(is_aligned(Source, sizeof(T)));
 #endif
 							// Discover how many quadwords precede a cache line boundary.  Copy them separately.
-							auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
+							const auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
 							long long InitialQuadwordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 8ll;
 
 							cache_line_copy_8(InitialQuadwordCount, Dest, Source);
@@ -810,7 +1064,7 @@ namespace mem
 							assert(is_aligned(Source, sizeof(T)));
 #endif
 							// Discover how many doublewords precede a cache line boundary.  Copy them separately.
-							auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
+							const auto aligned_ptr_number = 64ll - ((long long)Dest % 64ll);
 							long long InitialDoublewordCount = ((0ll ^ aligned_ptr_number) & (64ll ^ aligned_ptr_number)) / 4ll;//aligned_ptr_number == 64 || aligned_ptr_number == 0 ? 0 : (64 - aligned_ptr_number) / 4;
 
 							cache_line_copy_4(InitialDoublewordCount, (int*)Dest, (const int*)Source);

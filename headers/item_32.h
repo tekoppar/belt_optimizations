@@ -10,11 +10,8 @@
 #include "belt_utility_data.h"
 #include "belt_intrinsics.h"
 #include "shared_classes.h"
-#include "type_conversion.h"
 #include <limits>
-#include <intrin.h>
-#include <emmintrin.h>
-#include <bit>
+#include <utility>
 
 class belt_segment;
 
@@ -24,25 +21,105 @@ struct item_32_settings
 {
 	constexpr static short single_belt_length = 128;
 	constexpr static short belt_length = 128 * 8;
-	constexpr static inline long long max_item_count = 32;
+	constexpr static inline long long max_item_count = 16;
 	constexpr static long long belt_item_size = 32;
 	constexpr static int max_distance_between_items = (std::numeric_limits<short>::max)() - belt_item_size;
+
+	static constexpr auto max(auto lhs, auto rhs) noexcept
+	{
+		return lhs < rhs ? rhs : lhs;
+	};
 };
 
 #define optimization_comp
 
-class item_32_data
+class __declspec(align(item_32_settings::max(item_32_settings::max_item_count, 32))) item_32_data
 {
 public:
 	/*__declspec(align(32)) bool contains_item[32]{
 	false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
 	false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false
 	};*/
-	__declspec(align(32)) short item_distance[item_32_settings::max_item_count]{
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	/*__declspec(align(32))*/ short item_distance[item_32_settings::max_item_count]{
+		//0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+		//,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	};
-	__declspec(align(32)) belt_item items[item_32_settings::max_item_count];
+	/*__declspec(align(32))*/ belt_item items[item_32_settings::max_item_count];
+
+	struct item_32_data_helpers
+	{
+		__forceinline static void slli__(item_32_data& __restrict item_data) noexcept
+		{
+			if constexpr (item_32_settings::max_item_count == 8)
+			{
+				belt_utility::_mm256_slli_si256__((__m256i*)&item_data.item_distance[0]);
+			}
+			if constexpr (item_32_settings::max_item_count == 16)
+			{
+				belt_utility::_mm512_slli2x256_si512__((__m256i*) & item_data.item_distance[0]);
+			}
+			if constexpr (item_32_settings::max_item_count == 32)
+			{
+				belt_utility::_mm512_slli2x256_si512__((__m256i*) & item_data.items[0]);
+				belt_utility::_mm512_slli2x256_si512__((__m256i*) & item_data.item_distance[0]);
+			}
+			if constexpr (item_32_settings::max_item_count == 64)
+			{
+				belt_utility::_mm512_slli2x256_si512__((__m256i*) & item_data.items[32]);
+				belt_utility::_mm512_slli2x256_si512__((__m256i*) & item_data.items[0]);
+				belt_utility::_mm512_slli2x256_si512__((__m256i*) & item_data.item_distance[32]);
+				belt_utility::_mm512_slli2x256_si512__((__m256i*) & item_data.item_distance[0]);
+			}
+		};
+
+		__forceinline static void srli__(item_32_data& __restrict item_data) noexcept
+		{
+			if constexpr (item_32_settings::max_item_count == 8)
+			{
+				belt_utility::_mm256_srli_si256__((__m256i*)&item_data.item_distance[0]);
+			}
+			if constexpr (item_32_settings::max_item_count == 16)
+			{
+				belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.item_distance[0]);
+			}
+			if constexpr (item_32_settings::max_item_count == 32)
+			{
+				belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.item_distance[0]);
+				belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.items[0]);
+			}
+			if constexpr (item_32_settings::max_item_count == 64)
+			{
+				belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.item_distance[0]);
+				belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.item_distance[32]);
+				belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.items[0]);
+				belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.items[32]);
+			}
+		};
+
+		__forceinline static void srli__index(item_32_data& __restrict item_data, long long index) noexcept
+		{
+			if constexpr (item_32_settings::max_item_count == 8)
+			{
+				belt_utility::_mm256_srli_si256___index((__m256i*)&item_data.item_distance[0], index);
+			}
+			if constexpr (item_32_settings::max_item_count == 16)
+			{
+				belt_utility::_mm512_srli2x256_si512___index((__m256i*) & item_data.item_distance[0], index);
+			}
+			if constexpr (item_32_settings::max_item_count == 32)
+			{
+				belt_utility::_mm512_srli2x256_si512___index((__m256i*) & item_data.item_distance[0], index);
+				belt_utility::_mm512_srli2x256_si512___index((__m256i*) & item_data.items[0], index);
+			}
+			if constexpr (item_32_settings::max_item_count == 64)
+			{
+				belt_utility::_mm512_srli2x256_si512___index((__m256i*) & item_data.item_distance[0], index);
+				belt_utility::_mm512_srli2x256_si512___index((__m256i*) & item_data.item_distance[32], index);
+				belt_utility::_mm512_srli2x256_si512___index((__m256i*) & item_data.items[0], index);
+				belt_utility::_mm512_srli2x256_si512___index((__m256i*) & item_data.items[32], index);
+			}
+		};
+	};
 
 	constexpr item_32_data() noexcept
 	{};
@@ -54,8 +131,8 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
-			std::memcpy(&items[0], &o.items[0], 64);
+			std::memcpy(&item_distance[0], &o.item_distance[0], item_32_settings::max_item_count * 2);
+			std::memcpy(&items[0], &o.items[0], item_32_settings::max_item_count * 2);
 		}
 		else
 		{
@@ -71,10 +148,10 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
-			memset(&o.item_distance[0], 0, 64);
-			std::memcpy(&items[0], &o.items[0], 64);
-			memset(&o.item_distance[0], 0, 64);
+			std::memcpy(&item_distance[0], &o.item_distance[0], item_32_settings::max_item_count * 2);
+			memset(&o.item_distance[0], 0, item_32_settings::max_item_count * 2);
+			std::memcpy(&items[0], &o.items[0], item_32_settings::max_item_count * 2);
+			memset(&o.item_distance[0], 0, item_32_settings::max_item_count * 2);
 		}
 		else
 		{
@@ -90,8 +167,8 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
-			std::memcpy(&items[0], &o.items[0], 64);
+			std::memcpy(&item_distance[0], &o.item_distance[0], item_32_settings::max_item_count * 2);
+			std::memcpy(&items[0], &o.items[0], item_32_settings::max_item_count * 2);
 		}
 		else
 		{
@@ -109,10 +186,10 @@ public:
 	{
 		if (std::is_constant_evaluated() == false)
 		{
-			std::memcpy(&item_distance[0], &o.item_distance[0], 64);
-			memset(&o.item_distance[0], 0, 64);
-			std::memcpy(&items[0], &o.items[0], 64);
-			memset(&o.item_distance[0], 0, 64);
+			std::memcpy(&item_distance[0], &o.item_distance[0], item_32_settings::max_item_count * 2);
+			memset(&o.item_distance[0], 0, item_32_settings::max_item_count * 2);
+			std::memcpy(&items[0], &o.items[0], item_32_settings::max_item_count * 2);
+			memset(&o.item_distance[0], 0, item_32_settings::max_item_count * 2);
 		}
 		else
 		{
@@ -191,9 +268,12 @@ namespace item_data_utility
 		}
 		else
 		{
+			item_32_data::item_32_data_helpers::slli__(item_data);
 			//belt_utility::_mm256_slli_si256__p<1>((__m256i*) & item_data.contains_item[0]);
-			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.item_distance[0]);
-			belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.items[0]);
+			//belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.items[32]);
+			//belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.items[0]);
+			//belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.item_distance[32]);
+			//belt_utility::_mm512_slli2x256_si512__<2>((__m256i*) & item_data.item_distance[0]);
 #ifdef _SIMPLE_MEMORY_LEAK_DETECTION
 			detect_memory_leak(this);
 #endif
@@ -283,8 +363,11 @@ namespace item_data_utility
 		}
 		else
 		{
-			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.item_distance[0]);
-			belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.items[0]);
+			item_32_data::item_32_data_helpers::srli__(item_data);
+			//belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.item_distance[0]);
+			//belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.item_distance[32]);
+			//belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.items[0]);
+			//belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.items[32]);
 			//item_data.contains_item[item_count - 1] = false;
 			item_data.item_distance[item_count - 1] = 0;
 #ifdef _SIMPLE_MEMORY_LEAK_DETECTION
@@ -295,26 +378,34 @@ namespace item_data_utility
 
 	constexpr static inline void shift_arrays_right_from_index(long long item_count, item_32_data& item_data, long long index) noexcept
 	{
-		//bool previous_b_x = false, current_b_x = item_data.contains_item[item_count - 1];
-		short previous_c_x = 0, current_c_x = item_data.item_distance[item_count - 1];
-		belt_item previous_i_x = {}, current_i_x = item_data.items[item_count - 1];
-#ifdef __BELT_SEGMENT_VECTOR_TYPE__
-		for (long long i = expr::max(tc::widen<long long>(item_count), 31ll, 32ll); i >= index; --i)
-#else
-		for (long long i = item_count - 1ll; i >= index; --i)
-#endif
+		if (std::is_constant_evaluated())
 		{
-			//current_b_x = item_data.contains_item[i];
-			//item_data.contains_item[i] = previous_b_x;
-			//previous_b_x = current_b_x;
+			//bool previous_b_x = false, current_b_x = item_data.contains_item[item_count - 1];
+			short previous_c_x = 0, current_c_x = item_data.item_distance[item_count - 1];
+			belt_item previous_i_x = {}, current_i_x = item_data.items[item_count - 1];
+#ifdef __BELT_SEGMENT_VECTOR_TYPE__
+			for (long long i = expr::max(tc::widen<long long>(item_count), 31ll, 32ll); i >= index; --i)
+#else
+			for (long long i = item_count - 1ll; i >= index; --i)
+#endif
+			{
+				current_c_x = item_data.item_distance[i];
+				item_data.item_distance[i] = previous_c_x;
+				previous_c_x = current_c_x;
 
-			current_c_x = item_data.item_distance[i];
-			item_data.item_distance[i] = previous_c_x;
-			previous_c_x = current_c_x;
-
-			current_i_x = item_data.items[i];
-			item_data.items[i] = previous_i_x;
-			previous_i_x = current_i_x;
+				current_i_x = item_data.items[i];
+				item_data.items[i] = previous_i_x;
+				previous_i_x = current_i_x;
+			}
+			return;
+		}
+		else
+		{
+			item_32_data::item_32_data_helpers::srli__index(item_data, index);
+			//belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.item_distance[0], index);
+			//belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.item_distance[32], index);
+			//belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.items[0], index);
+			//belt_utility::_mm512_srli2x256_si512__((__m256i*) & item_data.items[32], index);
 		}
 	};
 };
@@ -339,8 +430,8 @@ public:
 	struct index_item_position_return
 	{
 		long long found_index{ -1ll };
-		long long item_distance_position{ -1ll };
 		//int event_trigger_index{ -1 };
+		long long item_distance_position{ -1ll };
 
 		friend inline constexpr bool operator==(const index_item_position_return& lhs, const index_item_position_return& rhs)
 		{
@@ -355,9 +446,9 @@ public:
 private:
 	//short item_count{ 0 }; //32-39
 	item_count_type item_count{ 0 };
-	long contains_item{ 0 };
+	//long contains_item{ 0 };
 
-	static_assert(sizeof(decltype(contains_item)) == 4, "wrong byte size, wont fit 32 bits");
+	//static_assert(sizeof(decltype(contains_item)) == 4, "wrong byte size, wont fit 32 bits");
 
 	constexpr static belt_utility::belt_color color{ belt_utility::belt_color::gray };
 public:
@@ -372,19 +463,19 @@ public:
 	{};
 
 	constexpr item_32(const item_32& o) noexcept :
-		item_count{ o.item_count },
-		contains_item{ o.contains_item }
+		item_count{ o.item_count }
+		//,contains_item{ o.contains_item }
 	{};
 
 	constexpr item_32(item_32&& o) noexcept :
-		item_count{ std::exchange(o.item_count, 0) },
-		contains_item{ std::exchange(o.contains_item, 0) }
+		item_count{ std::exchange(o.item_count, char{0}) }
+		//,contains_item{ std::exchange(o.contains_item, 0) }
 	{};
 
 	constexpr item_32& operator=(const item_32& o) noexcept
 	{
 		item_count = o.item_count;
-		contains_item = o.contains_item;
+		//contains_item = o.contains_item;
 
 		return *this;
 	};
@@ -392,7 +483,7 @@ public:
 	constexpr item_32& operator=(item_32&& o) noexcept
 	{
 		item_count = std::exchange(o.item_count, 0);
-		contains_item = std::exchange(o.contains_item, 0);
+		//contains_item = std::exchange(o.contains_item, 0);
 
 		return *this;
 	};
@@ -402,7 +493,7 @@ public:
 		return lhs.item_count == rhs.item_count && &lhs == &rhs;
 	};
 
-	constexpr inline void shift_left_contains_item() noexcept
+	/*constexpr inline void shift_left_contains_item() noexcept
 	{
 		contains_item <<= 1;
 	};
@@ -435,12 +526,12 @@ public:
 	{
 		if (bit_value) set_contains_item_bit_true(i);
 		else set_contains_item_bit_false(i);
-	};
+	};*/
 
 	constexpr item_32 split_from_index(long long index) noexcept
 	{
 		const long long old = item_count - (index + 1);
-		item_count = index + 1;
+		item_count = static_cast<decltype(item_count)>(index) + 1;
 		return old;
 	};
 
@@ -533,21 +624,12 @@ public:
 
 	inline constexpr item_count_type count() const noexcept
 	{
-		//return std::bit_width(static_cast<unsigned long>(contains_item));
-		/*if (std::is_constant_evaluated() == false)
-		{
-			unsigned long index = -1;
-			_BitScanReverse(&index, static_cast<unsigned long>(contains_item));
-			return index + 1;
-		}*/
-		//return std::countr_one(static_cast<unsigned long>(contains_item));
-		//return std::popcount(static_cast<unsigned long>(contains_item));
 		return item_count;
 	};
 
 	inline constexpr bool can_add_item() const noexcept
 	{
-		return item_count < belt_item_size;
+		return item_count < max_item_count;
 	};
 
 	constexpr long long get_distance_to_last_item(const item_32_data& item_data) const noexcept
@@ -598,7 +680,7 @@ public:
 		{
 			//*item_goal_distance = *item_goal_distance - new_item_position.x;
 			++item_count;
-			set_contains_item_bit<true>(0);
+			//set_contains_item_bit<true>(0);
 			//item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[0] = 0;
 			item_data.items[0] = new_item;
@@ -617,10 +699,10 @@ public:
 			for (long long i = l; i >= 0; --i) item_data.item_distance[i] += static_cast<short>(new_distance);
 			//for (long long i = 0; i < l; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
 			//item_data_utility::fill_add(item_count, new_distance, item_data);
-			shift_left_contains_item();
+			//shift_left_contains_item();
 			item_data_utility::shift_arrays_left(item_count, item_data);
 			++item_count;
-			set_contains_item_bit<true>(0);
+			//set_contains_item_bit<true>(0);
 			//item_data.contains_item[0] = true;
 			item_data.item_distance[0] = 0;
 			item_data.item_distance[1] = static_cast<short>(new_distance);
@@ -635,7 +717,7 @@ public:
 		if (direction_position - get_distance_to_last_item(item_data) > new_item_position.x && distance_to_last_item <= 255u)
 		{
 			++item_count;
-			set_contains_item_bit<true>(item_count - 1);
+			//set_contains_item_bit<true>(item_count - 1);
 			//item_data.contains_item[item_count - 1] = true;
 			item_data.item_distance[item_count - 1] = static_cast<short>(new_item_position.x - direction_position);
 			item_data.items[item_count - 1] = new_item;
@@ -647,10 +729,10 @@ public:
 		{
 			if (new_item_position.x > direction_position - get_distance_to_item(item_data, i + 1) && item_data.item_distance[i + 1] >= 64)
 			{
-				shift_right_contains_item();
+				//shift_right_contains_item();
 				item_data_utility::shift_arrays_right_from_index(item_count, item_data, i + 1);
 				++item_count;
-				set_contains_item_bit<true>(i + 1);
+				//set_contains_item_bit<true>(i + 1);
 				//item_data.contains_item[i + 1] = true;
 				item_data.item_distance[i + 1] = static_cast<short>(new_item_position.x - direction_position);
 				item_data.items[i + 1] = new_item;
@@ -666,73 +748,6 @@ public:
 		return add_item(segment_end_direction, *item_goal_distance, item_goal_distance, item_data, new_item, new_item_position);
 	};
 
-	constexpr long long old_add_item(const long long segment_end_direction, long long* item_goal_distance, item_32_data& item_data, const belt_item& new_item, vec2_int64 new_item_position) noexcept
-	{
-		if (item_count == 0ll)
-		{
-			++item_count;
-			set_contains_item_bit<true>(0);
-			//item_data.contains_item[item_count - 1] = true;
-			item_data.item_distance[0] = static_cast<short>(0);
-			item_data.items[0] = new_item;
-			return 0;
-		}
-		//if we should add before the first item
-		//checks if the new item position is greater then the current item position + 32
-		//and that there's still space to fit the item before the goal
-		const auto direction_position = get_direction_position(segment_end_direction, *item_goal_distance);
-		if (new_item_position.x >= direction_position + belt_item_size && *item_goal_distance >= belt_item_size)
-		{
-			const long long new_distance = new_item_position.x - direction_position;
-			*item_goal_distance = *item_goal_distance - new_distance;
-			const long long l = static_cast<long long>(item_count - 1);
-			for (long long i = l; i >= 0; --i) item_data.item_distance[i] += static_cast<short>(new_distance);
-			//for (long long i = 0; i < l; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
-			//item_data_utility::fill_add(item_count, new_distance, item_data);
-			shift_left_contains_item();
-			item_data_utility::shift_arrays_left(item_count, item_data);
-			++item_count;
-			set_contains_item_bit<true>(0);
-			//item_data.contains_item[0] = true;
-			item_data.item_distance[0] = static_cast<short>(0);
-			item_data.item_distance[1] = static_cast<short>(new_distance);
-			item_data.items[0] = new_item;
-			return 0;
-		}
-
-		//if we should add after the last item
-		//it does this by comparing that the last items position is greater then the new item
-		//and then checks if the distance between the last item and the new item is less than 256
-		const long long distance_to_last_item = (new_item_position.x - get_distance_to_last_item(item_data));
-		if (direction_position - get_distance_to_last_item(item_data) > new_item_position.x && distance_to_last_item <= 255u)
-		{
-			++item_count;
-			set_contains_item_bit<true>(item_count - 1);
-			//item_data.contains_item[item_count - 1] = true;
-			item_data.item_distance[item_count - 1] = static_cast<short>(new_item_position.x - direction_position);
-			item_data.items[item_count - 1] = new_item;
-			return item_count - 1;
-		}
-
-		//if we should add in between items
-		for (long long i = 0; i < item_count; ++i)
-		{
-			if (new_item_position.x > direction_position - get_distance_to_item(item_data, i + 1) && item_data.item_distance[i + 1] >= 64)
-			{
-				shift_right_contains_item();
-				item_data_utility::shift_arrays_right_from_index(item_count, item_data, i + 1);
-				++item_count;
-				set_contains_item_bit<true>(i + 1);
-				//item_data.contains_item[i + 1] = true;
-				item_data.item_distance[i + 1] = static_cast<short>(new_item_position.x - direction_position);
-				item_data.items[i + 1] = new_item;
-				return i + 1;
-			}
-		}
-
-		return -1;
-	};
-
 	__forceinline constexpr item_removal_result remove_item(long long* const item_goal_distance, item_32_data& item_data, long long index) noexcept
 	{
 		if constexpr (__DEBUG_BUILD) if (index >= item_32_settings::max_item_count) return item_removal_result::item_not_removed;
@@ -743,23 +758,23 @@ public:
 			if (index == 0)
 			{
 				//new_goal_distance = item_count >= 2ll ? get_distance_to_item(item_data, 1ll) : 0ll;
-				set_contains_item_bit<false>(index);
+				//set_contains_item_bit<false>(index);
 				//item_data.contains_item[index] = false;
 
 				//item_data.item_distance[index] = 0;
-				shift_right_contains_item();
+				//shift_right_contains_item();
 				item_data_utility::shift_arrays_right(item_count, item_data);
 				//*item_goal_distance += new_goal_distance; //shouldn't this be here since I'm using it in remove_first_item
 				--item_count;
 			}
 			else
 			{
-				set_contains_item_bit<false>(index);
+				//set_contains_item_bit<false>(index);
 				//item_data.contains_item[index] = false;
 
 				//item_data.item_distance[index] = 0;
 				//item_data.items[index] = belt_item{};
-				shift_right_contains_item();
+				//shift_right_contains_item();
 				item_data_utility::shift_arrays_right_from_index(item_count, item_data, index);
 				--item_count;
 			}
@@ -769,7 +784,7 @@ public:
 		else
 		{
 			*item_goal_distance += item_data.item_distance[index];
-			set_contains_item_bit<false>(index);
+			//set_contains_item_bit<false>(index);
 			//item_data.contains_item[index] = false;
 
 			//item_data.item_distance[index] = 0;
@@ -786,10 +801,10 @@ public:
 		if (item_count > 1ll)
 		{
 			const long long new_goal_distance = item_count >= 2ll ? item_data.item_distance[1ll] : 0ll;
-			set_contains_item_bit<false>(0);
+			//set_contains_item_bit<false>(0);
 			//item_data.contains_item[0ll] = false;
 			item_data.item_distance[0ll] = 0;
-			shift_right_contains_item();
+			//shift_right_contains_item();
 			item_data_utility::shift_arrays_right(item_count, item_data);
 			*item_goal_distance += new_goal_distance;
 			--item_count;
@@ -798,7 +813,7 @@ public:
 		{
 			--item_count;
 			*item_goal_distance -= item_data.item_distance[0ll];
-			set_contains_item_bit<false>(0);
+			//set_contains_item_bit<false>(0);
 			//item_data.contains_item[0ll] = false;
 			item_data.item_distance[0ll] = 0;
 			item_data.items[0ll] = belt_item{};
@@ -811,7 +826,7 @@ public:
 	constexpr void remove_last_item(item_32_data& item_data) noexcept
 	{
 		--item_count;
-		set_contains_item_bit<false>(0);
+		//set_contains_item_bit<false>(0);
 		//item_data.contains_item[0ll] = false;
 		item_data.item_distance[0ll] = 0;
 		item_data.items[0ll] = belt_item{};
@@ -822,7 +837,8 @@ public:
 		for (long long i = 0ll; i < item_count; ++i)
 		{
 			//if (item_data.contains_item[i] && item_data.items[i].type == type) return i;
-			if (get_contains_item_bit(i) && item_data.items[i].type == type) return i;
+			if (item_data.items[i].type == type) return i;
+			//if (get_contains_item_bit(i) && item_data.items[i].type == type) return i;
 		}
 
 		return -1;
@@ -878,25 +894,6 @@ public:
 		}
 
 		return { -1, -1ll };
-	};
-
-	constexpr item_removal_result try_to_remove_item(goal_distance* item_goal_distance, item_32_data& item_data) noexcept
-	{
-		if (std::is_constant_evaluated() == false)
-		{
-			if (item_data.item_distance[belt_item_size - 1] == 0 && get_contains_item_bit(belt_item_size - 1))
-				//if (item_data.item_distance[belt_item_size - 1] == 0 && item_data.contains_item[belt_item_size - 1])
-			{
-				return remove_item(item_goal_distance->get_unsafe_index_ptr(), item_data, belt_item_size - 1);
-			}
-		}
-		else
-		{
-			if (item_goal_distance->get_distance() == 0)
-			{
-				return remove_item(item_goal_distance->get_unsafe_index_ptr(), item_data, belt_item_size - 1);
-			}
-		}
 	};
 
 	constexpr void update_belt(goal_distance* item_goal_distance) const noexcept
@@ -963,7 +960,7 @@ constexpr auto test_item_32_data_split(int split_index) noexcept
 
 	auto split_result = item_data_utility::split_from_index(data, split_index);
 	const auto& split_data = split_result.data;
-	const auto split_left = 32 - (split_index + 1);
+	const auto split_left = item_32::max_item_count - (split_index + 1);
 	const auto split_right = split_index + 1;
 
 	if (!(0 < split_left && split_left < item_32::max_item_count)) return false;
@@ -976,6 +973,6 @@ constexpr auto test_item_32_data_split(int split_index) noexcept
 
 	return true;
 };
-static_assert(test_item_32_data_split(8) == true, "did not split item data");
-static_assert(test_item_32_data_split(10) == true, "did not split item data");
-static_assert(test_item_32_data_split(24) == true, "did not split item data");
+static_assert(test_item_32_data_split(item_32_settings::max_item_count / 4) == true, "did not split item data");
+static_assert(test_item_32_data_split(item_32_settings::max_item_count / 3) == true, "did not split item data");
+static_assert(test_item_32_data_split(item_32_settings::max_item_count / 2) == true, "did not split item data");

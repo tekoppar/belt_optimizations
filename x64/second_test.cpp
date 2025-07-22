@@ -22,38 +22,35 @@
 #include <AMDProfileController.h>
 #endif
 
-#include <retard_wrapper.h>
-
 #ifdef _DEBUG
 constexpr const std::size_t second_test_max_belts_8 = 10'000'000ll;
 #else
-constexpr const std::size_t second_test_max_belts_8 = 200'000'000ll;
+constexpr const size_t second_test_max_belts_8 = 2'000'000'000ll;
 #endif
-constexpr const std::size_t throw_value = static_cast<size_t>(static_cast<double>(second_test_max_belts_8) * 0.6);
-constexpr const std::size_t item_max_distance = second_test_max_belts_8 * 32ll;
-constexpr const std::size_t item_goal_distance_max = (second_test_max_belts_8 / 32ll) * 32ll * 32ll * 2ll;
+constexpr const size_t throw_value = static_cast<size_t>(static_cast<double>(second_test_max_belts_8) * 0.6);
+constexpr const size_t item_max_distance = second_test_max_belts_8 * 32ll;
+constexpr const size_t item_goal_distance_max = (second_test_max_belts_8 / 32ll) * 32ll * 32ll * 2ll;
 static_assert(item_goal_distance_max > item_max_distance, "item max distance is greater than the goal");
 static_assert(item_goal_distance_max < (std::numeric_limits<long long>::max)(), "max distance is greater then max value of int");
-constexpr std::size_t belts_being_simulated = second_test_max_belts_8 / 4ll;
-belt_segment second_test_all_belts;
+constexpr size_t belts_being_simulated = second_test_max_belts_8 / 4ll;
 static volatile belt_segment const* second_test_all_belts_ptr = nullptr;
 
-std::size_t second_test_loop_counter = 0ull;
+size_t second_test_loop_counter = 0ull;
 #if __BELT_SWITCH__ == 3
-constexpr const std::size_t second_test_max_belts = second_test_max_belts_8 / 32ll;
+constexpr const size_t second_test_max_belts = second_test_max_belts_8 / 32ll;
 #elif __BELT_SWITCH__ == 4
 constexpr const std::size_t second_test_max_belts = second_test_max_belts_8 / 256;
 #endif
 
-void second_test_belt_setup() noexcept
+void second_test_belt_setup(belt_segment& bs) noexcept
 {
 #if __BELT_SWITCH__ == 3
-	second_test_all_belts = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
-	second_test_all_belts_ptr = &second_test_all_belts;
+	bs = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
+	second_test_all_belts_ptr = &bs;
 #ifdef _DEBUG
 	constexpr long long inserter_pos = 350000;// (32ll * 1024ll) + 16;
 #else
-	constexpr long long inserter_pos = 350000;// *((second_test_max_belts * 32ll * 32ll) / 350000 - 1ll);
+	constexpr long long inserter_pos = 3500000;// *((second_test_max_belts * 32ll * 32ll) / 350000 - 1ll);
 #endif
 	constexpr long long max_inserters = (second_test_max_belts * 32ll * 32ll) / inserter_pos - 1ll;
 	constexpr long long l = max_inserters;
@@ -64,8 +61,8 @@ void second_test_belt_setup() noexcept
 		constexpr long long lx = 1;
 		for (long long x = 0; x < lx; ++x)
 		{
-			const auto inserterd_index = second_test_all_belts.add_inserter(index_inserter{ vec2_int64{(inserter_pos * i + inserter_pos) + (x * 32ll), 32ll} });
-			auto& found_inserter = second_test_all_belts.get_inserter(inserterd_index);
+			const auto inserterd_index = bs.add_inserter(index_inserter{ vec2_int64{(inserter_pos * i + inserter_pos) + (x * 32ll), 32ll} });
+			auto& found_inserter = bs.get_inserter(inserterd_index);
 			found_inserter.set_item_type(item_type::wood);
 		}
 	}
@@ -78,12 +75,12 @@ void second_test_belt_setup() noexcept
 	constexpr size_t l2 = second_test_max_belts;
 	std::cout << "Starting to add items" << std::endl;
 	const auto t1 = std::chrono::high_resolution_clock::now();
-	for (std::size_t i = 0; i < l2; ++i)
+	for (size_t i = 0; i < l2; ++i)
 	{
 #if __BELT_SWITCH__ == 3
 		for (long long x = 0; x < 32; ++x)
 		{
-			second_test_all_belts.add_item(item_uint{ item_type::wood, vec2_int64(belt_x_position, 0ll) }, false);
+			bs.add_item(item_uint{ item_type::wood, vec2_int64(belt_x_position, 0ll) }, false);
 			belt_x_position += 32ll;
 		}
 #elif __BELT_SWITCH__ == 4
@@ -105,18 +102,19 @@ void second_test_belt_setup() noexcept
 	std::cout << "Adding items took: " << ms_int.count() << "ms" << std::endl;
 }
 
-void second_test_belt_loop() noexcept
+void second_test_belt_loop(belt_segment* bs) noexcept
 {
-	second_test_all_belts.update();
+	bs->update();
 }
 
-std::size_t second_test_get_total_items_on_belts() noexcept
+size_t second_test_get_total_items_on_belts(belt_segment& bs) noexcept
 {
-	return second_test_all_belts.count_all_items();
+	return bs.count_all_items();
 }
 
 void second_belt_test()
 {
+	belt_segment second_test_all_belts;
 #ifdef AMDUPROF_
 	if (!amdProfileStrictResumeImpl()) throw std::runtime_error("");
 	amdProfileStrictResumeImpl();
@@ -129,7 +127,7 @@ void second_belt_test()
 	//auto test_goal_distance_is_all_valid_val = test_goal_distance_is_all_valid(0);
 	//auto test_new_item_distance_val = test_real_game_scenario_smelters(1);
 	std::cout << "Setup starting" << std::endl;
-	second_test_belt_setup();
+	second_test_belt_setup(second_test_all_belts);
 	std::cout << "Setup finished" << std::endl;
 
 	size_t moved_items_per_second = 0;
@@ -145,7 +143,7 @@ void second_belt_test()
 #endif
 	{
 		const auto t1 = std::chrono::high_resolution_clock::now();
-		second_test_belt_loop();
+		second_test_belt_loop(&second_test_all_belts);
 		const auto t2 = std::chrono::high_resolution_clock::now();
 
 		auto ms_int = duration_cast<std::chrono::nanoseconds>(t2 - t1);
@@ -174,7 +172,7 @@ void second_belt_test()
 		if (second_counter >= 1000000000)
 		{
 			//if (second_test_all_belts_ptr == nullptr) __debugbreak();
-			const auto total_items_on_belt = second_test_get_total_items_on_belts();
+			const auto total_items_on_belt = second_test_get_total_items_on_belts(second_test_all_belts);
 			std::cout << "items moved/s: " << moved_items_per_second << " - tick time: " << ms_int.count() << "nanoseconds - avg time: " << second_counter / loop_counter << " - loops done : " << loop_counter << " - total on belts : " << total_items_on_belt << " \n";
 			if (total_items_on_belt < throw_value)
 			{

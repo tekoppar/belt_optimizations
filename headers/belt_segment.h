@@ -19,6 +19,7 @@
 #include <intrin.h>
 #include <utility>
 #include <limits>
+#include <limits>
 
 using closest_item_group_result = belt_utility::find_closest_item_group_result<_vector::iterator>;
 
@@ -43,12 +44,32 @@ struct belt_segment_correct_t
 
 struct event_tick_data
 {
+private:
 	size_t tick_time{ 0ull };
-	size_t start_tick_time{ 0ull };
+	//size_t start_tick_time{ 0ull };
+	long long ticks{ 0ll };
+
+public:
+	inline constexpr const size_t& get_tick_time() const noexcept
+	{
+		return tick_time;
+	};
+	inline constexpr void set_tick_time(size_t tick) noexcept
+	{
+		tick_time = tick;
+	};
+	inline constexpr long long get_ticks() const noexcept
+	{
+		return ticks;
+	};
+	inline constexpr void set_ticks(size_t current_tick) noexcept
+	{
+		ticks = static_cast<long long>(tick_time - current_tick);
+	};
 
 	inline constexpr friend bool operator==(const event_tick_data& lhs, const event_tick_data& rhs)
 	{
-		return lhs.tick_time == rhs.tick_time && lhs.start_tick_time == rhs.start_tick_time;
+		return lhs.tick_time == rhs.tick_time && lhs.ticks == rhs.ticks;// lhs.start_tick_time == rhs.start_tick_time;
 	};
 	inline constexpr friend bool operator!=(const event_tick_data& lhs, const event_tick_data& rhs)
 	{
@@ -328,7 +349,7 @@ private:
 		}
 	};
 
-	__forceinline constexpr void advance_item_group_head(_vector_item_groups_head::iterator item_group_head) noexcept
+	inline constexpr void advance_item_group_head(_vector_item_groups_head::iterator item_group_head) noexcept
 	{
 		if (item_group_head->next_item_group_index >= 0 && item_group_head->next_item_group_index < item_groups_distance_between.size() &&
 			item_groups_distance_between[item_group_head->next_item_group_index] != -1ll)
@@ -491,7 +512,7 @@ public:
 		if constexpr (ENABLE_CPP_EXCEPTION_THROW) if ((*goal_object).get_index_ptr() == nullptr) throw std::runtime_error("");
 
 		const auto index_from_ptr = ((*goal_object).get_index_from_ptr(item_groups_distance_between.begin().operator->()));
-		return get_end_distance_direction<direction>() - belt_utility::get_distances_from_to2(item_groups_distance_between.begin() + index_from_ptr, item_groups_distance_between.begin() + i) + 32;
+		return get_end_distance_direction<direction>() - belt_utility::get_distances_from_to2(item_groups_distance_between.begin() + index_from_ptr, item_groups_distance_between.begin() + i) + item_32_settings::belt_item_size;
 	};
 
 	inline constexpr long long count_item_groups() const noexcept
@@ -596,6 +617,33 @@ public:
 	};
 
 	template<belt_utility::belt_direction direction>
+	inline constexpr item_groups_type::index_item_position_return get_closest_item_inserter_can_grab1(const long long inserter_index, const long long cur_dist, const item_groups_type& item_groups_ref, const item_groups_data_type& item_data_ref) const noexcept
+	{
+		const long long item_count = item_groups_ref.count();
+		auto& nested_inserter_vector = inserters[inserter_index];
+		const auto nested_ins_last = nested_inserter_vector.last();
+		const long long temp_last_item_position = cur_dist + item_data_ref.item_distance[item_count - 1ll];
+
+		for (long long i = 0ll; i < item_count; ++i)
+		{
+			const auto item_position = item_groups_ref.get_item_position<direction>(cur_dist, item_data_ref, i);
+
+			//long long triggered_inserter_index = 0ll; //++triggered_inserter_index
+			for (auto nested_ins_iter = nested_inserter_vector.begin(); nested_ins_iter != nested_ins_last; ++nested_ins_iter)
+			{
+				const long long inserter_pos_minus = nested_ins_iter->get_distance_position_minus();
+				const item_type inserter_item_type = nested_ins_iter->get_item_type(0);
+				//if (temp_last_item_position >= inserter_pos_minus)
+				{
+					if (item_data_ref.items[i].type == inserter_item_type && item_position >= inserter_pos_minus)
+						return item_groups_type::index_item_position_return{ i, item_position }; //triggered_inserter_index
+				}
+			}
+		}
+
+		return item_groups_type::index_item_position_return{};
+	};
+	template<belt_utility::belt_direction direction>
 	inline constexpr item_groups_type::index_item_position_return get_closest_item_inserter_can_grab(const long long inserter_index, const long long cur_dist, const item_groups_type& item_groups_ref, const item_groups_data_type& item_data_ref) const noexcept
 	{
 		const long long item_count = item_groups_ref.count();
@@ -644,14 +692,14 @@ public:
 			}
 		}
 
-		if (distance == 0) current_tick_data->tick_time = tick_count + 1;
-		else current_tick_data->tick_time = get_tick_time_until_event(tick_count, distance, travel_distance_per_tick);
+		if (distance == 0) current_tick_data->set_tick_time(tick_count + 1);
+		else current_tick_data->set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
 
-		current_tick_data->start_tick_time = tick_count;
+		current_tick_data->set_ticks(tick_count);
 
 		for (auto begin_iter = groups_to_update.begin() + 1; begin_iter != groups_to_update.last(); ++begin_iter)
 		{
-			if ((*begin_iter)[0]->tick_time == current_tick_data->tick_time)
+			if ((*begin_iter)[0]->get_tick_time() == current_tick_data->get_tick_time())
 			{
 				begin_iter->emplace_back(current_tick_data);
 				return;
@@ -672,7 +720,7 @@ public:
 		const long long length = groups_to_update.size();
 		for (long long i = 1; i < length; ++i)
 		{
-			if (groups_to_update[i][0] != current_tick_data && groups_to_update[i][0]->tick_time == current_tick_data->tick_time)
+			if (groups_to_update[i][0] != current_tick_data && groups_to_update[i][0]->get_tick_time() == current_tick_data->get_tick_time())
 			{
 				groups_to_update[i].emplace_back(current_tick_data);
 				return;
@@ -687,7 +735,7 @@ public:
 	{
 		for (auto begin_iter = groups_to_update.begin() + 1; begin_iter != groups_to_update.last(); ++begin_iter)
 		{
-			if ((*begin_iter)[0] != current_tick_data && (*begin_iter)[0]->tick_time == current_tick_data->tick_time)
+			if ((*begin_iter)[0] != current_tick_data && (*begin_iter)[0]->get_tick_time() == current_tick_data->get_tick_time())
 			{
 				begin_iter->emplace_back(current_tick_data);
 				return;
@@ -719,10 +767,10 @@ public:
 			}
 		}
 
-		if (distance == 0) current_tick_data->tick_time = tick_count + 1;
-		else current_tick_data->tick_time = get_tick_time_until_event(tick_count, distance, travel_distance_per_tick);
+		if (distance == 0) current_tick_data->set_tick_time(tick_count + 1);
+		else current_tick_data->set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
 
-		current_tick_data->start_tick_time = tick_count;
+		current_tick_data->set_ticks(tick_count);
 	}
 
 	constexpr void remove_event_tick(mem::vector<event_tick_data>::iterator current_tick_data) noexcept
@@ -773,7 +821,7 @@ public:
 		removed_container
 	};
 	template<belt_utility::belt_direction direction>
-	__declspec(noinline) constexpr void update_event_tick(event_tick_data* current_tick_data, const size_t current_group_tick_time) noexcept
+	constexpr void update_event_tick(event_tick_data* current_tick_data, const size_t current_group_tick_time) noexcept
 	{
 		const ptrdiff_t distance_goal_index = (current_tick_data - item_groups_goal_distance_event_data.begin());
 		long long distance = this->item_groups_heads[distance_goal_index].distance;
@@ -792,12 +840,12 @@ public:
 			}
 		}
 
-		if (distance == 0) current_tick_data->tick_time = tick_count == 0 ? 0 : tick_count + 1;
-		else current_tick_data->tick_time = get_tick_time_until_event(tick_count, distance, travel_distance_per_tick);
+		if (distance == 0) current_tick_data->set_tick_time(tick_count == 0 ? 0 : tick_count + 1);
+		else current_tick_data->set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
 
-		current_tick_data->start_tick_time = tick_count;
+		current_tick_data->set_ticks(tick_count);
 
-		if (current_group_tick_time != (std::numeric_limits<size_t>::max)() && current_group_tick_time != current_tick_data->tick_time) add_event_tick_no_update_skip(current_tick_data);
+		if (current_group_tick_time != (std::numeric_limits<size_t>::max)() && current_group_tick_time != current_tick_data->get_tick_time()) add_event_tick_no_update_skip(current_tick_data);
 	};
 	template<belt_utility::belt_direction direction>
 	constexpr bool update_event_tick(long long distance_goal_index) noexcept
@@ -823,15 +871,15 @@ public:
 						}
 					}
 
-					const size_t old_tick_time = current_tick_data->tick_time;
+					const size_t old_tick_time = current_tick_data->get_tick_time();
 					if (distance == 0)
-						current_tick_data->tick_time = tick_count == 0 ? tick_count : tick_count + 1;
+						current_tick_data->set_tick_time(tick_count == 0 ? tick_count : tick_count + 1);
 					else
-						current_tick_data->tick_time = get_tick_time_until_event(tick_count, distance, travel_distance_per_tick);
+						current_tick_data->set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
 
-					current_tick_data->start_tick_time = tick_count;
+					current_tick_data->set_ticks(tick_count);
 
-					if (old_tick_time != current_tick_data->tick_time)
+					if (old_tick_time != current_tick_data->get_tick_time())
 					{
 						remove_event_tick(current_tick_data);
 						add_event_tick_no_update(current_tick_data.operator->());
@@ -927,7 +975,7 @@ public:
 	};
 
 	template<belt_utility::belt_direction direction>
-	__declspec(noinline) constexpr void item_group_has_reached_goal(_vector_item_groups_head::iterator item_group_head) noexcept
+	inline constexpr void item_group_has_reached_goal(_vector_item_groups_head::iterator item_group_head) noexcept
 	{
 		if (segment_end_points.size() > 0ull)
 		{
@@ -962,7 +1010,7 @@ public:
 	};
 
 	template<belt_utility::belt_direction direction>
-	__declspec(noinline) constexpr void item_groups_removal() noexcept
+	inline constexpr void item_groups_removal() noexcept
 	{
 		if (remove_iterators.size() > 0ll)
 		{
@@ -992,15 +1040,14 @@ public:
 	template<belt_utility::belt_direction direction>
 	constexpr void event_update_item(decltype(groups_to_update[0])& updates) noexcept
 	{
-		//const long long end_distance = get_end_distance_direction<direction>();
-		//const long long end_y_direction = get_direction_y_value<direction>();
-
+		long long begin_object = *item_groups_distance_between.begin();
 		auto const* const event_data_begin_pointer = (item_groups_goal_distance_event_data.begin().operator->());
 		const auto goal_count_begin_iter = item_groups_goal_item_count.begin();
 
+		size_t local_items_moved{ 0ull };
 		for (auto const* const update : updates)
 		{
-			const long long ticks_for_group = static_cast<long long>((update)->tick_time - (update)->start_tick_time);
+			const long long ticks_for_group = update->get_ticks();
 
 			const long long event_data_index = update - event_data_begin_pointer;
 			const auto begin_iter = item_groups_heads.begin() + event_data_index;
@@ -1009,7 +1056,7 @@ public:
 			if (begin_iter->distance > 0ll) [[likely]]
 			{
 				auto begin_goal_count_iter = goal_count_begin_iter + event_data_index;
-				if (std::is_constant_evaluated() == false) item_groups_type::items_moved_per_frame += *begin_goal_count_iter + (ticks_for_group * (*begin_goal_count_iter));
+				local_items_moved += *begin_goal_count_iter + (ticks_for_group * (*begin_goal_count_iter));
 
 				//auto& nested_inserter = inserters[event_data_index];
 				for (auto& nested_inserter : inserters[event_data_index])
@@ -1018,21 +1065,31 @@ public:
 					//const auto trigger_index = begin_iter->event_trigger_index;
 					item_type item_type = begin_iter->item_group_data.items[found_index].type;
 
+					//if (item_groups_type::item_removal_result::item_removed_zero_remains == begin_iter->item_group.remove_item(&begin_iter->distance, begin_iter->item_group_data, found_index))
+						//remove_iterators.push_back_unchecked(begin_iter);
 					if (item_groups_type::item_removal_result::item_removed_zero_remains == begin_iter->item_group.remove_item(&begin_iter->distance, begin_iter->item_group_data, found_index))
-						remove_iterators.push_back_unchecked(begin_iter);
+					{
+						if (begin_iter->distance == begin_object)
+							begin_iter->distance = -1ll;
+						else
+							advance_item_group_head(begin_iter);
+					}
 
 					--(*begin_goal_count_iter);
+					//inserters[event_data_index][trigger_index].grab_item(std::move(item_type));
 					nested_inserter.grab_item(std::move(item_type)); //[trigger_index]
 #ifdef _DEBUG
 					++removed_count;
-					//++nested_ins_iter->local_grabbed_items;
-					//nested_ins_iter->loop_count = 0;
+					++nested_inserter.local_grabbed_items;
+					nested_inserter.loop_count = 0;
 #endif
 				}
 			}
 			else [[unlikely]]
 				begin_iter->item_group.items_stuck_update(begin_iter->item_group_data);
 		}
+
+		if (std::is_constant_evaluated() == false) item_groups_type::items_moved_per_frame = local_items_moved;
 	};
 
 	constexpr void update() noexcept
@@ -1082,13 +1139,13 @@ private:
 			++tick_count;
 
 			update_event_tick<direction>(groups_to_update[group_update_index][0ll], std::numeric_limits<size_t>::max());
-			const size_t current_tick_time = groups_to_update[group_update_index][0ll]->tick_time;
+			const size_t current_tick_time = groups_to_update[group_update_index][0ll]->get_tick_time();
 			const long long length = groups_to_update[group_update_index].size();
 			long long same_group_index = 1ll;
 			for (long long i = groups_to_update_begin_index; i < length; ++i)
 			{
 				update_event_tick<direction>(groups_to_update[group_update_index][i], current_tick_time);
-				if (groups_to_update[group_update_index][i]->tick_time == current_tick_time)
+				if (groups_to_update[group_update_index][i]->get_tick_time() == current_tick_time)
 				{
 					groups_to_update[group_update_index][same_group_index] = groups_to_update[group_update_index][i];
 					++same_group_index;
@@ -1101,9 +1158,9 @@ private:
 			const long long l_groups = groups_to_update.size();
 			for (long long i = groups_to_update_begin_index; i < l_groups; ++i)
 			{
-				if (groups_to_update[i][0ll]->tick_time < closest_tick)
+				if (groups_to_update[i][0ll]->get_tick_time() < closest_tick)
 				{
-					closest_tick = groups_to_update[i][0ll]->tick_time;
+					closest_tick = groups_to_update[i][0ll]->get_tick_time();
 					first_group_to_update = i;
 					first_group_to_update_tick = closest_tick;
 				}
