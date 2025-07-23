@@ -36,15 +36,10 @@ constexpr size_t belts_being_simulated = second_test_max_belts_8 / 4ll;
 static volatile belt_segment const* second_test_all_belts_ptr = nullptr;
 
 size_t second_test_loop_counter = 0ull;
-#if __BELT_SWITCH__ == 3
 constexpr const size_t second_test_max_belts = second_test_max_belts_8 / 32ll;
-#elif __BELT_SWITCH__ == 4
-constexpr const std::size_t second_test_max_belts = second_test_max_belts_8 / 256;
-#endif
 
 void second_test_belt_setup(belt_segment& bs) noexcept
 {
-#if __BELT_SWITCH__ == 3
 	bs = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
 	second_test_all_belts_ptr = &bs;
 #ifdef _DEBUG
@@ -67,9 +62,6 @@ void second_test_belt_setup(belt_segment& bs) noexcept
 		}
 	}
 	std::cout << "Finished adding inserters" << std::endl;
-#elif __BELT_SWITCH__ == 4
-	second_test_all_belts = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32 * 32 * 8, 0} };
-#endif
 
 	long long belt_x_position = 0ll;
 	constexpr size_t l2 = second_test_max_belts;
@@ -77,23 +69,12 @@ void second_test_belt_setup(belt_segment& bs) noexcept
 	const auto t1 = std::chrono::high_resolution_clock::now();
 	for (size_t i = 0; i < l2; ++i)
 	{
-#if __BELT_SWITCH__ == 3
 		for (long long x = 0; x < 32; ++x)
 		{
 			bs.add_item(item_uint{ item_type::wood, vec2_int64(belt_x_position, 0ll) }, false);
 			belt_x_position += 32ll;
 		}
-#elif __BELT_SWITCH__ == 4
-		for (int y = 0; y < 8; ++y)
-		{
-			for (int x = 0; x < 32; ++x)
-			{
-				all_belts.add_item(item_uint{ item_type::wood, vec2_int64(((i * (32 * 32 * 8)) + x * 32) + (32 * 32 * y), 0) });
-			}
-		}
-#endif
 	}
-	//second_test_all_belts.update_all_event_ticks<belt_utility::belt_direction::left_right>();
 
 	std::cout << "Finished adding items" << std::endl;
 	const auto t2 = std::chrono::high_resolution_clock::now();
@@ -136,11 +117,7 @@ void second_belt_test()
 	size_t loop_counter{ 0 };
 	//size_t zero_items_moved_counter{ 0 };
 
-#if __BELT_SWITCH__ == 3
 	while (while_counter < second_test_max_belts * 10000)
-#elif __BELT_SWITCH__ == 4
-	while (while_counter < second_test_max_belts * 1000 * 8)
-#endif
 	{
 		const auto t1 = std::chrono::high_resolution_clock::now();
 		second_test_belt_loop(&second_test_all_belts);
@@ -150,11 +127,8 @@ void second_belt_test()
 
 		second_counter += ms_int.count();
 		++loop_counter;
-#if __BELT_SWITCH__ == 3
-		moved_items_per_second += item_32::items_moved_per_frame;
-#elif __BELT_SWITCH__ == 4
-		moved_items_per_second += item_256::items_moved_per_frame;
-#endif
+		moved_items_per_second += second_test_all_belts.items_moved_per_frame;
+		second_test_all_belts.items_moved_per_frame = 0ull;
 		/*if (item_32::items_moved_per_frame == 0) ++zero_items_moved_counter;
 		else zero_items_moved_counter = 0;
 
@@ -185,11 +159,7 @@ void second_belt_test()
 			second_counter = 0;
 			loop_counter = 0;
 		}
-#if __BELT_SWITCH__ == 3
-		item_32::items_moved_per_frame = 0;
-#elif __BELT_SWITCH__ == 4
-		item_256::items_moved_per_frame = 0;
-#endif
+
 		++while_counter;
 	}
 }

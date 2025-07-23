@@ -10,14 +10,22 @@
 #define _BOUNDS_CHECKING_
 #endif*/
 
-#define __BELT_SWITCH__ 3
-
-#if __BELT_SWITCH__ == 3
 using item_groups_type = item_32;
 using item_groups_data_type = item_32_data;
-#elif __BELT_SWITCH__ == 4
-using item_groups_type = item_256;
-#endif
+
+struct item_group_n_data
+{
+	mem::vector<long long, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<long long, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off> distances;
+	mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off> item_groups;
+	mem::vector<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off> item_group_data;
+
+	constexpr void reserve() noexcept
+	{
+		distances.reserve(16);
+		item_groups.reserve(16);
+		item_group_data.reserve(16);
+	};
+};
 
 struct alignas(32) item_groups_head_t
 {
@@ -25,13 +33,13 @@ struct alignas(32) item_groups_head_t
 	/*8-15*/ long long next_item_group_index{ -1ll };
 	/*16*/ item_groups_type item_group;
 	/*17*/ char item_to_grab{ -1 }; //index of what item event triggered wants
+	//int n_group_data_index{ -1 };
 	//int event_trigger_index{ -1 }; //index into what triggered the event
-	/*32-159*/ __declspec(align(32)) item_groups_data_type item_group_data;
+	__declspec(align(32)) item_groups_data_type item_group_data;
 };
 
 #define __BELT_SEGMENT_VECTOR_ITERATORS__
 #define __BELT_SEGMENT_VECTOR_TYPE__
-#ifdef __BELT_SEGMENT_VECTOR_TYPE__
 
 using _data_vector = mem::vector<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 using _vector = mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
@@ -51,9 +59,6 @@ struct remove_iterators_
 	typename _vector_distance::iterator item_groups_dist_iter{ nullptr };
 	typename _vector_goal_distance::iterator item_groups_goal_dist_iter{ nullptr };
 };
-#else
-using _vector = std::vector<item_groups_type>;
-#endif
 
 struct item_group_linked_entry
 {

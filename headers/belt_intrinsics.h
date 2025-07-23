@@ -57,29 +57,29 @@ namespace belt_utility
 		return _mm256_alignr_epi8(a, _mm256_permute2x128_si256(a, a, _MM_SHUFFLE(0, 0, 2, 0)), 16 - i);
 	};*/
 
-	__forceinline static void _mm512_slli2x256_si512__(__m256i* __restrict a) noexcept
+	__forceinline static void _mm512_slli16_2x256_si512__(__m256i* __restrict a) noexcept
 	{
-		//a[1] = _mm256_alignr_epi8(a[1], _mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(0, 0, 2, 0)), 16 - i);
+		//a[1] = _mm256_alignr_epi8(a[1], _mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(0, 0, 2, 0)), 16 - 2);
 		//a[1].m256i_i16[0] = a[0].m256i_i16[15];
-		//a[0] = _mm256_alignr_epi8(a[0], _mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(0, 0, 2, 0)), 16 - i);
+		//a[0] = _mm256_alignr_epi8(a[0], _mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(0, 0, 2, 0)), 16 - 2);
 
 		_mm256_store_si256((__m256i*) & a[1].m256i_i16[1], _mm256_loadu_si256((__m256i*) & a[1].m256i_i16[0]));
 		_mm256_store_si256((__m256i*) & a[0].m256i_i16[1], _mm256_loadu_si256((__m256i*) & a[0].m256i_i16[0]));
 	};
-	__forceinline static void _mm256_slli_si256__(__m256i* __restrict a) noexcept
+	__forceinline static void _mm256_slli16_si256__(__m256i* __restrict a) noexcept
 	{
-		//a[1] = _mm256_alignr_epi8(a[1], _mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(0, 0, 2, 0)), 16 - i);
+		//_mm256_store_si256(a, _mm256_alignr_epi8(a[0], _mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(0, 0, 2, 0)), 16 - 2));
+		//a[1] = _mm256_alignr_epi8(a[1], _mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(0, 0, 2, 0)), 16 - 2);
 		//a[1].m256i_i16[0] = a[0].m256i_i16[15];
-		//a[0] = _mm256_alignr_epi8(a[0], _mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(0, 0, 2, 0)), 16 - i);
 
-		_mm256_store_si256((__m256i*) & a->m256i_i16[1], _mm256_loadu_si256((__m256i*)&a->m256i_i16[0]));
+		_mm256_storeu_si256((__m256i*) & a->m256i_i16[1], _mm256_load_si256((__m256i*)&a->m256i_i16[0]));
 	};
 
-	__forceinline static void _mm512_srli2x256_si512__(__m256i* __restrict a) noexcept
+	__forceinline static void _mm512_srli16_2x256_si512__(__m256i* __restrict a) noexcept
 	{
-		/*a[0] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(2, 0, 0, 1)), a[0], shift_right);
-		a[0].m256i_i16[15] = a[1].m256i_i16[0];
-		a[1] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(2, 0, 0, 1)), a[1], shift_right);*/
+		//a[0] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(2, 0, 0, 1)), a[0], 2);
+		//a[0].m256i_i16[15] = a[1].m256i_i16[0];
+		//a[1] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(2, 0, 0, 1)), a[1], 2);
 
 		/*const auto real_shift = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(2, 0, 0, 1)), a[0], shift_right);
 		const auto shifted = _mm256_srli_si256(a[0], 2);
@@ -97,18 +97,24 @@ namespace belt_utility
 		a[1] = _mm256_alignr_epi8(_mm256_permute2x128_si256(a[1], a[1], _MM_SHUFFLE(2, 0, 0, 1)), a[1], shift_right);
 		a[0] = _mm256_inserti128_si256(a[0], _mm_blend_epi16(_mm256_extracti128_si256(a[0], 1), shuffled, 0b1000'0000), 1);*/
 	};
-	__forceinline static void _mm256_srli_si256__(__m256i* __restrict a) noexcept
+	__forceinline static void _mm256_srli16_si256__(__m256i* __restrict a) noexcept
 	{
+		//_mm256_store_si256(a, _mm256_alignr_epi8(_mm256_permute2x128_si256(a[0], a[0], _MM_SHUFFLE(2, 0, 0, 1)), a[0], 2));
 		_mm256_store_si256((__m256i*) & a->m256i_i16[0], _mm256_loadu_si256((__m256i*) & a->m256i_i16[1]));
 	};
 
-	__forceinline static void _mm512_srli2x256_si512___index(__m256i* __restrict a, long long index) noexcept
+	__forceinline static void _mm512_srli16_2x256_si512_index(__m256i* __restrict a, long long index) noexcept
 	{
 		_mm256_storeu_si256((__m256i*) & a[0].m256i_i16[index], _mm256_loadu_si256((__m256i*) & a[0].m256i_i16[index + 1]));
 		_mm256_storeu_si256((__m256i*) & a[1].m256i_i16[index], _mm256_loadu_si256((__m256i*) & a[1].m256i_i16[index + 1]));
 	};
-	__forceinline static void _mm256_srli_si256___index(__m256i* __restrict a, long long index) noexcept
+	__forceinline static void _mm256_srli16_si256_index(__m256i* __restrict a, long long index) noexcept
 	{
 		_mm256_storeu_si256((__m256i*) & a->m256i_i16[index], _mm256_loadu_si256((__m256i*) & a->m256i_i16[index + 1]));
+	};
+
+	__forceinline static void _mm256_store_si256__(__m256i* __restrict lhs, __m256i* __restrict rhs) noexcept
+	{
+		_mm256_store_si256(lhs, _mm256_load_si256(rhs));
 	};
 };
