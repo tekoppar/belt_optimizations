@@ -42,8 +42,5 @@ namespace belt_utility
 		{
 			x.get_distance_position_plus()
 		};
-		{
-			std::declval<long long>() == x.get_distance_position_plus()
-		};
 	};
 };

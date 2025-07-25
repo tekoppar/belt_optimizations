@@ -79,8 +79,8 @@ namespace belt_utility
 	};
 	constexpr belt_utility::distance_comparison get_distance_comparison(long long end_distance, long long distance, const inserter_type& first, const inserter_type& last, long long offset_value) noexcept
 	{
-		const auto inserter_distance = first.get_distance_position_minus();
-		const auto last_inserter_distance = last.get_distance_position_minus();
+		const auto inserter_distance = first.get_distance_position_plus();
+		const auto last_inserter_distance = last.get_distance_position_plus();
 
 		if (inserter_distance >= distance && distance >= last_inserter_distance - offset_value) return belt_utility::distance_comparison::distance_is_inside;
 		if (distance > inserter_distance) return belt_utility::distance_comparison::distance_is_before;
