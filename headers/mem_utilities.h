@@ -6,6 +6,7 @@
 #include <type_traits>
 
 #include "math_utility.h"
+#include <cstdarg>
 
 namespace mem
 {

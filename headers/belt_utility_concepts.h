@@ -27,11 +27,6 @@ namespace belt_utility
 	};
 
 	template<typename type>
-	concept type_has_grid_size = requires()
-	{
-		type::inserter_grid_size;
-	};
-	template<typename type>
 	concept type_has_get_position = requires(type x)
 	{
 		{
@@ -39,6 +34,16 @@ namespace belt_utility
 		};
 		{
 			vec2_int64{} == x.get_position()
+		};
+	};
+	template<typename type>
+	concept type_has_get_distance_position = requires(type x)
+	{
+		{
+			x.get_distance_position_plus()
+		};
+		{
+			std::declval<long long>() == x.get_distance_position_plus()
 		};
 	};
 };

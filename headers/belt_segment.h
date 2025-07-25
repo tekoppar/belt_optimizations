@@ -1,24 +1,27 @@
 #pragma once
 
 #include <stdexcept>
-#include <type_traits>
+#include <intrin.h>
+#include <utility>
+#include <limits>
 
 #include "math_utility.h"
 #include "mem_vector.h"
 
+#include <item_settings.h>
 #include "const_data.h"
+#include "macros.h"
 #include "belt_utility_data.h"
 #include "belt_utility.h"
+
 #include "vectors.h"
+#include "shared_classes.h"
+
 #include "index_iterator.h"
 #include "item.h"
 #include "index_inserter.h"
 #include "item_32.h"
-#include "shared_classes.h"
-#include "macros.h"
-#include <intrin.h>
-#include <utility>
-#include <limits>
+#include "belt_utility_non_type.h"
 
 using closest_item_group_result = belt_utility::find_closest_item_group_result<_vector::iterator>;
 
@@ -92,16 +95,19 @@ public:
 	_vector_distance item_groups_distance_between{ 64 };
 	mem::vector<size_t, mem::Allocating_Type::ALIGNED_NEW> item_groups_goal_item_count{ 64 };
 
-	mem::vector<item_group_n_data> medium_head_container{ 64 };
+	//mem::vector<item_group_n_data> medium_head_container{ 64 };
 
 	//contains the item_groups_goal distance of the first item_group
 	_vector_item_groups_head item_groups_heads{ 64 };
 	mem::vector<event_tick_data, mem::Allocating_Type::ALIGNED_NEW> item_groups_goal_distance_event_data{ 64 };
-	mem::vector<mem::vector<event_tick_data*, mem::Allocating_Type::ALIGNED_NEW>, mem::Allocating_Type::ALIGNED_NEW> groups_to_update{ 8 };
+	mem::vector<mem::vector<long long, mem::Allocating_Type::ALIGNED_NEW>, mem::Allocating_Type::ALIGNED_NEW> groups_to_update{ 8 }; //indexes into item_groups_goal_distance_event_data
 
-	_vector_inserters inserters{ 32 };
-	mem::vector<double_index_iterator<index_inserter, _vector_inserters>, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<double_index_iterator<index_inserter, _vector_inserters>, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off> inserter_slots{ 1024 };
-	mem::vector<_vector_item_groups_head::iterator, mem::Allocating_Type::ALIGNED_NEW> remove_iterators{ 8 };
+	_simple_inserter_vector inserters{ 32 };
+	_inserter_group_indexes inserter_group_indexes{ 32 };
+	//mem::vector<double_index_iterator<index_inserter, _vector_inserters>, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<double_index_iterator<index_inserter, _vector_inserters>, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off> inserter_slots{ 1024 };
+	mem::vector<_vector_item_groups_head::iterator, mem::Allocating_Type::ALIGNED_NEW> remove_iterators{ 64 };
+
+	//alignas(64) std::atomic<bool> has_been_updated{ false };
 
 	// belt_segments that this segment moves items onto
 	mem::vector<belt_segment*> segment_end_points{ 8 };
@@ -165,7 +171,8 @@ public:
 		item_groups_goal_distance_event_data{ o.item_groups_goal_distance_event_data },
 		groups_to_update{ o.groups_to_update },
 		inserters{ o.inserters },
-		inserter_slots{ o.inserter_slots },
+		inserter_group_indexes{ o.inserter_group_indexes },
+		//inserter_slots{ o.inserter_slots },
 		remove_iterators{ o.remove_iterators },
 		segment_end_points{ o.segment_end_points },
 		connected_segments{ o.connected_segments },
@@ -187,7 +194,8 @@ public:
 		item_groups_goal_distance_event_data{ std::exchange(o.item_groups_goal_distance_event_data, decltype(item_groups_goal_distance_event_data){}) },
 		groups_to_update{ std::exchange(o.groups_to_update, decltype(groups_to_update){}) },
 		inserters{ std::exchange(o.inserters, decltype(inserters){}) },
-		inserter_slots{ std::exchange(o.inserter_slots, decltype(inserter_slots){}) },
+		inserter_group_indexes{ std::exchange(o.inserter_group_indexes, decltype(inserter_group_indexes){}) },
+		//inserter_slots{ std::exchange(o.inserter_slots, decltype(inserter_slots){}) },
 		remove_iterators{ std::move(o.remove_iterators) },
 		segment_end_points{ std::exchange(o.segment_end_points, decltype(segment_end_points){}) },
 		connected_segments{ std::exchange(o.connected_segments, decltype(connected_segments){}) },
@@ -209,7 +217,8 @@ public:
 		item_groups_goal_distance_event_data = o.item_groups_goal_distance_event_data;
 		groups_to_update = o.groups_to_update;
 		inserters = o.inserters;
-		inserter_slots = o.inserter_slots;
+		inserter_group_indexes = o.inserter_group_indexes;
+		//inserter_slots = o.inserter_slots;
 		remove_iterators = o.remove_iterators;
 		segment_end_points = o.segment_end_points;
 		connected_segments = o.connected_segments;
@@ -233,7 +242,8 @@ public:
 		item_groups_goal_distance_event_data = std::move(o.item_groups_goal_distance_event_data);
 		groups_to_update = std::move(o.groups_to_update);
 		inserters = std::move(o.inserters);
-		inserter_slots = std::move(o.inserter_slots);
+		inserter_group_indexes = std::move(o.inserter_group_indexes);
+		//inserter_slots = std::move(o.inserter_slots);
 		remove_iterators = std::move(o.remove_iterators);
 		segment_end_points = std::move(o.segment_end_points);
 		connected_segments = std::move(o.connected_segments);
@@ -292,34 +302,57 @@ public:
 		return true;
 	};
 private:
-	constexpr _vector_item_groups_head_type::iterator get_head_item_belongs_too(long long item_distance) const noexcept
+	template<belt_utility::belt_direction direction>
+	inline constexpr long long get_direction_y_value() const noexcept
 	{
-		if (item_groups_heads.empty()) return item_groups_heads.last();
-		if ((item_groups_heads.last() - 1ll)->distance > item_distance) return item_groups_heads.last() - 1ll;
-		if (item_groups_heads.begin()->distance < item_distance) return item_groups_heads.begin();
+		using enum belt_utility::belt_direction;
+		if constexpr (left_right == direction) return start_of_segment.y;
+		if constexpr (right_left == direction) return start_of_segment.y;
+		if constexpr (top_bottom == direction) return start_of_segment.x;
+		if constexpr (bottom_top == direction) return start_of_segment.x;
+	};
 
-		auto half_size = item_groups_heads.size();
-		if (half_size == 1) return item_groups_heads.begin();
-		if (half_size == 2)
+	template<belt_utility::belt_direction direction>
+	inline constexpr long long get_start_direction_value() const noexcept
+	{
+		using enum belt_utility::belt_direction;
+		if constexpr (left_right == direction) return start_of_segment.x;
+		if constexpr (right_left == direction) return start_of_segment.x;
+		if constexpr (top_bottom == direction) return start_of_segment.y;
+		if constexpr (bottom_top == direction) return start_of_segment.y;
+	};
+
+	template<belt_utility::belt_direction direction>
+	inline constexpr long long get_end_distance() const noexcept
+	{
+		using enum belt_utility::belt_direction;
+		if constexpr (left_right == direction) return end_of_segment.x - start_of_segment.x;
+		if constexpr (right_left == direction) return start_of_segment.x - end_of_segment.x;
+		if constexpr (top_bottom == direction) return end_of_segment.y - start_of_segment.y;
+		if constexpr (bottom_top == direction) return start_of_segment.y - end_of_segment.y;
+	};
+
+	template<belt_utility::belt_direction direction>
+	inline constexpr long long get_end_distance_direction() const noexcept
+	{
+		using enum belt_utility::belt_direction;
+		if constexpr (left_right == direction) return end_of_segment.x;
+		if constexpr (right_left == direction) return end_of_segment.x;
+		if constexpr (top_bottom == direction) return end_of_segment.y;
+		if constexpr (bottom_top == direction) return end_of_segment.y;
+	};
+
+	inline constexpr long long get_end_distance_direction() const noexcept
+	{
+		using enum belt_utility::belt_direction;
+		switch (segment_direction)
 		{
-			if ((item_groups_heads[0]).distance > item_distance) return item_groups_heads.begin() + 1;
-			return item_groups_heads.begin();
+			case null:
+			case left_right: return end_of_segment.x;
+			case right_left: return end_of_segment.x;
+			case top_bottom: return end_of_segment.y;
+			case bottom_top: return end_of_segment.y;
 		}
-
-		auto left_goal_iter = item_groups_heads.begin();
-		auto right_goal_iter = item_groups_heads.last() - 1ll;
-
-		while (half_size > 1ll)
-		{
-			half_size = expr::ceil_div_power2(right_goal_iter - left_goal_iter); // return (lhs + 1) >> 1;
-			auto temp_half_goal_iter = left_goal_iter + half_size;
-
-			if ((*temp_half_goal_iter).distance < item_distance) right_goal_iter = temp_half_goal_iter;
-			else left_goal_iter = temp_half_goal_iter;
-		}
-
-		if ((*left_goal_iter).distance < item_distance) return left_goal_iter;
-		else return right_goal_iter;
 	};
 
 	template<belt_utility::item_update_state state = belt_utility::item_update_state::adding>
@@ -351,48 +384,6 @@ private:
 		}
 	};
 
-	inline constexpr void advance_item_group_head(_vector_item_groups_head::iterator item_group_head) noexcept
-	{
-		const auto index = item_group_head - item_groups_heads.begin();
-		auto& medium_cont = medium_head_container[index];
-		if (medium_cont.distances.empty() == true)
-		{
-			do
-			{
-				medium_cont.distances.emplace_back_unchecked(item_groups_distance_between[item_group_head->next_item_group_index]);
-				medium_cont.item_groups.emplace_back_unchecked(std::move(item_groups[item_group_head->next_item_group_index]));
-				*medium_cont.item_group_data.values.last = (static_cast<item_groups_data_type&&>((item_groups_data[item_group_head->next_item_group_index])));
-				++medium_cont.item_group_data.values.last;
-				--item_group_head->next_item_group_index;
-			} while (item_groups_distance_between[item_group_head->next_item_group_index] != -1ll && medium_cont.distances.size() < 16ll);
-
-			item_group_head->distance += item_groups_distance_between[item_group_head->next_item_group_index];
-			item_group_head->item_group = std::move(item_groups[item_group_head->next_item_group_index]);
-			item_group_head->item_group_data = medium_cont.item_group_data.values.last[-1ll];
-			--item_group_head->next_item_group_index;
-			return;
-		}
-
-		item_group_head->distance += (medium_cont.distances.values.last[-1ll]);
-		item_group_head->item_group = std::move(medium_cont.item_groups.values.last[-1ll]);
-		item_group_head->item_group_data = std::move(medium_cont.item_group_data.values.last[-1ll]);
-
-		--medium_cont.distances.values.last;
-		--medium_cont.item_groups.values.last;
-		--medium_cont.item_group_data.values.last;
-		return;
-
-		/*if (item_group_head->next_item_group_index >= 0 && item_group_head->next_item_group_index < item_groups_distance_between.size() &&
-			item_groups_distance_between[item_group_head->next_item_group_index] != -1ll)
-		{
-			item_group_head->distance += item_groups_distance_between[item_group_head->next_item_group_index];
-			item_groups_distance_between[item_group_head->next_item_group_index] = -1ll;
-			item_group_head->item_group = std::move(item_groups[item_group_head->next_item_group_index]);
-			item_group_head->item_group_data = std::move(item_groups_data[item_group_head->next_item_group_index]);
-			--item_group_head->next_item_group_index;
-		}*/
-	};
-
 public:
 	template<belt_utility::belt_direction direction>
 	inline constexpr item_uint get_item(long long item_group, long long i) noexcept
@@ -401,6 +392,46 @@ public:
 		return item_groups[item_group].get(get_end_distance_direction<direction>(), get_direction_y_value<direction>(), item_groups_distance_between[item_group], item_groups_data[item_group], i);
 	};
 
+	inline constexpr item_uint get_item(const vec2_int64& position) noexcept
+	{
+		using enum belt_utility::belt_direction;
+		switch (segment_direction)
+		{
+			default:
+			case null:
+			case left_right: return get_item<left_right>(position); break;
+			case right_left: return get_item<right_left>(position); break;
+			case top_bottom: return get_item<top_bottom>(position); break;
+			case bottom_top: return get_item<bottom_top>(position); break;
+		}
+	}
+private:
+	template<belt_utility::belt_direction direction>
+	inline constexpr item_uint get_item(const vec2_int64& position) noexcept
+	{
+		const long long search_position = get_end_distance_direction<direction>() - belt_utility::get_direction_position<direction>(position);
+
+		const _vector_item_groups_head::iterator item_group_head = belt_utility::get_head_item_belongs_too(search_position, item_groups_heads);
+		if (item_group_head == item_groups_heads.last()) return {};
+		const long long head_index = item_group_head - item_groups_heads.begin();
+
+		const closest_item_group_result iter = belt_utility::find_closest_item_group_binary<direction>(
+			item_group_head,
+			head_index,
+			item_groups_heads.size(),
+			search_position,
+			item_groups,
+			item_groups_data,
+			item_groups_distance_between,
+			inserters,
+			inserter_group_indexes
+		);
+		if (iter.result == item_groups.last()) return {};
+
+		iter.result->get<direction>(get_end_distance_direction<direction>(), get_direction_y_value<direction>(), item_group_head->distance, item_group_head->item_group_data, search_position);
+	};
+
+public:
 	template<belt_utility::belt_direction direction>
 	inline constexpr item_uint remove_item(_vector_item_groups_head::iterator item_group_head) noexcept
 	{
@@ -463,9 +494,15 @@ public:
 		return item_groups_distance_between.begin() + i;
 	};
 
-	inline constexpr index_inserter& get_inserter(belt_utility::add_inserter_return_indexes indexes) noexcept
+	inline constexpr belt_segment_index_inserter& get_belt_inserter(belt_utility::add_inserter_return_indexes indexes) noexcept
 	{
-		if constexpr (ENABLE_CPP_EXCEPTION_THROW)
+		return inserters[indexes.index];
+	};
+	inline constexpr index_inserter get_inserter(belt_utility::add_inserter_return_indexes indexes) noexcept
+	{
+		return static_cast<index_inserter>(inserters[indexes.index]);
+
+		/*if constexpr (ENABLE_CPP_EXCEPTION_THROW)
 		{
 			if (indexes.index >= inserters.size()) throw std::out_of_range("");
 			if (indexes.nested_index >= inserters[indexes.index].size()) throw std::out_of_range("");
@@ -474,11 +511,18 @@ public:
 		return inserters[indexes.index][indexes.nested_index];
 
 		if constexpr (ENABLE_CPP_EXCEPTION_THROW) throw std::runtime_error("");  //this shouldn't occur as long as the index is valid and not human entered
+		*/
 	};
 
-	inline constexpr index_inserter& get_inserter(long long i) noexcept
+	inline constexpr belt_segment_index_inserter& get_belt_inserter(long long i) noexcept
 	{
-		long long count_index = 0ull;
+		return inserters[i];
+	};
+	inline constexpr index_inserter get_inserter(long long i) noexcept
+	{
+		return static_cast<index_inserter>(inserters[i]);
+
+		/*long long count_index = 0ull;
 		for (auto begin_iter = inserters.begin(); begin_iter != inserters.last(); ++begin_iter)
 		{
 			if (count_index == i) return begin_iter->operator[](0);
@@ -493,12 +537,14 @@ public:
 			throw std::runtime_error("");  //this shouldn't occur as long as the index is valid and not human entered
 		}
 
-		return inserters.begin()->operator[](0);
+		return inserters.begin()->operator[](0);*/
 	};
 
 	inline constexpr const index_inserter& get_inserter(belt_utility::add_inserter_return_indexes indexes) const noexcept
 	{
-		if constexpr (ENABLE_CPP_EXCEPTION_THROW)
+		return static_cast<index_inserter>(inserters[indexes.index]);
+
+		/*if constexpr (ENABLE_CPP_EXCEPTION_THROW)
 		{
 			if (indexes.index >= inserters.size()) throw std::out_of_range("");
 			if (indexes.nested_index >= inserters[indexes.index].size()) throw std::out_of_range("");
@@ -507,11 +553,14 @@ public:
 		return inserters[indexes.index][indexes.nested_index];
 
 		if constexpr (ENABLE_CPP_EXCEPTION_THROW) throw std::runtime_error("");  //this shouldn't occur as long as the index is valid and not human entered
+		*/
 	};
 
 	inline constexpr const index_inserter& get_inserter(long long i) const noexcept
 	{
-		long long count_index = 0ull;
+		return static_cast<index_inserter>(inserters[i]);
+
+		/*long long count_index = 0ull;
 		for (auto begin_iter = inserters.begin(); begin_iter != inserters.last(); ++begin_iter)
 		{
 			if (count_index + 1 == i) return begin_iter->operator[](0);
@@ -521,6 +570,7 @@ public:
 		}
 
 		if constexpr (ENABLE_CPP_EXCEPTION_THROW) throw std::runtime_error("");  //this shouldn't occur as long as the index is valid and not human entered
+		*/
 	};
 
 	inline constexpr long long get_new_item_distance(long long i) const noexcept
@@ -571,6 +621,18 @@ public:
 
 			if constexpr (__DEBUG_BUILD) if (total < 0ll) __debugbreak();
 		}
+
+		i = 0;
+		const long long l2 = item_groups_heads.size();
+		for (; i < l2; ++i)
+		{
+			ASSERT_NOT_CONSTEXPR<_BOUNDS_CHECKING_>(i < item_groups_heads.size());
+
+			const auto count = item_groups_heads[i].item_group.count();
+			total += count;
+
+			if constexpr (__DEBUG_BUILD) if (total < 0ll) __debugbreak();
+		}
 		return total;
 	};
 
@@ -599,81 +661,15 @@ public:
 
 	inline constexpr long long count_inserters() const noexcept
 	{
-		long long count_index = 0ull;
+		return inserters.size();
+		/*long long count_index = 0ull;
 		for (auto begin_iter = inserters.begin(); begin_iter != inserters.last(); ++begin_iter)
 		{
 			count_index += begin_iter->size();
 		}
-		return count_index;
+		return count_index;*/
 	};
 
-	template<belt_utility::belt_direction direction>
-	inline constexpr long long get_direction_y_value() const noexcept
-	{
-		using enum belt_utility::belt_direction;
-		if constexpr (left_right == direction) return start_of_segment.y;
-		if constexpr (right_left == direction) return start_of_segment.y;
-		if constexpr (top_bottom == direction) return start_of_segment.x;
-		if constexpr (bottom_top == direction) return start_of_segment.x;
-	};
-
-	template<belt_utility::belt_direction direction>
-	inline constexpr long long get_start_direction_value() const noexcept
-	{
-		using enum belt_utility::belt_direction;
-		if constexpr (left_right == direction) return start_of_segment.x;
-		if constexpr (right_left == direction) return start_of_segment.x;
-		if constexpr (top_bottom == direction) return start_of_segment.y;
-		if constexpr (bottom_top == direction) return start_of_segment.y;
-	};
-
-	template<belt_utility::belt_direction direction>
-	inline constexpr long long get_end_distance() const noexcept
-	{
-		using enum belt_utility::belt_direction;
-		if constexpr (left_right == direction) return end_of_segment.x - start_of_segment.x;
-		if constexpr (right_left == direction) return start_of_segment.x - end_of_segment.x;
-		if constexpr (top_bottom == direction) return end_of_segment.y - start_of_segment.y;
-		if constexpr (bottom_top == direction) return start_of_segment.y - end_of_segment.y;
-	};
-
-	template<belt_utility::belt_direction direction>
-	inline constexpr long long get_end_distance_direction() const noexcept
-	{
-		using enum belt_utility::belt_direction;
-		if constexpr (left_right == direction) return end_of_segment.x;
-		if constexpr (right_left == direction) return end_of_segment.x;
-		if constexpr (top_bottom == direction) return end_of_segment.y;
-		if constexpr (bottom_top == direction) return end_of_segment.y;
-	};
-
-	template<belt_utility::belt_direction direction>
-	inline constexpr item_settings::index_item_position_return get_closest_item_inserter_can_grab1(const long long inserter_index, const long long cur_dist, const item_groups_type& item_groups_ref, const item_groups_data_type& item_data_ref) const noexcept
-	{
-		const long long item_count = item_groups_ref.count();
-		auto& nested_inserter_vector = inserters[inserter_index];
-		const auto nested_ins_last = nested_inserter_vector.last();
-		const long long temp_last_item_position = cur_dist + item_data_ref.item_distance[item_count - 1ll];
-
-		for (long long i = 0ll; i < item_count; ++i)
-		{
-			const auto item_position = item_groups_ref.get_item_position<direction>(cur_dist, item_data_ref, i);
-
-			//long long triggered_inserter_index = 0ll; //++triggered_inserter_index
-			for (auto nested_ins_iter = nested_inserter_vector.begin(); nested_ins_iter != nested_ins_last; ++nested_ins_iter)
-			{
-				const long long inserter_pos_minus = nested_ins_iter->get_distance_position_minus();
-				const item_type inserter_item_type = nested_ins_iter->get_item_type(0);
-				//if (temp_last_item_position >= inserter_pos_minus)
-				{
-					if (item_data_ref.items[i].type == inserter_item_type && item_position >= inserter_pos_minus)
-						return item_settings::index_item_position_return{ i, item_position }; //triggered_inserter_index
-				}
-			}
-		}
-
-		return item_settings::index_item_position_return{};
-	};
 	template<belt_utility::belt_direction direction>
 	inline constexpr item_settings::index_item_position_return get_closest_item_inserter_can_grab(const long long inserter_index, const long long cur_dist, const item_groups_type& item_groups_ref, const item_groups_data_type& item_data_ref) const noexcept
 	{
@@ -681,21 +677,22 @@ public:
 		if (item_count == 0ll) return item_settings::index_item_position_return{};
 
 		auto& nested_inserter_vector = inserters[inserter_index];
-		const auto nested_ins_last = nested_inserter_vector.last();
+		//const auto nested_ins_last = nested_inserter_vector.last();
 		const long long temp_last_item_position = cur_dist + item_data_ref.item_distance[item_count - 1ll];
 
 		//long long triggered_inserter_index = 0ll; //++triggered_inserter_index
-		for (auto nested_ins_iter = nested_inserter_vector.begin(); nested_ins_iter != nested_ins_last; ++nested_ins_iter)
+		for (auto in_i = inserter_group_indexes[inserter_index].start; in_i < inserter_group_indexes[inserter_index].end + 1; ++in_i)
+			//for (auto nested_ins_iter = nested_inserter_vector.begin(); nested_ins_iter != nested_ins_last; ++nested_ins_iter)
 		{
-			const long long inserter_pos_minus = nested_ins_iter->get_distance_position_minus();
-			const item_type inserter_item_type = nested_ins_iter->get_item_type(0);
+			const long long inserter_pos_minus = inserters[in_i].get_distance_position_minus();
+			const item_type inserter_item_type = inserters[in_i].get_item_type(0);
 			if (temp_last_item_position >= inserter_pos_minus)
 			{
 				for (long long i = 0ll; i < item_count; ++i)
 				{
 					const auto item_position = item_groups_ref.get_item_position<direction>(cur_dist, item_data_ref, i);
 					if (item_data_ref.items[i].type == inserter_item_type && item_position >= inserter_pos_minus)
-						return item_settings::index_item_position_return{ i, item_position }; //triggered_inserter_index
+						return item_settings::index_item_position_return{ i, item_position };//, triggered_inserter_index
 				}
 			}
 		}
@@ -703,7 +700,7 @@ public:
 		return item_settings::index_item_position_return{};
 	};
 
-	template<belt_utility::belt_direction direction>
+	/*template<belt_utility::belt_direction direction>
 	constexpr void add_event_tick(event_tick_data* current_tick_data) noexcept
 	{
 		const auto current_tick_data_index = current_tick_data - item_groups_goal_distance_event_data.begin().operator->();
@@ -740,45 +737,45 @@ public:
 		mem::vector<event_tick_data*, mem::Allocating_Type::ALIGNED_NEW> new_group{ 4 };
 		new_group.emplace_back(current_tick_data);
 		groups_to_update.emplace_back(new_group);
-	};
+	};*/
 
-	constexpr void add_event_tick_zero_update_group(event_tick_data* current_tick_data) noexcept
+	constexpr void add_event_tick_zero_update_group(long long current_tick_data_index) noexcept
 	{
-		groups_to_update[0].emplace_back(current_tick_data);
+		groups_to_update[0].emplace_back(current_tick_data_index);
 	};
-	constexpr void add_event_tick_no_update_skip(event_tick_data* current_tick_data) noexcept
+	constexpr void add_event_tick_no_update_skip(long long current_tick_data_index) noexcept
 	{
 		const long long length = groups_to_update.size();
 		for (long long i = 1; i < length; ++i)
 		{
-			if (groups_to_update[i][0] != current_tick_data && groups_to_update[i][0]->get_tick_time() == current_tick_data->get_tick_time())
+			if (groups_to_update[i][0] != current_tick_data_index && item_groups_goal_distance_event_data[groups_to_update[i][0]].get_tick_time() == item_groups_goal_distance_event_data[current_tick_data_index].get_tick_time())
 			{
-				groups_to_update[i].emplace_back(current_tick_data);
+				groups_to_update[i].emplace_back(current_tick_data_index);
 				return;
 			}
 		}
 
-		mem::vector<event_tick_data*, mem::Allocating_Type::ALIGNED_NEW> new_group{ 4 };
-		new_group.emplace_back(current_tick_data);
+		mem::vector<long long, mem::Allocating_Type::ALIGNED_NEW> new_group{ 4 };
+		new_group.emplace_back(current_tick_data_index);
 		groups_to_update.emplace_back(new_group);
 	};
-	constexpr void add_event_tick_no_update(event_tick_data* current_tick_data) noexcept
+	constexpr void add_event_tick_no_update(long long current_tick_data_index) noexcept
 	{
 		for (auto begin_iter = groups_to_update.begin() + 1; begin_iter != groups_to_update.last(); ++begin_iter)
 		{
-			if ((*begin_iter)[0] != current_tick_data && (*begin_iter)[0]->get_tick_time() == current_tick_data->get_tick_time())
+			if ((*begin_iter)[0] != current_tick_data_index && item_groups_goal_distance_event_data[(*begin_iter)[0]].get_tick_time() == item_groups_goal_distance_event_data[current_tick_data_index].get_tick_time())
 			{
-				begin_iter->emplace_back(current_tick_data);
+				begin_iter->emplace_back(current_tick_data_index);
 				return;
 			}
 		}
 
-		mem::vector<event_tick_data*, mem::Allocating_Type::ALIGNED_NEW> new_group{ 4 };
-		new_group.emplace_back(current_tick_data);
+		mem::vector<long long, mem::Allocating_Type::ALIGNED_NEW> new_group{ 4 };
+		new_group.emplace_back(current_tick_data_index);
 		groups_to_update.emplace_back(new_group);
 	};
 
-	template<belt_utility::belt_direction direction>
+	/*template<belt_utility::belt_direction direction>
 	constexpr void update_event_tick_index(event_tick_data* current_tick_data) noexcept
 	{
 		const auto current_tick_data_index = current_tick_data - item_groups_goal_distance_event_data.begin().operator->();
@@ -802,17 +799,17 @@ public:
 		else current_tick_data->set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
 
 		current_tick_data->set_ticks(tick_count);
-	}
+	}*/
 
-	constexpr void remove_event_tick(mem::vector<event_tick_data>::iterator current_tick_data) noexcept
+	/*constexpr void remove_event_tick(mem::vector<event_tick_data>::iterator current_tick_data) noexcept
 	{
 		for (auto groups_to_update_data_iter = groups_to_update.begin() + 1; groups_to_update_data_iter != groups_to_update.last(); ++groups_to_update_data_iter)
 		{
 			for (auto begin_iter = groups_to_update_data_iter->begin(); begin_iter != groups_to_update_data_iter->last(); ++begin_iter)
 			{
-				if ((*begin_iter) == current_tick_data.operator->())
+				if (item_groups_goal_distance_event_data[(*begin_iter)] == *current_tick_data)
 				{
-					groups_to_update_data_iter->remove(current_tick_data - (*groups_to_update_data_iter->begin()));
+					groups_to_update_data_iter->remove(current_tick_data);
 
 					if (groups_to_update.begin() != groups_to_update_data_iter && groups_to_update_data_iter->empty())
 					{
@@ -823,16 +820,16 @@ public:
 				}
 			}
 		}
-	};
-	constexpr void remove_event_tick(const event_tick_data* current_tick_data) noexcept
+	};*/
+	constexpr void remove_event_tick(const long long current_tick_data_index) noexcept
 	{
 		for (auto groups_to_update_data_iter = groups_to_update.begin() + 1; groups_to_update_data_iter != groups_to_update.last(); ++groups_to_update_data_iter)
 		{
 			for (auto begin_iter = groups_to_update_data_iter->begin(); begin_iter != groups_to_update_data_iter->last(); ++begin_iter)
 			{
-				if ((*begin_iter) == current_tick_data)
+				if ((*begin_iter) == current_tick_data_index)
 				{
-					groups_to_update_data_iter->remove_unsafe(current_tick_data - (*(*groups_to_update_data_iter).begin()));
+					groups_to_update_data_iter->remove_unsafe(current_tick_data_index);
 
 					if (groups_to_update.begin() != groups_to_update_data_iter && groups_to_update_data_iter->empty())
 					{
@@ -852,9 +849,9 @@ public:
 		removed_container
 	};
 	template<belt_utility::belt_direction direction>
-	constexpr void update_event_tick(event_tick_data* current_tick_data, const size_t current_group_tick_time) noexcept
+	constexpr void update_event_tick(long long current_tick_data_index, const size_t current_group_tick_time) noexcept
 	{
-		const ptrdiff_t distance_goal_index = (current_tick_data - item_groups_goal_distance_event_data.begin());
+		const ptrdiff_t distance_goal_index = current_tick_data_index;
 		long long distance = this->item_groups_heads[distance_goal_index].distance;
 		if (inserters.size() > static_cast<long long>(distance_goal_index))
 		{
@@ -864,62 +861,58 @@ public:
 			{
 				item_group_head->item_to_grab = static_cast<char>(can_grab.found_index);
 				//item_group_head->event_trigger_index = can_grab.event_trigger_index;
-				distance = can_grab.item_distance_position - (inserters[distance_goal_index].last() - 1ll)->get_distance_position_plus();
+				distance = can_grab.item_distance_position - (inserters[inserter_group_indexes[distance_goal_index].end]).get_distance_position_plus();
 
 				if (distance < 0 && distance >= -item_settings::belt_item_size)
 					distance = 0;
 			}
 		}
 
-		if (distance == 0) current_tick_data->set_tick_time(tick_count == 0 ? 0 : tick_count + 1);
-		else current_tick_data->set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
+		if (distance == 0) item_groups_goal_distance_event_data[current_tick_data_index].set_tick_time(tick_count == 0 ? 0 : tick_count + 1);
+		else item_groups_goal_distance_event_data[current_tick_data_index].set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
 
-		current_tick_data->set_ticks(tick_count);
+		item_groups_goal_distance_event_data[current_tick_data_index].set_ticks(tick_count);
 
-		if (current_group_tick_time != (std::numeric_limits<size_t>::max)() && current_group_tick_time != current_tick_data->get_tick_time()) add_event_tick_no_update_skip(current_tick_data);
+		if (current_group_tick_time != (std::numeric_limits<size_t>::max)() && current_group_tick_time != item_groups_goal_distance_event_data[current_tick_data_index].get_tick_time()) add_event_tick_no_update_skip(current_tick_data_index);
 	};
 	template<belt_utility::belt_direction direction>
 	constexpr bool update_event_tick(long long distance_goal_index) noexcept
 	{
 		const auto current_tick_data = item_groups_goal_distance_event_data.begin() + distance_goal_index;
 		{
+			long long distance = this->item_groups_heads[distance_goal_index].distance;
+			if (inserters.size() > distance_goal_index)
 			{
+				const _vector_item_groups_head::iterator item_group_head = (item_groups_heads.begin() + distance_goal_index);
+
+				const item_settings::index_item_position_return can_grab = get_closest_item_inserter_can_grab<direction>(distance_goal_index, item_group_head->distance, item_group_head->item_group, item_group_head->item_group_data);
+				if (can_grab.found_index != -1ll)
 				{
-					long long distance = this->item_groups_heads[distance_goal_index].distance;
-					if (inserters.size() > distance_goal_index)
-					{
-						const _vector_item_groups_head::iterator item_group_head = (item_groups_heads.begin() + distance_goal_index);
+					item_group_head->item_to_grab = static_cast<char>(can_grab.found_index);
+					//item_group_head->event_trigger_index = can_grab.event_trigger_index;
+					distance = can_grab.item_distance_position - (inserters[inserter_group_indexes[distance_goal_index].end]).get_distance_position_plus();
 
-						const item_settings::index_item_position_return can_grab = get_closest_item_inserter_can_grab<direction>(distance_goal_index, item_group_head->distance, item_group_head->item_group, item_group_head->item_group_data);
-						if (can_grab.found_index != -1ll)
-						{
-							item_group_head->item_to_grab = static_cast<char>(can_grab.found_index);
-							//item_group_head->event_trigger_index = can_grab.event_trigger_index;
-							distance = can_grab.item_distance_position - (inserters[distance_goal_index].last() - 1ll)->get_distance_position_plus();
-
-							if (distance < 0 && distance >= -item_settings::belt_item_size)
-								distance = 0;
-						}
-					}
-
-					const size_t old_tick_time = current_tick_data->get_tick_time();
-					if (distance == 0)
-						current_tick_data->set_tick_time(tick_count == 0 ? tick_count : tick_count + 1);
-					else
-						current_tick_data->set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
-
-					current_tick_data->set_ticks(tick_count);
-
-					if (old_tick_time != current_tick_data->get_tick_time())
-					{
-						remove_event_tick(current_tick_data);
-						add_event_tick_no_update(current_tick_data.operator->());
-						return true;
-					}
-
-					return false;
+					if (distance < 0 && distance >= -item_settings::belt_item_size)
+						distance = 0;
 				}
 			}
+
+			const size_t old_tick_time = current_tick_data->get_tick_time();
+			if (distance == 0)
+				current_tick_data->set_tick_time(tick_count == 0 ? tick_count : tick_count + 1);
+			else
+				current_tick_data->set_tick_time(get_tick_time_until_event(tick_count, distance, travel_distance_per_tick));
+
+			current_tick_data->set_ticks(tick_count);
+
+			if (old_tick_time != current_tick_data->get_tick_time())
+			{
+				remove_event_tick(distance_goal_index);
+				add_event_tick_no_update(distance_goal_index);
+				return true;
+			}
+
+			return false;
 		}
 	};
 
@@ -1040,6 +1033,48 @@ public:
 		}
 	};
 
+	inline constexpr void advance_item_group_head(_vector_item_groups_head::iterator item_group_head) noexcept
+	{
+		/*const auto index = item_group_head - item_groups_heads.begin();
+		auto& medium_cont = medium_head_container[index];
+		if (medium_cont.internal_index == -1ll)
+		{
+			medium_cont.internal_index = 0ll;
+			do
+			{
+				medium_cont.distances[medium_cont.internal_index] = (item_groups_distance_between[item_group_head->next_item_group_index]);
+				medium_cont.item_groups[medium_cont.internal_index] = std::move(item_groups[item_group_head->next_item_group_index]);
+				medium_cont.item_group_data[medium_cont.internal_index] = (static_cast<item_groups_data_type&&>((item_groups_data[item_group_head->next_item_group_index])));
+				--item_group_head->next_item_group_index;
+				++medium_cont.internal_index;
+			} while (item_groups_distance_between[item_group_head->next_item_group_index] != -1ll && medium_cont.internal_index < 8ll);
+
+			--medium_cont.internal_index;
+			item_group_head->distance += item_groups_distance_between[item_group_head->next_item_group_index];
+			item_group_head->item_group = std::move(item_groups[item_group_head->next_item_group_index]);
+			item_group_head->item_group_data = (static_cast<item_groups_data_type&&>((item_groups_data[item_group_head->next_item_group_index])));
+			--item_group_head->next_item_group_index;
+			return;
+		}
+
+		item_group_head->distance += (medium_cont.distances[medium_cont.internal_index]);
+		item_group_head->item_group = std::move(medium_cont.item_groups[medium_cont.internal_index]);
+		item_group_head->item_group_data = std::move(medium_cont.item_group_data[medium_cont.internal_index]);
+		--medium_cont.internal_index;
+
+		return;*/
+
+		if (item_group_head->next_item_group_index >= 0 && item_group_head->next_item_group_index < item_groups_distance_between.size() &&
+			item_groups_distance_between[item_group_head->next_item_group_index] != -1ll)
+		{
+			item_group_head->distance += item_groups_distance_between[item_group_head->next_item_group_index];
+			item_groups_distance_between[item_group_head->next_item_group_index] = -1ll;
+			item_group_head->item_group = std::move(item_groups[item_group_head->next_item_group_index]);
+			item_group_head->item_group_data = std::move(item_groups_data[item_group_head->next_item_group_index]);
+			--item_group_head->next_item_group_index;
+		}
+	};
+
 	template<belt_utility::belt_direction direction>
 	inline constexpr void item_groups_removal() noexcept
 	{
@@ -1071,15 +1106,16 @@ public:
 	template<belt_utility::belt_direction direction>
 	__declspec(noinline) constexpr void event_update_item(decltype(groups_to_update[0])& updates) noexcept
 	{
-		//long long begin_object = *item_groups_distance_between.begin();
-		auto const* const event_data_begin_pointer = (item_groups_goal_distance_event_data.begin().operator->());
+		long long begin_object = *item_groups_distance_between.begin();
 		const auto goal_count_begin_iter = item_groups_goal_item_count.begin();
 
-		for (auto const* const update : updates)
-		{
-			const long long ticks_for_group = update->get_ticks();
+		__assume(updates.size() > 0ll);
 
-			const long long event_data_index = update - event_data_begin_pointer;
+		for (const long long update : updates)
+		{
+			const long long ticks_for_group = item_groups_goal_distance_event_data[update].get_ticks();
+
+			const long long event_data_index = update;
 			const auto begin_iter = item_groups_heads.begin() + event_data_index;
 
 			begin_iter->distance -= (ticks_for_group * travel_distance_per_tick);
@@ -1089,7 +1125,8 @@ public:
 				items_moved_per_frame += *begin_goal_count_iter + (ticks_for_group * (*begin_goal_count_iter));
 
 				//auto& nested_inserter = inserters[event_data_index];
-				for (auto& nested_inserter : inserters[event_data_index])
+				for (auto ins_i = inserter_group_indexes[event_data_index].start; ins_i < inserter_group_indexes[event_data_index].end + 1; ++ins_i)
+					//for (auto& nested_inserter : inserters[inserter_group_indexes[event_data_index].start])
 				{
 					const char found_index = begin_iter->item_to_grab;
 					//const auto trigger_index = begin_iter->event_trigger_index;
@@ -1097,9 +1134,9 @@ public:
 
 					if (item_settings::item_removal_result::item_removed_zero_remains == begin_iter->item_group.remove_item(&begin_iter->distance, begin_iter->item_group_data, found_index))
 						remove_iterators.push_back_unchecked(begin_iter);
-					/*if (item_settings::item_removal_result::item_removed_zero_remains == begin_iter->item_group.remove_item(&begin_iter->distance, begin_iter->item_group_data, found_index))
+					/*if (item_settings::item_removal_result::item_removed_zero_remains == begin_iter->item_group.remove_item(&begin_iter->distance, begin_iter->item_group_data, found_index)) [[unlikely]]
 					{
-						if (begin_iter->distance == begin_object)
+						if (begin_iter->distance == begin_object) [[unlikely]]
 							begin_iter->distance = -1ll;
 						else
 							advance_item_group_head(begin_iter);
@@ -1107,11 +1144,12 @@ public:
 
 					--(*begin_goal_count_iter);
 					//inserters[event_data_index][trigger_index].grab_item(std::move(item_type));
-					nested_inserter.grab_item(std::move(item_type)); //[trigger_index]
+					inserters[ins_i].grab_item(std::move(item_type));
+					//nested_inserter.grab_item(std::move(item_type)); //[trigger_index]
 #ifdef _DEBUG
 					++removed_count;
-					++nested_inserter.local_grabbed_items;
-					nested_inserter.loop_count = 0;
+					++inserters[ins_i].local_grabbed_items;
+					inserters[ins_i].loop_count = 0;
 #endif
 				}
 			}
@@ -1142,6 +1180,18 @@ private:
 			update_event_tick<direction>(groups_to_update[0ll][i], max_sub_1);
 
 		groups_to_update[0ll].decrease_size(0ll);
+
+		size_t closest_tick{ std::numeric_limits<size_t>::max() };
+		const long long l_groups = groups_to_update.size();
+		for (long long i = groups_to_update_begin_index; i < l_groups; ++i)
+		{
+			if (item_groups_goal_distance_event_data[groups_to_update[i][0ll]].get_tick_time() < closest_tick)
+			{
+				closest_tick = item_groups_goal_distance_event_data[groups_to_update[i][0ll]].get_tick_time();
+				first_group_to_update = i;
+				first_group_to_update_tick = closest_tick;
+			}
+		}
 	};
 
 	template<belt_utility::belt_direction direction>
@@ -1167,13 +1217,13 @@ private:
 			++tick_count;
 
 			update_event_tick<direction>(groups_to_update[group_update_index][0ll], std::numeric_limits<size_t>::max());
-			const size_t current_tick_time = groups_to_update[group_update_index][0ll]->get_tick_time();
+			const size_t current_tick_time = item_groups_goal_distance_event_data[groups_to_update[group_update_index][0ll]].get_tick_time();
 			const long long length = groups_to_update[group_update_index].size();
 			long long same_group_index = 1ll;
 			for (long long i = groups_to_update_begin_index; i < length; ++i)
 			{
 				update_event_tick<direction>(groups_to_update[group_update_index][i], current_tick_time);
-				if (groups_to_update[group_update_index][i]->get_tick_time() == current_tick_time)
+				if (item_groups_goal_distance_event_data[groups_to_update[group_update_index][i]].get_tick_time() == current_tick_time)
 				{
 					groups_to_update[group_update_index][same_group_index] = groups_to_update[group_update_index][i];
 					++same_group_index;
@@ -1186,9 +1236,9 @@ private:
 			const long long l_groups = groups_to_update.size();
 			for (long long i = groups_to_update_begin_index; i < l_groups; ++i)
 			{
-				if (groups_to_update[i][0ll]->get_tick_time() < closest_tick)
+				if (item_groups_goal_distance_event_data[groups_to_update[i][0ll]].get_tick_time() < closest_tick)
 				{
-					closest_tick = groups_to_update[i][0ll]->get_tick_time();
+					closest_tick = item_groups_goal_distance_event_data[groups_to_update[i][0ll]].get_tick_time();
 					first_group_to_update = i;
 					first_group_to_update_tick = closest_tick;
 				}
@@ -1235,23 +1285,15 @@ private:
 			{
 				begin_goal->distance = current_distance;
 
-				const bool goal_distance_needs_resize = item_groups_heads.needs_resize();
-				mem::vector<mem::vector<long long>> index_container;
-				if (goal_distance_needs_resize)
-				{
-					index_container = mem::utility::validate_pointers_get_indexes(item_groups_goal_distance_event_data, groups_to_update);
+				if (item_groups_heads.needs_resize())
 					remove_iterators.resize(item_groups_heads.size() * 2ll);
-				}
 
 				const long long item_group_head_index = begin_goal - item_groups_heads.begin();
 				item_groups_heads.emplace(begin_goal, begin_goal->distance, begin_goal->next_item_group_index);
-				auto& emplaced_cont = medium_head_container.emplace_back();
-				emplaced_cont.reserve();
+				//auto& emplaced_cont = medium_head_container.emplace_back();
+				//emplaced_cont.reserve();
 				item_groups_goal_distance_event_data.emplace(item_groups_goal_distance_event_data.begin() + item_group_head_index);
 				item_groups_goal_item_count.emplace(item_groups_goal_item_count.begin() + (begin_goal - item_groups_heads.begin()), 0ull);
-
-				if (goal_distance_needs_resize)
-					mem::utility::validate_pointers_from_indexes(item_groups_goal_distance_event_data, index_container, groups_to_update);
 
 				return true;
 			}
@@ -1284,23 +1326,15 @@ private:
 						{
 							*goal_distance = current_distance;
 
-							const bool goal_distance_needs_resize = item_groups_heads.needs_resize();
-							mem::vector<mem::vector<long long>> index_container;
-							if (goal_distance_needs_resize)
-							{
-								index_container = mem::utility::validate_pointers_get_indexes(item_groups_goal_distance_event_data, groups_to_update);
+							if (item_groups_heads.needs_resize())
 								remove_iterators.resize(item_groups_heads.size() * 2ll);
-							}
 
 							const long long item_group_head_index = next_goal - item_groups_heads.begin();
 							item_groups_heads.emplace(next_goal, *goal_distance, (*next_goal).next_item_group_index);
-							auto& emplaced_cont = medium_head_container.emplace_back();
-							emplaced_cont.reserve();
+							//auto& emplaced_cont = medium_head_container.emplace_back();
+							//emplaced_cont.reserve();
 							item_groups_goal_distance_event_data.emplace(item_groups_goal_distance_event_data.begin() + item_group_head_index);
 							item_groups_goal_item_count.emplace(item_groups_goal_item_count.begin() + (next_goal - item_groups_heads.begin()), 0ull);
-
-							if (goal_distance_needs_resize)
-								mem::utility::validate_pointers_from_indexes(item_groups_goal_distance_event_data, index_container, groups_to_update);
 
 							return true;
 						}
@@ -1325,11 +1359,11 @@ public:
 
 		if (item_group_head != item_groups_heads.last())
 		{
-			if (item_group_head_index >= inserters.size())
+			if (item_group_head_index >= inserter_group_indexes.size())
 				return belt_utility::need_new_slot_result::update_pointer_to_new_index;
 
-			const decltype(inserters)::iterator begin_inserter_iter = inserters.begin() + item_group_head_index;
-			const auto distance_comparison = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), distance, begin_inserter_iter, begin_inserter_iter, item_settings::belt_item_size);
+			const decltype(inserter_group_indexes)::iterator begin_inserter_iter = inserter_group_indexes.begin() + item_group_head_index;
+			const auto distance_comparison = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), distance, inserters[begin_inserter_iter->start], inserters[begin_inserter_iter->end], item_settings::belt_item_size);
 
 			switch (distance_comparison)
 			{
@@ -1340,47 +1374,47 @@ public:
 			}
 		}
 
-		decltype(inserters)::iterator begin_inserter_iter;
-		if constexpr (belt_utility::distance_slot_inserted_position::new_item_after_last_goal != position_setting) begin_inserter_iter = inserters.begin();
+		decltype(inserter_group_indexes)::iterator begin_inserter_iter;
+		if constexpr (belt_utility::distance_slot_inserted_position::new_item_after_last_goal != position_setting) begin_inserter_iter = inserter_group_indexes.begin();
 
 		if constexpr (belt_utility::distance_slot_inserted_position::new_item_after_last_goal == position_setting)
 		{
-			if (item_group_head != item_groups_heads.last()) begin_inserter_iter = inserters.begin() + item_group_head_index;
+			if (item_group_head != item_groups_heads.last()) begin_inserter_iter = inserter_group_indexes.begin() + item_group_head_index;
 			else
 			{
 				const auto inserter_size = (item_groups_heads.size() - 1ll);
-				if (inserter_size < inserters.size()) begin_inserter_iter = inserters.begin() + inserter_size;
-				else begin_inserter_iter = inserters.begin();
+				if (inserter_size < inserter_group_indexes.size()) begin_inserter_iter = inserter_group_indexes.begin() + inserter_size;
+				else begin_inserter_iter = inserter_group_indexes.begin();
 			}
 		}
 
-		auto distance_comparison = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), distance, begin_inserter_iter, begin_inserter_iter, item_settings::belt_item_size);
+		auto distance_comparison = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), distance, inserters[begin_inserter_iter->start], inserters[begin_inserter_iter->end], item_settings::belt_item_size);
 		if (belt_utility::distance_comparison::distance_is_after == distance_comparison)
 		{
 			do
 			{
 				++begin_inserter_iter;
-				if (begin_inserter_iter != inserters.last()) distance_comparison = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), distance, begin_inserter_iter, begin_inserter_iter, item_settings::belt_item_size);
-			} while (begin_inserter_iter != inserters.last() && belt_utility::distance_comparison::distance_is_after == distance_comparison);
+				if (begin_inserter_iter != inserter_group_indexes.last()) distance_comparison = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), distance, inserters[begin_inserter_iter->start], inserters[begin_inserter_iter->end], item_settings::belt_item_size);
+			} while (begin_inserter_iter != inserter_group_indexes.last() && belt_utility::distance_comparison::distance_is_after == distance_comparison);
 		}
 		if (belt_utility::distance_comparison::distance_is_before == distance_comparison)
 		{
-			if (item_group_head_index == begin_inserter_iter - inserters.begin())
+			if (item_group_head_index == begin_inserter_iter - inserter_group_indexes.begin())
 				return belt_utility::need_new_slot_result::update_pointer_to_new_index;
 		}
 
-		if (begin_inserter_iter != inserters.begin() && begin_inserter_iter != inserters.last())
+		if (begin_inserter_iter != inserter_group_indexes.begin() && begin_inserter_iter != inserter_group_indexes.last())
 		{
 			auto previous_inserter_iter = begin_inserter_iter;
 
-			const auto inserter_distance = end_distance - belt_utility::get_direction_position<direction>(begin_inserter_iter->operator[](0).get_position());
+			const auto inserter_distance = end_distance - belt_utility::get_direction_position<direction>(inserters[begin_inserter_iter->start].get_position<direction>(get_end_distance_direction<direction>(), get_direction_y_value<direction>()));
 			if (inserter_distance < distance) previous_inserter_iter = begin_inserter_iter - 1ll;
 
 			decltype(distance_comparison) previous_distance_comp = decltype(distance_comparison)::null;
 			decltype(distance_comparison) prev_previous_distance_comp = decltype(distance_comparison)::null;
 
-			previous_distance_comp = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), distance, previous_inserter_iter, previous_inserter_iter, item_settings::belt_item_size);
-			prev_previous_distance_comp = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), *(item_groups_distance_between.begin() + distance_between_inserted_index - 1ll).operator->(), previous_inserter_iter, previous_inserter_iter, item_settings::belt_item_size);
+			previous_distance_comp = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), distance, inserters[previous_inserter_iter->start], inserters[previous_inserter_iter->end], item_settings::belt_item_size);
+			prev_previous_distance_comp = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), *(item_groups_distance_between.begin() + distance_between_inserted_index - 1ll).operator->(), inserters[previous_inserter_iter->start], inserters[previous_inserter_iter->end], item_settings::belt_item_size);
 
 			{
 				using enum belt_utility::distance_comparison; //just to avoid belt_utility::distance_comparison::
@@ -1390,7 +1424,7 @@ public:
 					return belt_utility::need_new_slot_result::update_pointer_to_new_index;
 			}
 		}
-		else if (begin_inserter_iter == inserters.last() && item_groups_heads.size() == inserters.size()) return belt_utility::need_new_slot_result::update_pointer_to_new_index;
+		else if (begin_inserter_iter == inserter_group_indexes.last() && item_groups_heads.size() == inserter_group_indexes.size()) return belt_utility::need_new_slot_result::update_pointer_to_new_index;
 
 		return belt_utility::need_new_slot_result::need_new_slot;
 	};
@@ -1431,38 +1465,38 @@ public:
 
 			//TODO need to fix so that it handles adding new slots correctly when the previous distance - item_size is from the previous inserter slot
 			const auto end_distance = get_end_distance_direction<direction>();
-			decltype(inserters)::iterator begin_inserter_iter;
-			if constexpr (belt_utility::distance_slot_inserted_position::new_item_after_last_goal != position_setting) begin_inserter_iter = inserters.begin();
+			decltype(inserter_group_indexes)::iterator begin_inserter_iter;
+			if constexpr (belt_utility::distance_slot_inserted_position::new_item_after_last_goal != position_setting) begin_inserter_iter = inserter_group_indexes.begin();
 
 			if constexpr (belt_utility::distance_slot_inserted_position::new_item_after_last_goal == position_setting)
 			{
 				const auto inserter_size = (item_groups_heads.size() - 1ll);
-				if (inserter_size < inserters.size()) begin_inserter_iter = inserters.begin() + inserter_size;
-				else begin_inserter_iter = inserters.begin();
+				if (inserter_size < inserter_group_indexes.size()) begin_inserter_iter = inserter_group_indexes.begin() + inserter_size;
+				else begin_inserter_iter = inserter_group_indexes.begin();
 			}
 
-			auto distance_comparison = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), distance, begin_inserter_iter, begin_inserter_iter, item_settings::belt_item_size);
+			auto distance_comparison = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), distance, inserters[begin_inserter_iter->start], inserters[begin_inserter_iter->end], item_settings::belt_item_size);
 			if (belt_utility::distance_comparison::distance_is_after == distance_comparison)
 			{
 				do
 				{
 					++begin_inserter_iter;
-					if (begin_inserter_iter != inserters.last()) distance_comparison = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), distance, begin_inserter_iter, begin_inserter_iter, item_settings::belt_item_size);
-				} while (begin_inserter_iter != inserters.last() && belt_utility::distance_comparison::distance_is_after == distance_comparison);
+					if (begin_inserter_iter != inserter_group_indexes.last()) distance_comparison = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), distance, inserters[begin_inserter_iter->start], inserters[begin_inserter_iter->end], item_settings::belt_item_size);
+				} while (begin_inserter_iter != inserter_group_indexes.last() && belt_utility::distance_comparison::distance_is_after == distance_comparison);
 			}
 
-			if (begin_inserter_iter != inserters.begin() && begin_inserter_iter != inserters.last())
+			if (begin_inserter_iter != inserter_group_indexes.begin() && begin_inserter_iter != inserter_group_indexes.last())
 			{
 				auto previous_inserter_iter = begin_inserter_iter;
 
-				const auto inserter_distance = end_distance - belt_utility::get_direction_position<direction>(begin_inserter_iter->operator[](0).get_position());
+				const auto inserter_distance = end_distance - belt_utility::get_direction_position<direction>(inserters[begin_inserter_iter->start].get_position<direction>(get_end_distance_direction<direction>(), get_direction_y_value<direction>()));
 				if (inserter_distance < distance) previous_inserter_iter = begin_inserter_iter - 1ll;
 
 				decltype(distance_comparison) previous_distance_comp = decltype(distance_comparison)::null;
 				decltype(distance_comparison) prev_previous_distance_comp = decltype(distance_comparison)::null;
 
-				previous_distance_comp = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), distance, previous_inserter_iter, previous_inserter_iter, item_settings::belt_item_size);
-				prev_previous_distance_comp = belt_utility::get_distance_comparison<direction>(get_end_distance_direction<direction>(), *(item_groups_distance_between.begin() + distance_between_inserted_index - 1ll).operator->(), previous_inserter_iter, previous_inserter_iter, item_settings::belt_item_size);
+				previous_distance_comp = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), distance, inserters[previous_inserter_iter->start], inserters[previous_inserter_iter->end], item_settings::belt_item_size);
+				prev_previous_distance_comp = belt_utility::get_distance_comparison(get_end_distance_direction<direction>(), *(item_groups_distance_between.begin() + distance_between_inserted_index - 1ll).operator->(), inserters[previous_inserter_iter->start], inserters[previous_inserter_iter->end], item_settings::belt_item_size);
 
 				{
 					using enum belt_utility::distance_comparison; //just to avoid belt_utility::distance_comparison::
@@ -1472,9 +1506,9 @@ public:
 						skip_loop = true;
 				}
 			}
-			else if (begin_inserter_iter == inserters.last() && item_groups_heads.size() == inserters.size()) skip_loop = true;
+			else if (begin_inserter_iter == inserter_group_indexes.last() && item_groups_heads.size() == inserter_group_indexes.size()) skip_loop = true;
 
-			if (item_groups_heads.size() == inserters.size() && belt_utility::distance_comparison::distance_is_after == distance_comparison) skip_loop = true;
+			if (item_groups_heads.size() == inserter_group_indexes.size() && belt_utility::distance_comparison::distance_is_after == distance_comparison) skip_loop = true;
 
 			if (skip_loop == false)
 			{
@@ -1540,25 +1574,17 @@ private:
 		const auto new_slot_result = check_if_new_head_slot_is_needed<direction, belt_utility::distance_slot_inserted_position::new_item_after_last_goal>(new_distance_value, item_group_head, item_groups_distance_between.size() - 1ll);
 		if (belt_utility::need_new_slot_result::need_new_slot == new_slot_result)
 		{
-			const bool goal_distance_needs_resize = item_groups_heads.needs_resize();
-			mem::vector<mem::vector<long long>> index_container;
-			if (goal_distance_needs_resize)
-			{
-				index_container = mem::utility::validate_pointers_get_indexes(item_groups_goal_distance_event_data, groups_to_update);
+			if (item_groups_heads.needs_resize())
 				remove_iterators.resize(item_groups_heads.size() * 2ll);
-			}
 
 			auto& new_item_group_head = item_groups_heads.emplace_back(new_distance_value, item_groups.size());
 			//new_item_group_head.n_group_data_index = item_groups_heads.size() - 1ll;
-			auto& emplaced_cont = medium_head_container.emplace_back();
-			emplaced_cont.reserve();
-			event_tick_data& inserted_event_data = item_groups_goal_distance_event_data.emplace_back();
+			//auto& emplaced_cont = medium_head_container.emplace_back();
+			//emplaced_cont.reserve();
+			item_groups_goal_distance_event_data.emplace_back();
 			item_groups_goal_item_count.emplace_back(1ull);
 
-			if (goal_distance_needs_resize)
-				mem::utility::validate_pointers_from_indexes(item_groups_goal_distance_event_data, index_container, groups_to_update);
-
-			add_event_tick_zero_update_group(&inserted_event_data);
+			add_event_tick_zero_update_group(item_groups_goal_distance_event_data.size() - 1ll);
 
 			new_item_group_head.item_group.add_item(get_end_distance_direction<direction>(), &new_item_group_head.distance, new_item_group_head.item_group_data, new_item, new_item.position);
 		}
@@ -1593,25 +1619,17 @@ private:
 		const auto new_slot_result = need_new_goal_distance_slot<direction, belt_utility::distance_slot_inserted_position::new_item_after_iter>(*new_distance_iter, new_distance_iter - item_groups_distance_between.begin());
 		if (belt_utility::need_new_slot_result::need_new_slot == new_slot_result)
 		{
-			const bool goal_distance_needs_resize = item_groups_heads.needs_resize();
-			mem::vector<mem::vector<long long>> index_container;
-			if (goal_distance_needs_resize)
-			{
-				index_container = mem::utility::validate_pointers_get_indexes(item_groups_goal_distance_event_data, groups_to_update);
+			if (item_groups_heads.needs_resize())
 				remove_iterators.resize(item_groups_heads.size() * 2ll);
-			}
 
 			auto& new_head = item_groups_heads.emplace_back(*new_distance_iter, new_distance_iter - item_groups_distance_between.begin());
 			//new_head.n_group_data_index = item_groups_heads.size() - 1ll;
-			auto& emplaced_cont = medium_head_container.emplace_back();
-			emplaced_cont.reserve();
-			auto& inserted_event_data = item_groups_goal_distance_event_data.emplace_back();
+			//auto& emplaced_cont = medium_head_container.emplace_back();
+			//emplaced_cont.reserve();
+			item_groups_goal_distance_event_data.emplace_back();
 			item_groups_goal_item_count.emplace_back(1ull);
 
-			if (goal_distance_needs_resize)
-				mem::utility::validate_pointers_from_indexes(item_groups_goal_distance_event_data, index_container, groups_to_update);
-
-			add_event_tick_zero_update_group(&inserted_event_data);
+			add_event_tick_zero_update_group(item_groups_goal_distance_event_data.size() - 1ll);
 		}
 
 		if constexpr (ENABLE_CPP_EXCEPTION_THROW) if (!inserters.empty() && item_groups_heads.size() > inserters.size() + 1) throw std::runtime_error("");
@@ -1667,60 +1685,11 @@ public:
 			update_event_tick<direction>(i);
 	};
 
-	template<belt_utility::belt_direction direction>
-	constexpr closest_item_group_result find_closest_item_group_binary(const _vector_item_groups_head::iterator item_group_head, const long long head_index, const long long new_goal_distance) noexcept
-	{
-		const auto head_vector_size = item_groups_heads.size();
-		const _vector_inserters::iterator found_inserter = head_index < inserters.size() ? inserters.begin() + head_index : inserters.last();
-
-		bool force_new_group_after = false;
-		if (found_inserter == inserters.last() && head_vector_size == inserters.size())
-			force_new_group_after = true;
-		else if (found_inserter != inserters.last() && belt_utility::distance_comparison::distance_is_after == belt_utility::get_distance_comparison(new_goal_distance, found_inserter))
-			force_new_group_after = true;
-
-		const _vector::iterator end_iter = item_groups.last();
-
-		if (item_group_head->item_group.count() < item_settings::max_item_count && force_new_group_after == false)
-			return { belt_utility::find_closest_item_group_return_result::insert_into_group, end_iter };
-		if (new_goal_distance > item_group_head->distance - item_settings::max_distance_between_items)
-			return { belt_utility::find_closest_item_group_return_result::new_group_after_iter, end_iter };
-
-		auto right_of_binary_search = item_group_head->next_item_group_index;
-		auto left_of_binary_search = head_index == 0 ? 0 : (item_group_head - 1ll)->next_item_group_index;
-
-
-		long long half_index = 0ll;
-		while (left_of_binary_search != right_of_binary_search)
-		{
-			half_index = left_of_binary_search + expr::ceil_div_power2(right_of_binary_search - left_of_binary_search); // return (lhs + 1) >> 1;
-
-			const auto last_item_position = item_groups[half_index].get_last_item_direction_position<direction>(item_groups_distance_between[half_index], item_groups_data[half_index]);
-			if (new_goal_distance > last_item_position - item_settings::max_distance_between_items)
-			{
-				if (new_goal_distance < item_groups_distance_between[half_index] - item_settings::max_distance_between_items) //found matching group
-					return { belt_utility::find_closest_item_group_return_result::insert_into_group, item_groups.begin() + half_index };
-
-				right_of_binary_search -= half_index;
-			}
-			else
-				left_of_binary_search += half_index;
-		}
-
-		if (item_groups[half_index].count() < item_settings::max_item_count && force_new_group_after == false)
-			return { belt_utility::find_closest_item_group_return_result::insert_into_group, item_groups.begin() + half_index };
-		if (new_goal_distance > item_groups_distance_between[half_index] - item_settings::max_distance_between_items)
-			return { belt_utility::find_closest_item_group_return_result::new_group_after_iter, item_groups.begin() + half_index };
-		if (new_goal_distance < item_settings::max_distance_between_items + item_groups_distance_between[half_index])
-			return { belt_utility::find_closest_item_group_return_result::new_group_before_iter, item_groups.begin() + half_index };
-	};
-
 	constexpr bool add_item(const item_uint& new_item, const bool update_event_tick_ = true) noexcept
 	{
 		using enum belt_utility::belt_direction;
 		switch (segment_direction)
 		{
-			default:
 			case null:
 			case left_right: return add_item<left_right>(new_item, update_event_tick_); break;
 			case right_left: return add_item<right_left>(new_item, update_event_tick_); break;
@@ -1745,24 +1714,34 @@ private:
 			item_groups_heads.needs_resize();
 			item_groups_head_t& item_groups_head = item_groups_heads.emplace_back(new_goal_distance);
 			//item_groups_head.n_group_data_index = item_groups_heads.size() - 1ll;
-			auto& emplaced_cont = medium_head_container.emplace_back();
-			emplaced_cont.reserve();
-			auto& inserted_event_data = item_groups_goal_distance_event_data.emplace_back();
+			//auto& emplaced_cont = medium_head_container.emplace_back();
+			//emplaced_cont.reserve();
+			item_groups_goal_distance_event_data.emplace_back();
 			item_groups_goal_item_count.emplace_back(1ull);
 
 			const long long added_index = item_groups_head.item_group.add_item(get_end_distance_direction<direction>(), &item_groups_head.distance, item_groups_head.item_group_data, new_item, new_item.position);
 			if (added_index == -1) return false;
 
-			add_event_tick_zero_update_group(&inserted_event_data);
+			add_event_tick_zero_update_group(item_groups_goal_distance_event_data.size() - 1ll);
 			return true;
 		}
 		else
 		{
-			const _vector_item_groups_head::iterator item_group_head = get_head_item_belongs_too(new_goal_distance);
+			const _vector_item_groups_head::iterator item_group_head = belt_utility::get_head_item_belongs_too(new_goal_distance, item_groups_heads);
 			if (item_group_head == item_groups_heads.last()) return false;
 			const long long head_index = item_group_head - item_groups_heads.begin();
 
-			const closest_item_group_result iter = find_closest_item_group_binary<direction>(item_group_head, head_index, new_goal_distance);
+			const closest_item_group_result iter = belt_utility::find_closest_item_group_binary<direction>(
+				item_group_head,
+				head_index,
+				item_groups_heads.size(),
+				new_goal_distance,
+				item_groups,
+				item_groups_data,
+				item_groups_distance_between,
+				inserters,
+				inserter_group_indexes
+			);
 
 			/*const closest_item_group_result iter = belt_utility::find_closest_item_group<direction>(
 				get_end_distance_direction<direction>(),
@@ -1832,28 +1811,28 @@ private:
 
 public:
 	template<belt_utility::belt_direction direction>
-	constexpr long long get_inserter_group_index(auto& group_inserters, index_inserter object) const noexcept
+	constexpr long long get_inserter_group_index(inserter_group_indexes_t inserter_group_indexes, belt_segment_index_inserter object) const noexcept
 	{
-		const long long l = group_inserters.size();
-		if (l == 1ll)
+		if (inserter_group_indexes.start == inserter_group_indexes.end)
 		{
-			if (belt_utility::inserter_fits_results::before == belt_utility::is_inserter_before_or_after<direction>(group_inserters[0], object)) return 0;
+			if (belt_utility::inserter_fits_results::before == belt_utility::is_inserter_before_or_after<direction>(inserters[inserter_group_indexes.start], object)) return 0;
 			else return 1;
 		}
 
-		for (long long i = 0, i2 = 1; i2 < l; ++i, ++i2)
+		const long long l = inserter_group_indexes.end + 1;
+		for (long long i = inserter_group_indexes.start, i2 = inserter_group_indexes.start + 1; i2 < l; ++i, ++i2)
 		{
-			const auto test_result = belt_utility::is_inserter_before_or_after<direction>(group_inserters[i], object);
+			const auto test_result = belt_utility::is_inserter_before_or_after<direction>(inserters[i], object);
 			if (belt_utility::inserter_fits_results::before == test_result) return i;
 			else if (belt_utility::inserter_fits_results::after == test_result)
 			{
-				const auto second_test_result = belt_utility::is_inserter_before_or_after<direction>(group_inserters[i2], object);
+				const auto second_test_result = belt_utility::is_inserter_before_or_after<direction>(inserters[i2], object);
 				if (belt_utility::inserter_fits_results::before == second_test_result) return i;
 			}
 		}
 
-		if (belt_utility::inserter_fits_results::before == belt_utility::is_inserter_before_or_after<direction>(group_inserters.back(), object)) return group_inserters.size() - 1ll;
-		else return group_inserters.size();
+		if (belt_utility::inserter_fits_results::before == belt_utility::is_inserter_before_or_after<direction>(inserters[inserter_group_indexes.end], object)) return inserter_group_indexes.end - 1ll;
+		else return inserter_group_indexes.end;
 	};
 
 	constexpr belt_utility::add_inserter_return_indexes add_inserter(index_inserter object) noexcept
@@ -1861,7 +1840,6 @@ public:
 		using enum belt_utility::belt_direction;
 		switch (segment_direction)
 		{
-			default:
 			case null:
 			case left_right: return add_inserter<left_right>(object); break;
 			case right_left: return add_inserter<right_left>(object); break;
@@ -1872,29 +1850,31 @@ public:
 
 private:
 	template<belt_utility::belt_direction direction>
-	constexpr belt_utility::add_inserter_return_indexes add_inserter(index_inserter object) noexcept
+	constexpr belt_utility::add_inserter_return_indexes add_inserter(index_inserter index_object) noexcept
 	{
+		belt_segment_index_inserter object{ static_cast<int>(belt_utility::get_offset_position<direction>(index_object.get_position()) - get_direction_y_value<direction>()), get_end_distance_direction<direction>() - belt_utility::get_direction_position<direction>(index_object.get_position()), index_object };
+
 		constexpr const auto max_inserter_distance = item_settings::belt_item_size * item_settings::max_item_count * 4; //TODO magic numba,, what even is this 4
-		const auto object_direction_position = belt_utility::get_direction_position<direction>(object.get_position());
+		const auto object_direction_position = object.get_distance_position_plus();// belt_utility::get_direction_position<direction>(object.get_position<direction>(get_end_distance_direction<direction>(), get_direction_y_value<direction>()));
 
 		if (inserters.size() == 0)
 		{
-			inserters.emplace_back();
-			object.set_distance_position_plus(get_end_distance_direction<direction>() - object_direction_position);
-			object.set_distance_position_minus(get_end_distance_direction<direction>() - object_direction_position - item_settings::belt_item_size);
-			inserters[0].emplace_back(object);
+			//object.set_distance_position_plus(get_end_distance_direction<direction>() - object_direction_position);
+			//object.set_distance_position_minus(get_end_distance_direction<direction>() - object_direction_position - item_settings::belt_item_size);
+			inserters.emplace_back(object);
+			inserter_group_indexes.emplace_back(0ll, 0ll);
 
-			inserter_slots.emplace_back(0ull, 0ull, &inserters);
+			//inserter_slots.emplace_back(0ull, 0ull, &inserters);
 			return { 0ll, 0ll };
 		}
 
 		long long can_fit_index = -1ll;
 		long long can_fit_nested_index = -1ll;
 		auto insert_results = belt_utility::inserter_fits_results::no_fit;
-		if (inserters.size() == 1ll && inserters[0].size() == 1ll)
+		if (inserters.size() == 1ll)
 		{
-			if (object_direction_position - belt_utility::get_direction_position<direction>(inserters[0ll][0ll].get_position()) >= max_inserter_distance &&
-				object_direction_position - belt_utility::get_direction_position<direction>(inserters[0ll].back().get_position()) >= max_inserter_distance)
+			if (expr::abs(inserters[inserter_group_indexes[0ll].start].get_distance_position_plus() - object_direction_position) >= max_inserter_distance &&
+				expr::abs(inserters[inserter_group_indexes[0ll].end].get_distance_position_plus() - object_direction_position) >= max_inserter_distance)
 			{
 				insert_results = belt_utility::inserter_fits_results::no_fit;
 				can_fit_index = inserters.size();
@@ -1903,27 +1883,27 @@ private:
 			else
 			{
 				can_fit_index = 0ll;
-				can_fit_nested_index = get_inserter_group_index<direction>(inserters[0ll], object);
+				can_fit_nested_index = get_inserter_group_index<direction>(inserter_group_indexes[0ll], object);
 			}
 		}
 		else
 		{
-			const auto inserter_first_distance = object_direction_position - belt_utility::get_direction_position<direction>(inserters[0][0].get_position());
-			const auto inserter_first_last_distance = object_direction_position - belt_utility::get_direction_position<direction>(inserters[0].back().get_position());
-			const auto inserter_last_distance = object_direction_position - belt_utility::get_direction_position<direction>(inserters.back()[0].get_position());
-			const auto inserter_last_last_distance = object_direction_position - belt_utility::get_direction_position<direction>(inserters.back().back().get_position());
+			const auto inserter_first_distance = expr::abs(object_direction_position - inserters[inserter_group_indexes[0ll].start].get_distance_position_plus());
+			const auto inserter_first_last_distance = expr::abs(object_direction_position - inserters[inserter_group_indexes[0ll].end].get_distance_position_plus());
+			const auto inserter_last_distance = expr::abs(object_direction_position - inserters[inserter_group_indexes.back().start].get_distance_position_plus());
+			const auto inserter_last_last_distance = expr::abs(object_direction_position - inserters[inserter_group_indexes.back().end].get_distance_position_plus());
 
 			if (inserter_last_distance < 0ll && inserter_last_distance <= max_inserter_distance && inserter_last_last_distance <= max_inserter_distance)
 			{
 				insert_results = belt_utility::inserter_fits_results::inbetween;
 				can_fit_index = inserters.size() - 1ll;
-				can_fit_nested_index = get_inserter_group_index<direction>(inserters.back(), object);
+				can_fit_nested_index = get_inserter_group_index<direction>(inserter_group_indexes.back(), object);
 			}
 			else if (inserter_first_distance < 0ll && inserter_first_distance <= max_inserter_distance && inserter_first_last_distance <= max_inserter_distance)
 			{
 				insert_results = belt_utility::inserter_fits_results::inbetween;
 				can_fit_index = 0ll;
-				can_fit_nested_index = get_inserter_group_index<direction>(inserters[0], object);
+				can_fit_nested_index = get_inserter_group_index<direction>(inserter_group_indexes[0], object);
 			}
 			else if (inserter_first_distance >= max_inserter_distance && inserter_first_last_distance >= max_inserter_distance)
 			{
@@ -1938,40 +1918,40 @@ private:
 				can_fit_nested_index = 0ll;
 			}
 			//first check if it's before the first inserter
-			else if (belt_utility::inserter_fits_results::before == belt_utility::is_inserter_before_or_after<direction>(inserters[0][0], object))
+			else if (belt_utility::inserter_fits_results::before == belt_utility::is_inserter_before_or_after<direction>(inserters[inserter_group_indexes[0ll].start], object))
 			{
 				insert_results = belt_utility::inserter_fits_results::before;
 				can_fit_index = 0ll;
-				can_fit_nested_index = get_inserter_group_index<direction>(inserters[0ll], object);
+				can_fit_nested_index = get_inserter_group_index<direction>(inserter_group_indexes[0ll], object);
 			}
 			//second check if it's after the last inserter
-			else if (belt_utility::inserter_fits_results::after == belt_utility::is_inserter_before_or_after<direction>(inserters.back()[0], object))
+			else if (belt_utility::inserter_fits_results::after == belt_utility::is_inserter_before_or_after<direction>(inserters[inserter_group_indexes.back().start], object))
 			{
 				insert_results = belt_utility::inserter_fits_results::after;
 				can_fit_index = inserters.size() - 1ll;
-				can_fit_nested_index = get_inserter_group_index<direction>(inserters.back(), object);
+				can_fit_nested_index = get_inserter_group_index<direction>(inserter_group_indexes.back(), object);
 			}
 			else
 			{
 				//check if we can place it in between inserters
-				const long long l = inserters.size();
+				const long long l = inserter_group_indexes.size();
 				for (long long i = 0ll, i2 = 1ll; i2 < l; ++i, ++i2)
 				{
-					if (object_direction_position - belt_utility::get_direction_position<direction>(inserters[i][0].get_position()) >= max_inserter_distance &&
-						object_direction_position - belt_utility::get_direction_position<direction>(inserters[i].back().get_position()) >= max_inserter_distance)
+					if (object_direction_position - inserters[inserter_group_indexes[i].start].get_distance_position_plus() >= max_inserter_distance &&
+						object_direction_position - inserters[inserter_group_indexes[i].end].get_distance_position_plus() >= max_inserter_distance)
 					{
 						insert_results = belt_utility::inserter_fits_results::no_fit;
 						can_fit_index = l;
-						can_fit_nested_index = get_inserter_group_index<direction>(inserters[i2], object);
+						can_fit_nested_index = get_inserter_group_index<direction>(inserter_group_indexes[i2], object);
 						break;
 					}
 					else
 					{
-						if (belt_utility::inserter_fits_results::inbetween == belt_utility::is_inserter_between<direction>(inserters[i][0], inserters[i2][0], object))
+						if (belt_utility::inserter_fits_results::inbetween == belt_utility::is_inserter_between<direction>(inserters[inserter_group_indexes[i].start], inserters[inserter_group_indexes[i2].start], object))
 						{
 							insert_results = belt_utility::inserter_fits_results::inbetween;
 							can_fit_index = i2;
-							can_fit_nested_index = get_inserter_group_index<direction>(inserters[i2], object);
+							can_fit_nested_index = get_inserter_group_index<direction>(inserter_group_indexes[i2], object);
 						}
 					}
 				}
@@ -1982,19 +1962,19 @@ private:
 		{
 			if (belt_utility::inserter_fits_results::no_fit == insert_results && can_fit_index == inserters.size())
 			{
-				auto& group = inserters.emplace_back();
-				object.set_distance_position_plus(get_end_distance_direction<direction>() - object_direction_position);
-				object.set_distance_position_minus(get_end_distance_direction<direction>() - object_direction_position - item_settings::belt_item_size);
-				group.emplace_back(object);
+				auto& group = inserters.emplace_back(object);
+				inserter_group_indexes.emplace_back(can_fit_index, can_fit_index);
+				//object.set_distance_position_plus(get_end_distance_direction<direction>() - object_direction_position);
+				//object.set_distance_position_minus(get_end_distance_direction<direction>() - object_direction_position - item_settings::belt_item_size);
 
-				inserter_slots.emplace_back(static_cast<std::size_t>(can_fit_index), 0ull, &inserters);
+				//inserter_slots.emplace_back(static_cast<std::size_t>(can_fit_index), 0ull, &inserters);
 			}
 			else
 			{
-				inserters[can_fit_index].insert(inserters[can_fit_index].begin() + can_fit_nested_index, object);
+				inserters.insert(inserters.begin() + can_fit_nested_index, object);
 
-				(inserters[can_fit_index].begin() + can_fit_nested_index)->set_distance_position_plus(get_end_distance_direction<direction>() - object_direction_position);
-				(inserters[can_fit_index].begin() + can_fit_nested_index)->set_distance_position_minus(get_end_distance_direction<direction>() - object_direction_position - item_settings::belt_item_size);
+				//(inserters[can_fit_index].begin() + can_fit_nested_index)->set_distance_position_plus(get_end_distance_direction<direction>() - object_direction_position);
+				//(inserters[can_fit_index].begin() + can_fit_nested_index)->set_distance_position_minus(get_end_distance_direction<direction>() - object_direction_position - item_settings::belt_item_size);
 			}
 
 			return { can_fit_index, can_fit_nested_index };

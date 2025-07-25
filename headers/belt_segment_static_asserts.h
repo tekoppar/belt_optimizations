@@ -1,6 +1,10 @@
 #pragma once
 
 #include "belt_segment.h"
+#include "vectors.h"
+#include "item.h"
+#include "macros.h"
+#include "index_inserter.h"
 
 
 CONSTEXPR_VAR auto test_belt_segment() noexcept
@@ -35,7 +39,7 @@ static_assert(test_belt_segment() == 255, "wrong count");
 #endif
 
 
-CONSTEXPR_VAR auto test_moving_items_between_belt_segments(std::size_t return_index) noexcept
+CONSTEXPR_VAR auto test_moving_items_between_belt_segments(size_t return_index) noexcept
 {
 	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{255, 0} };
 	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0, 0 }, vec2_int64{ 255, 0 });
@@ -66,7 +70,7 @@ static_assert(test_moving_items_between_belt_segments(0) == 319ll, "item did not
 #endif
 
 
-CONSTEXPR_VAR auto test_removing_item_group(std::size_t return_index) noexcept
+CONSTEXPR_VAR auto test_removing_item_group(size_t return_index) noexcept
 {
 	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{255, 0} };
 	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 0ll, 0ll } });
@@ -94,7 +98,7 @@ static_assert(test_removing_item_group(1) == 2, "item did not jump to the second
 #endif
 
 
-CONSTEXPR_VAR auto test_incrementing_if_some_are_stuck(std::size_t return_index) noexcept
+CONSTEXPR_VAR auto test_incrementing_if_some_are_stuck(size_t return_index) noexcept
 {
 	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{255, 0} };
 	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0, 0 }, vec2_int64{ 255, 0 });
@@ -123,7 +127,7 @@ static_assert(test_incrementing_if_some_are_stuck(0) == 255, "position is wrong,
 #endif
 
 
-CONSTEXPR_VAR auto test_adding_in_middle(std::size_t return_index) noexcept
+CONSTEXPR_VAR auto test_adding_in_middle(size_t return_index) noexcept
 {
 	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{400, 0} };
 	constexpr auto direction = first_segment.direction_construct(vec2_int64{ 0, 0 }, vec2_int64{ 400, 0 });
@@ -168,7 +172,7 @@ static_assert(test_last_item_distance() == 180, "item distance is incorrect");
 #endif
 
 
-CONSTEXPR_VAR auto test_item_distance(std::size_t return_index) noexcept
+CONSTEXPR_VAR auto test_item_distance(size_t return_index) noexcept
 {
 	belt_segment first_segment{ vec2_int64{0, 0}, vec2_int64{400, 0} };
 	first_segment.add_item(item_uint{ item_type::wood, vec2_int64{ 10ll, 0ll } });
@@ -379,7 +383,7 @@ struct booleans
 		return a == rhs.a && b == rhs.b && c == rhs.c && d == rhs.d && e == rhs.e && f == rhs.f;
 	};
 };
-CONSTEXPR_VAR auto test_mixing_inserters_and_item_groups(std::size_t return_index) noexcept
+CONSTEXPR_VAR auto test_mixing_inserters_and_item_groups(size_t return_index) noexcept
 {
 	booleans count_conditions{};
 	belt_segment first_segment{ vec2_int64{0ll, 0ll}, vec2_int64{14096ll, 0ll} };

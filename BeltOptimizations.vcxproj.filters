@@ -38,13 +38,7 @@
     <ClInclude Include="headers\item_32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="headers\item_256.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="headers\const_data.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\inserter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="x64\second_test.h">
@@ -114,6 +108,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="headers\belt_segment_static_asserts.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\belt_utility_non_type.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\item_settings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\index_inserter_settings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

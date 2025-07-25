@@ -2,33 +2,22 @@
 
 #include <immintrin.h>
 #include <type_traits>
-#include <cstring>
+#include <utility>
 
+#include <item_settings.h>
 #include "macros.h"
 #include "item.h"
 #include "vectors.h"
 #include "belt_utility_data.h"
 #include "belt_intrinsics.h"
-#include "shared_classes.h"
-#include <limits>
-#include <utility>
-
-class belt_segment;
 
 using item_count_type = char;
 
 class __declspec(align(item_settings::max(item_settings::max_item_count, 32))) item_32_data
 {
 public:
-	/*__declspec(align(32)) bool contains_item[32]{
-	false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
-	false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false
-	};*/
-	/*__declspec(align(32))*/ short item_distance[item_settings::max_item_count]{
-		//0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-		//,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-	};
-	/*__declspec(align(32))*/ belt_item items[item_settings::max_item_count];
+	/*__declspec(align(32))*/ short item_distance[item_settings::max_item_count]{};
+	/*__declspec(align(32))*/ belt_item items[item_settings::max_item_count]{};
 
 	struct item_32_data_helpers
 	{
@@ -469,41 +458,6 @@ public:
 		return lhs.item_count == rhs.item_count && &lhs == &rhs;
 	};
 
-	/*constexpr inline void shift_left_contains_item() noexcept
-	{
-		contains_item <<= 1;
-	};
-	constexpr inline void shift_right_contains_item() noexcept
-	{
-		contains_item = static_cast<long>(static_cast<unsigned long>(contains_item) >> 1);
-	};
-	template<bool bit_value>
-	constexpr inline void set_contains_item_bit(const long long i) noexcept
-	{
-		if constexpr (bit_value) set_contains_item_bit_true(i);
-		else set_contains_item_bit_false(i);
-	};
-	constexpr inline void set_contains_item_bit_true(const long long i) noexcept
-	{
-		if (std::is_constant_evaluated()) contains_item |= (1L << i);
-		else _bittestandset(&contains_item, i);
-	};
-	constexpr inline void set_contains_item_bit_false(const long long i) noexcept
-	{
-		if (std::is_constant_evaluated()) contains_item &= ~(1L << i);
-		else _bittestandreset(&contains_item, i);
-	};
-	constexpr inline bool get_contains_item_bit(const long long i) const noexcept
-	{
-		if (std::is_constant_evaluated()) return (contains_item & (1L << i)) != 0;
-		else return static_cast<bool>(_bittest(&contains_item, i));
-	};
-	constexpr inline void set_contains_item_bit(const unsigned char bit_value, const long long i) noexcept
-	{
-		if (bit_value) set_contains_item_bit_true(i);
-		else set_contains_item_bit_false(i);
-	};*/
-
 	constexpr item_32 split_from_index(long long index) noexcept
 	{
 		const long long old = item_count - (index + 1);
@@ -526,6 +480,17 @@ public:
 		if constexpr (_BOUNDS_CHECKING_) if (i >= item_count) return {};
 
 		return { item_data.items[i].type, vec2_int64{get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_item(item_data, i), segment_y_direction} };
+	};
+	template<belt_utility::belt_direction direction>
+	inline constexpr const item_uint get(long long segment_end_direction, long long segment_y_direction, long long item_goal_distance, item_32_data& item_data, long long item_distance) const noexcept
+	{
+		for (long long i = 0ll; i < item_count; ++i)
+		{
+			const auto item_position = get_item_direction_position<direction>(segment_end_direction, item_goal_distance, item_data, i);
+			if (item_position == item_distance) return { item_data.items[i].type, vec2_int64{get_direction_position(segment_end_direction, item_goal_distance) - get_distance_to_item(item_data, i), segment_y_direction} };
+		}
+
+		return {};
 	};
 
 	inline constexpr item_uint get_first_item(long long segment_end_direction, long long segment_y_direction, long long item_goal_distance, item_32_data& item_data) const noexcept
@@ -940,7 +905,7 @@ constexpr auto test_item_32_data_split(int split_index) noexcept
 
 	auto split_result = item_data_utility::split_from_index(data, split_index);
 	const auto& split_data = split_result.data;
-	const auto split_left = item_settings::max_item_count - (split_index + 1);
+	const auto split_left = static_cast<long long>(item_settings::max_item_count) - (static_cast<long long>(split_index) + 1);
 	const auto split_right = split_index + 1;
 
 	if (!(0 < split_left && split_left < item_settings::max_item_count)) return false;

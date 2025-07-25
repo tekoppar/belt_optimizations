@@ -1,21 +1,14 @@
 // BeltOptimizations.cpp : This file contains the 'main' function. Program execution begins and ends there.
 #include "second_test.h"
 
-#define NOMINMAX
-#include <Windows.h>
-
 #include <chrono>
 #include <iostream>
-#include <stdexcept>
 #include <limits>
-
-#include "const_data.h"
 
 #include "vectors.h"
 #include "index_inserter.h"
 #include "item.h"
 
-#include "item_32.h"
 #include "belt_segment.h"
 
 #ifdef AMDUPROF_
@@ -25,7 +18,7 @@
 #ifdef _DEBUG
 constexpr const std::size_t second_test_max_belts_8 = 10'000'000ll;
 #else
-constexpr const size_t second_test_max_belts_8 = 2'000'000'000ll;
+constexpr const size_t second_test_max_belts_8 = 2'00'000'000ll;
 #endif
 constexpr const size_t throw_value = static_cast<size_t>(static_cast<double>(second_test_max_belts_8) * 0.6);
 constexpr const size_t item_max_distance = second_test_max_belts_8 * 32ll;
@@ -38,26 +31,26 @@ static volatile belt_segment const* second_test_all_belts_ptr = nullptr;
 size_t second_test_loop_counter = 0ull;
 constexpr const size_t second_test_max_belts = second_test_max_belts_8 / 32ll;
 
-void second_test_belt_setup(belt_segment& bs) noexcept
+void second_test_belt_setup(belt_segment& bs)
 {
 	bs = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
 	second_test_all_belts_ptr = &bs;
 #ifdef _DEBUG
-	constexpr long long inserter_pos = 350000;// (32ll * 1024ll) + 16;
+	constexpr long long inserter_pos = 4096 - 128;// (32ll * 1024ll) + 16;
 #else
 	constexpr long long inserter_pos = 3500000;// *((second_test_max_belts * 32ll * 32ll) / 350000 - 1ll);
 #endif
 	constexpr long long max_inserters = (second_test_max_belts * 32ll * 32ll) / inserter_pos - 1ll;
-	constexpr long long l = max_inserters;
+	constexpr long long l = 8;// max_inserters;
 
-	std::cout << "Starting to add inserters" << std::endl;
+	std::cout << "Starting to add " << max_inserters << " inserters" << std::endl;
 	for (long long i = 0; i < l; ++i)
 	{
 		constexpr long long lx = 1;
 		for (long long x = 0; x < lx; ++x)
 		{
 			const auto inserterd_index = bs.add_inserter(index_inserter{ vec2_int64{(inserter_pos * i + inserter_pos) + (x * 32ll), 32ll} });
-			auto& found_inserter = bs.get_inserter(inserterd_index);
+			auto& found_inserter = bs.get_belt_inserter(inserterd_index);
 			found_inserter.set_item_type(item_type::wood);
 		}
 	}
@@ -65,7 +58,7 @@ void second_test_belt_setup(belt_segment& bs) noexcept
 
 	long long belt_x_position = 0ll;
 	constexpr size_t l2 = second_test_max_belts;
-	std::cout << "Starting to add items" << std::endl;
+	std::cout << "Starting to add " << second_test_max_belts_8 << " items" << std::endl;
 	const auto t1 = std::chrono::high_resolution_clock::now();
 	for (size_t i = 0; i < l2; ++i)
 	{

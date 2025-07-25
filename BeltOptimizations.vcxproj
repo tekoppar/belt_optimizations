@@ -283,18 +283,16 @@
     <ClInclude Include="headers\belt_utility.h" />
     <ClInclude Include="headers\belt_utility_concepts.h" />
     <ClInclude Include="headers\belt_utility_data.h" />
+    <ClInclude Include="headers\belt_utility_non_type.h" />
     <ClInclude Include="headers\belt_utility_test.h" />
     <ClInclude Include="headers\block_allocator.h" />
     <ClInclude Include="headers\const_data.h" />
     <ClInclude Include="headers\index_inserter.h" />
+    <ClInclude Include="headers\index_inserter_settings.h" />
     <ClInclude Include="headers\index_iterator.h" />
-    <ClInclude Include="headers\inserter.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseAMDuProf|x64'">true</ExcludedFromBuild>
-    </ClInclude>
     <ClInclude Include="headers\item.h" />
-    <ClInclude Include="headers\item_256.h" />
     <ClInclude Include="headers\item_32.h" />
+    <ClInclude Include="headers\item_settings.h" />
     <ClInclude Include="headers\macros.h" />
     <ClInclude Include="headers\math_utility.h" />
     <ClInclude Include="headers\mem_utilities.h" />

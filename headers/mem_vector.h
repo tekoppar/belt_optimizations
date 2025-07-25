@@ -15,7 +15,6 @@
 #include <malloc.h>
 #include <concrt.h>
 #include <vector>
-#include <corecrt_terminate.h>
 #include <cstring>
 #ifdef _DEBUG
 #include <exception>
@@ -27,11 +26,11 @@
 #include "mem_vector_concepts.h"
 #include "type_conversion.h"
 #include "simd_memcpy.h"
-#include <exception>
 
 #ifdef _DEBUG
 #define _DEAD_DEBUG_CHECK
 #endif
+#include <exception>
 
 namespace mem
 {
@@ -925,7 +924,7 @@ namespace mem
 		inline constexpr bool needs_resize(long long min_size) const noexcept
 		{
 			return min_size >= get_capacity();
-			return (this->values.last + min_size) >= (this->values.end - 1ll);
+			//return (this->values.last + min_size) >= (this->values.end - 1ll);
 		};
 
 		inline constexpr void decrease_size(long long new_size) noexcept

@@ -1,9 +1,9 @@
 #pragma once
 
+#include "shared_classes.h"
+#include "mem_vector.h"
 #include "item_32.h"
 #include "index_inserter.h"
-#include "mem_vector.h"
-#include "shared_classes.h"
 
 //#define _SIMPLE_MEMORY_LEAK_DETECTION
 /*#ifdef _DEBUG
@@ -12,20 +12,26 @@
 
 using item_groups_type = item_32;
 using item_groups_data_type = item_32_data;
+using inserter_type = belt_segment_index_inserter;
 
-struct item_group_n_data
+/*struct item_group_n_data
 {
 	mem::vector<long long, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<long long, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off> distances;
 	mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off> item_groups;
 	mem::vector<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off> item_group_data;
+	long long internal_index{ -1ll };
 
 	constexpr void reserve() noexcept
 	{
-		distances.reserve(16);
-		item_groups.reserve(16);
-		item_group_data.reserve(16);
+		constexpr const int size = 8ll;
+		distances.reserve(size);
+		distances.values.last += size;
+		item_groups.reserve(size);
+		item_groups.values.last += size;
+		item_group_data.reserve(size);
+		item_group_data.values.last += size;
 	};
-};
+};*/
 
 struct alignas(32) item_groups_head_t
 {
@@ -47,8 +53,16 @@ using _vector_distance = mem::vector<long long, mem::Allocating_Type::ALIGNED_MA
 using _vector_goal_distance = mem::vector<goal_distance, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<goal_distance, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 using _vector_item_groups_head = mem::vector<item_groups_head_t, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_head_t, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 
-using _simple_inserter_vector = mem::vector<index_inserter, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<index_inserter, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
+using _simple_inserter_vector = mem::vector<inserter_type, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<inserter_type, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
 using _vector_inserters = mem::vector<_simple_inserter_vector, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<_simple_inserter_vector, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
+
+struct inserter_group_indexes_t
+{
+	long long start{ -1ll };
+	long long end{ -1ll };
+};
+
+using _inserter_group_indexes = mem::vector<inserter_group_indexes_t, mem::Allocating_Type::ALIGNED_NEW, mem::allocator<inserter_group_indexes_t, mem::Allocating_Type::ALIGNED_NEW>, mem::use_memcpy::force_checks_off>;
 
 using _vector_item_groups_head_type = _vector_item_groups_head;
 

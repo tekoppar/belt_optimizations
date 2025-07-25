@@ -9,6 +9,8 @@
 #include <cstring>
 #include <heapapi.h>
 #include <corecrt_terminate.h>
+#include <exception>
+#include <minwinbase.h>
 
 template<typename type, std::size_t memory_block_size = 4096>
 class memory_block
