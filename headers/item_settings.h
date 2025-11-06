@@ -25,7 +25,9 @@ struct item_settings
 	struct index_item_position_return
 	{
 		long long found_index{ -1ll };
+		long long inserter_index{ -1ll };
 		long long item_distance_position{ -1ll };
+
 		//long long event_trigger_index{ -1 };
 
 		friend inline constexpr bool operator==(const index_item_position_return& lhs, const index_item_position_return& rhs)

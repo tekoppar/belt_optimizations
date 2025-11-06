@@ -440,6 +440,10 @@ public:
 	};
 
 public:
+	inline constexpr void grab_item(const item_type& t) noexcept
+	{
+		item_type_ = t;
+	};
 	inline constexpr void grab_item(item_type&& t) noexcept
 	{
 		item_type_ = std::move(t);
@@ -463,6 +467,6 @@ public:
 	};
 	inline constexpr long long get_distance_position_minus() const noexcept
 	{
-		return distance_position_minus;
+		return distance_position_plus - item_settings::belt_item_size;// distance_position_minus;
 	};
 };

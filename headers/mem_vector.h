@@ -1682,6 +1682,8 @@ namespace mem
 					--_begin;
 				}
 
+				new (_start.operator->()) value_type{ std::move(*_begin) };
+
 				iter_position.operator*() = value_type{ };
 				this->values.last = this->values.last + 1ll;
 				return iterator{ iter_position };
@@ -1737,6 +1739,8 @@ namespace mem
 					--_start;
 					--_begin;
 				}
+
+				(*_start) = std::move(*_begin);
 
 				iter_position.operator*() = value_type{ std::forward<Types>(args)... };
 				this->values.last = this->values.last + 1ll;

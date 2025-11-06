@@ -10,6 +10,8 @@
 #include "vectors.h"
 #include "belt_utility_data.h"
 #include "belt_intrinsics.h"
+#include <bit>
+#include "global_classes.h"
 
 using item_count_type = char;
 
@@ -311,11 +313,11 @@ namespace item_data_utility
 			item_data.items[i] = previous_i_x;
 			previous_i_x = current_i_x;
 		}
-		if (item_count > 0)
+		/*if (item_count > 0)
 		{
 			//item_data.contains_item[item_count - 1] = false;
 			item_data.item_distance[item_count - 1] = 0;
-		}
+		}*/
 	};
 
 	inline constexpr static void shift_arrays_right(long long item_count, item_32_data& item_data) noexcept
@@ -343,11 +345,11 @@ namespace item_data_utility
 				item_data.items[i] = previous_i_x;
 				previous_i_x = current_i_x;
 			}
-			if (item_count > 0)
+			/*if (item_count > 0)
 			{
 				//item_data.contains_item[item_count - 1] = false;
-				item_data.item_distance[item_count - 1] = 0;
-			}
+				//item_data.item_distance[item_count - 1] = 0;
+			}*/
 		}
 		else
 		{
@@ -357,7 +359,7 @@ namespace item_data_utility
 			//belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.items[0]);
 			//belt_utility::_mm512_srli2x256_si512__<2>((__m256i*) & item_data.items[32]);
 			//item_data.contains_item[item_count - 1] = false;
-			item_data.item_distance[item_count - 1] = 0;
+			//item_data.item_distance[item_count - 1] = 0;
 #ifdef _SIMPLE_MEMORY_LEAK_DETECTION
 			detect_memory_leak(this);
 #endif
@@ -625,7 +627,7 @@ public:
 
 	// in the case that we add to an item_group that's not the goal group we need the calculated distance to get the real direction_position
 	// else the new_item_position will be relative to the world while the direction_position will be relative to itself
-	constexpr long long add_item(const long long segment_end_direction, long long item_distance_direction, long long* item_goal_distance, item_32_data& item_data, const belt_item& new_item, vec2_int64 new_item_position) noexcept
+	constexpr long long add_item(const long long segment_end_direction, long long item_distance_direction, item_groups_distance* item_goal_distance, item_32_data& item_data, const belt_item& new_item, vec2_int64 new_item_position) noexcept
 	{
 		if (item_count == 0ll)
 		{
@@ -642,10 +644,11 @@ public:
 		//checks if the new item position is greater then the current item position + 32
 		//and that there's still space to fit the item before the goal
 		const auto direction_position = get_direction_position(segment_end_direction, item_distance_direction);
-		if (new_item_position.x >= direction_position + belt_item_size && *item_goal_distance >= belt_item_size)
+		if (new_item_position.x >= direction_position + belt_item_size && (*item_goal_distance).distance_between >= belt_item_size)
 		{
 			const long long new_distance = new_item_position.x - direction_position;
-			*item_goal_distance = *item_goal_distance - new_distance;
+			(*item_goal_distance).distance_between = (*item_goal_distance).distance_between - new_distance;
+			(*item_goal_distance).distance_to_end -= new_distance;
 			const long long l = static_cast<long long>(item_count - 1);
 			for (long long i = l; i >= 0; --i) item_data.item_distance[i] += static_cast<short>(new_distance);
 			//for (long long i = 0; i < l; ++i) item_data.item_distance[i] += static_cast<short>(new_distance);
@@ -694,12 +697,12 @@ public:
 		return -1;
 	};
 
-	__forceinline constexpr long long add_item(const long long segment_end_direction, long long* item_goal_distance, item_32_data& item_data, const belt_item& new_item, vec2_int64 new_item_position) noexcept
+	__forceinline constexpr long long add_item(const long long segment_end_direction, item_groups_distance* item_goal_distance, item_32_data& item_data, const belt_item& new_item, vec2_int64 new_item_position) noexcept
 	{
-		return add_item(segment_end_direction, *item_goal_distance, item_goal_distance, item_data, new_item, new_item_position);
+		return add_item(segment_end_direction, (*item_goal_distance).distance_between, item_goal_distance, item_data, new_item, new_item_position);
 	};
 
-	__forceinline constexpr item_settings::item_removal_result remove_item(long long* const item_goal_distance, item_32_data& item_data, long long index) noexcept
+	__forceinline constexpr item_settings::item_removal_result remove_item(item_groups_distance* const item_goal_distance, item_32_data& item_data, long long index) noexcept
 	{
 		if constexpr (__DEBUG_BUILD) if (index >= item_settings::max_item_count) return item_settings::item_removal_result::item_not_removed;
 
@@ -734,7 +737,10 @@ public:
 		}
 		else
 		{
-			*item_goal_distance += item_data.item_distance[index];
+			//const long long real_distance = (*item_goal_distance).distance_to_end - (*item_goal_distance).distance_between;
+			//(*item_goal_distance).distance_between += real_distance;
+			//(*item_goal_distance).distance_between += item_data.item_distance[index]; //TODO this is incorrect, it forwards the distance not the amount of distance that has been covered
+			//(*item_goal_distance).distance_to_end += real_distance;
 			//set_contains_item_bit<false>(index);
 			//item_data.contains_item[index] = false;
 
@@ -855,19 +861,35 @@ public:
 	*/
 	constexpr size_t items_stuck_update(item_32_data& item_data) const noexcept
 	{
-		size_t moved_items = 0;
-		long long previous_item_dist = belt_item_size;
-		for (long long i = 1; i < item_count; ++i)
+		if (std::is_constant_evaluated())
 		{
-			if (previous_item_dist < item_data.item_distance[i])
+			size_t moved_items = 0;
+			long long previous_item_dist = belt_item_size;
+			for (long long i = 1; i < item_count; ++i)
 			{
-				--item_data.item_distance[i];
-				++moved_items;
+				if (previous_item_dist < item_data.item_distance[i])
+				{
+					--item_data.item_distance[i];
+					++moved_items;
+				}
+				previous_item_dist = item_data.item_distance[i] + belt_item_size;
 			}
-			previous_item_dist = item_data.item_distance[i] + belt_item_size;
-		}
 
-		return moved_items;
+			return moved_items;
+		}
+		else
+		{
+			const __m256i loaded = _mm256_load_si256((const __m256i*)item_data.item_distance[0]);
+			const __m256i full_item_size = _mm256_set1_epi16(belt_item_size);
+			__m256i added = _mm256_add_epi16(loaded, full_item_size);
+			_mm256_storeu_si256((__m256i*)&added.m256i_i16[1], added);
+			const __m256i compare_mask = _mm256_cmpgt_epi16(loaded, added);
+			const __m256i second_add = _mm256_add_epi16(loaded, compare_mask);
+			_mm256_store_si256((__m256i*)&item_data.item_distance[0], second_add);
+			const __m256i anded = _mm256_and_si256(compare_mask, _mm256_set1_epi16(0b1000'0000'0000'0000));
+			const int bit_mask = _mm256_movemask_epi8(anded);
+			return std::popcount(static_cast<unsigned>(bit_mask));
+		}
 	};
 	constexpr size_t items_stuck_update(item_32_data* item_data) const noexcept
 	{

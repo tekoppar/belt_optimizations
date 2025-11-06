@@ -16,9 +16,9 @@
 #endif
 
 #ifdef _DEBUG
-constexpr const std::size_t second_test_max_belts_8 = 10'000'000ll;
+constexpr const std::size_t second_test_max_belts_8 = 1'000'000ll;
 #else
-constexpr const size_t second_test_max_belts_8 = 2'00'000'000ll;
+constexpr const size_t second_test_max_belts_8 = 2'000'000'000ll;
 #endif
 constexpr const size_t throw_value = static_cast<size_t>(static_cast<double>(second_test_max_belts_8) * 0.6);
 constexpr const size_t item_max_distance = second_test_max_belts_8 * 32ll;
@@ -36,12 +36,12 @@ void second_test_belt_setup(belt_segment& bs)
 	bs = belt_segment{ vec2_int64{0, 0}, vec2_int64{ second_test_max_belts * 32ll * 32ll * 2ll, 0ll} };
 	second_test_all_belts_ptr = &bs;
 #ifdef _DEBUG
-	constexpr long long inserter_pos = 4096 - 128;// (32ll * 1024ll) + 16;
+	constexpr long long inserter_pos = 350000;// (32ll * 1024ll) + 16;
 #else
-	constexpr long long inserter_pos = 3500000;// *((second_test_max_belts * 32ll * 32ll) / 350000 - 1ll);
+	constexpr long long inserter_pos = 350000;// *((second_test_max_belts * 32ll * 32ll) / 350000 - 1ll);
 #endif
 	constexpr long long max_inserters = (second_test_max_belts * 32ll * 32ll) / inserter_pos - 1ll;
-	constexpr long long l = 8;// max_inserters;
+	constexpr long long l = max_inserters;
 
 	std::cout << "Starting to add " << max_inserters << " inserters" << std::endl;
 	for (long long i = 0; i < l; ++i)
@@ -51,7 +51,7 @@ void second_test_belt_setup(belt_segment& bs)
 		{
 			const auto inserterd_index = bs.add_inserter(index_inserter{ vec2_int64{(inserter_pos * i + inserter_pos) + (x * 32ll), 32ll} });
 			auto& found_inserter = bs.get_belt_inserter(inserterd_index);
-			found_inserter.set_item_type(item_type::wood);
+			found_inserter.set_item_type(item_type::copper);
 		}
 	}
 	std::cout << "Finished adding inserters" << std::endl;
@@ -86,8 +86,26 @@ size_t second_test_get_total_items_on_belts(belt_segment& bs) noexcept
 	return bs.count_all_items();
 }
 
+void test_2_billion()
+{
+	std::vector<long long> test_arr;
+	test_arr.reserve(2'000'000'000);
+	for (size_t i = 0; i < test_arr.capacity(); ++i)
+		test_arr.emplace_back(i);
+
+	const auto t1 = std::chrono::high_resolution_clock::now();
+	for (size_t i = 0; i < test_arr.size(); ++i)
+		++test_arr[i];
+	const auto t2 = std::chrono::high_resolution_clock::now();
+
+	auto ms_int = duration_cast<std::chrono::nanoseconds>(t2 - t1);
+	std::cout << ms_int.count() << std::endl;
+}
+
 void second_belt_test()
 {
+	//test_2_billion();
+
 	belt_segment second_test_all_belts;
 #ifdef AMDUPROF_
 	if (!amdProfileStrictResumeImpl()) throw std::runtime_error("");
@@ -135,6 +153,8 @@ void second_belt_test()
 			if (!amdProfilePauseImpl()) throw std::runtime_error("");
 #endif
 		}*/
+
+		//second_test_all_belts.add_item(item_uint{ item_type::wood, vec2_int64(0ll, 0ll) }, false);
 
 		if (second_counter >= 1000000000)
 		{

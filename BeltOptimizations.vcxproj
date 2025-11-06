@@ -287,6 +287,7 @@
     <ClInclude Include="headers\belt_utility_test.h" />
     <ClInclude Include="headers\block_allocator.h" />
     <ClInclude Include="headers\const_data.h" />
+    <ClInclude Include="headers\global_classes.h" />
     <ClInclude Include="headers\index_inserter.h" />
     <ClInclude Include="headers\index_inserter_settings.h" />
     <ClInclude Include="headers\index_iterator.h" />

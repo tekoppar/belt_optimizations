@@ -4,6 +4,7 @@
 #include "mem_vector.h"
 #include "item_32.h"
 #include "index_inserter.h"
+#include "global_classes.h"
 
 //#define _SIMPLE_MEMORY_LEAK_DETECTION
 /*#ifdef _DEBUG
@@ -33,12 +34,15 @@ using inserter_type = belt_segment_index_inserter;
 	};
 };*/
 
+using _distance_type = item_groups_distance;
+
 struct alignas(32) item_groups_head_t
 {
-	/*0-7*/ long long distance{ -1ll };
-	/*8-15*/ long long next_item_group_index{ -1ll };
-	/*16*/ item_groups_type item_group;
-	/*17*/ char item_to_grab{ -1 }; //index of what item event triggered wants
+	/*0-15*/ _distance_type distance{ -1ll };
+	/*16-23*/ long long next_item_group_index{ -1ll };
+	/*24*/ item_groups_type item_group;
+	/*25*/ char item_to_grab{ -1 }; //index of what item event triggered wants
+	/*26*/ long long inserter_index{-1ll};
 	//int n_group_data_index{ -1 };
 	//int event_trigger_index{ -1 }; //index into what triggered the event
 	__declspec(align(32)) item_groups_data_type item_group_data;
@@ -49,7 +53,7 @@ struct alignas(32) item_groups_head_t
 
 using _data_vector = mem::vector<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_data_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 using _vector = mem::vector<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
-using _vector_distance = mem::vector<long long, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<long long, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
+using _vector_distance = mem::vector<_distance_type, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<_distance_type, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 using _vector_goal_distance = mem::vector<goal_distance, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<goal_distance, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 using _vector_item_groups_head = mem::vector<item_groups_head_t, mem::Allocating_Type::ALIGNED_MALLOC, mem::allocator<item_groups_head_t, mem::Allocating_Type::ALIGNED_MALLOC>, mem::use_memcpy::force_checks_off>;
 

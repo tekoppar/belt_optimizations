@@ -124,25 +124,25 @@ namespace belt_utility
 			half_size = expr::abs((right_goal_iter - left_goal_iter) / 2ll);
 			auto temp_half_goal_iter = left_goal_iter + half_size;
 
-			if ((*temp_half_goal_iter).distance < distance_position) right_goal_iter = temp_half_goal_iter;
+			if ((*temp_half_goal_iter).distance.distance_between < distance_position) right_goal_iter = temp_half_goal_iter;
 			else left_goal_iter = temp_half_goal_iter;
 		}
 
-		if ((*left_goal_iter).distance > distance_position) return right_goal_iter;
+		if ((*left_goal_iter).distance.distance_between > distance_position) return right_goal_iter;
 		else return left_goal_iter;
 	};
 
 	constexpr _vector_item_groups_head_type::iterator get_head_item_belongs_too(long long item_distance, _vector_item_groups_head& item_groups_heads) noexcept
 	{
 		if (item_groups_heads.empty()) return item_groups_heads.last();
-		if ((item_groups_heads.last() - 1ll)->distance > item_distance) return item_groups_heads.last() - 1ll;
-		if (item_groups_heads.begin()->distance < item_distance) return item_groups_heads.begin();
+		if ((item_groups_heads.last() - 1ll)->distance.distance_between > item_distance) return item_groups_heads.last() - 1ll;
+		if (item_groups_heads.begin()->distance.distance_between < item_distance) return item_groups_heads.begin();
 
 		auto half_size = item_groups_heads.size();
 		if (half_size == 1) return item_groups_heads.begin();
 		if (half_size == 2)
 		{
-			if ((item_groups_heads[0]).distance > item_distance) return item_groups_heads.begin() + 1;
+			if ((item_groups_heads[0]).distance.distance_between > item_distance) return item_groups_heads.begin() + 1;
 			return item_groups_heads.begin();
 		}
 
@@ -154,23 +154,25 @@ namespace belt_utility
 			half_size = expr::ceil_div_power2(right_goal_iter - left_goal_iter); // return (lhs + 1) >> 1;
 			auto temp_half_goal_iter = left_goal_iter + half_size;
 
-			if ((*temp_half_goal_iter).distance < item_distance) right_goal_iter = temp_half_goal_iter;
+			if ((*temp_half_goal_iter).distance.distance_between < item_distance) right_goal_iter = temp_half_goal_iter;
 			else left_goal_iter = temp_half_goal_iter;
 		}
 
-		if ((*left_goal_iter).distance < item_distance) return left_goal_iter;
+		if ((*left_goal_iter).distance.distance_between < item_distance) return left_goal_iter;
 		else return right_goal_iter;
 	};
 
 	template<belt_direction direction>
 	constexpr find_closest_item_group_result<_vector::iterator> find_closest_item_group_binary(
 		const _vector_item_groups_head::iterator item_group_head,
+		const long long time_diluted_head_distance,
 		const long long head_index,
 		long long head_vector_size,
 		const long long new_goal_distance,
+		const long long end_of_belt_segment_distance,
 		_vector& item_groups_vec,
 		_data_vector& item_groups_data_vec,
-		_vector_distance& item_groups_distance_vec, 
+		_vector_distance& item_groups_distance_vec,
 		_simple_inserter_vector& inserter_vec,
 		_inserter_group_indexes& inserter_group_indexes) noexcept
 	{
@@ -184,9 +186,12 @@ namespace belt_utility
 
 		const _vector::iterator end_iter = item_groups_vec.last();
 
-		if (item_group_head->item_group.count() < item_settings::max_item_count && force_new_group_after == false)
+		if (item_group_head->item_group.count() < item_settings::max_item_count && force_new_group_after == false &&
+			((item_groups_distance_vec.empty() || item_groups_distance_vec.size() <= item_group_head->next_item_group_index) || new_goal_distance < item_groups_distance_vec[item_group_head->next_item_group_index].distance_to_end))
 			return { find_closest_item_group_return_result::insert_into_group, end_iter };
-		if (new_goal_distance > item_group_head->distance - item_settings::max_distance_between_items)
+		//if (item_group_head->item_group.count() == item_settings::max_item_count && new_goal_distance < item_group_head->distance)
+			//return { find_closest_item_group_return_result::new_group_after_iter, end_iter };
+		if (new_goal_distance < item_group_head->distance.distance_between)// - item_settings::max_distance_between_items)
 			return { find_closest_item_group_return_result::new_group_after_iter, end_iter };
 
 		auto right_of_binary_search = item_group_head->next_item_group_index;
@@ -195,12 +200,15 @@ namespace belt_utility
 		long long half_index = 0ll;
 		while (left_of_binary_search != right_of_binary_search)
 		{
-			half_index = left_of_binary_search + expr::ceil_div_power2(right_of_binary_search - left_of_binary_search); // return (lhs + 1) >> 1;
+			half_index = left_of_binary_search + ((right_of_binary_search - left_of_binary_search) >> 1);// expr::ceil_div_power2(right_of_binary_search - left_of_binary_search); // return (lhs + 1) >> 1;
 
-			const auto last_item_position = item_groups_vec[half_index].get_last_item_direction_position<direction>(item_groups_distance_vec[half_index], item_groups_data_vec[half_index]);
+			if (half_index == 0ll)
+				break;
+
+			const auto last_item_position = item_groups_vec[half_index].get_last_item_direction_position<direction>(item_groups_distance_vec[half_index].distance_to_end, item_groups_data_vec[half_index]);
 			if (new_goal_distance > last_item_position - item_settings::max_distance_between_items)
 			{
-				if (new_goal_distance < item_groups_distance_vec[half_index] - item_settings::max_distance_between_items) //found matching group
+				if (new_goal_distance < item_groups_distance_vec[half_index].distance_to_end - item_settings::max_distance_between_items) //found matching group
 					return { find_closest_item_group_return_result::insert_into_group, item_groups_vec.begin() + half_index };
 
 				right_of_binary_search -= half_index;
@@ -209,12 +217,27 @@ namespace belt_utility
 				left_of_binary_search += half_index;
 		}
 
-		if (item_groups_vec[half_index].count() < item_settings::max_item_count && force_new_group_after == false)
-			return { find_closest_item_group_return_result::insert_into_group, item_groups_vec.begin() + half_index };
-		if (new_goal_distance > item_groups_distance_vec[half_index] - item_settings::max_distance_between_items)
-			return { find_closest_item_group_return_result::new_group_after_iter, item_groups_vec.begin() + half_index };
-		if (new_goal_distance < item_settings::max_distance_between_items + item_groups_distance_vec[half_index])
-			return { find_closest_item_group_return_result::new_group_before_iter, item_groups_vec.begin() + half_index };
+		if (new_goal_distance < item_groups_vec[right_of_binary_search].get_last_item_direction_position<direction>(item_groups_distance_vec[right_of_binary_search].distance_to_end, item_groups_data_vec[right_of_binary_search]))
+			half_index = right_of_binary_search;
+		else
+			half_index = left_of_binary_search;
+
+		const auto last_item_distance = item_groups_vec[half_index].get_last_item_direction_position<direction>(item_groups_distance_vec[half_index].distance_to_end, item_groups_data_vec[half_index]);
+		if (end_of_belt_segment_distance - last_item_distance <= item_settings::belt_item_size)
+			return { find_closest_item_group_return_result::invalid_value, end_iter };
+
+		if (item_groups_vec[half_index].count() < item_settings::max_item_count)
+		{
+			if (force_new_group_after == false)
+				return { find_closest_item_group_return_result::insert_into_group, item_groups_vec.begin() + half_index };
+		}
+		else
+		{
+			if (new_goal_distance < item_groups_distance_vec[half_index].distance_to_end - item_settings::max_distance_between_items)
+				return { find_closest_item_group_return_result::new_group_after_iter, item_groups_vec.begin() + half_index };
+			if (new_goal_distance > item_groups_vec[half_index].get_last_item_direction_position<direction>(item_groups_distance_vec[half_index].distance_to_end, item_groups_data_vec[half_index]))
+				return { find_closest_item_group_return_result::new_group_before_iter, item_groups_vec.begin() + half_index };
+		}
 
 		return { find_closest_item_group_return_result::invalid_value, end_iter };
 	};
@@ -242,7 +265,7 @@ namespace belt_utility
 		if (found_inserter != inserter_vec.last())
 		{
 			const belt_utility::distance_comparison distance_comparison = belt_utility::get_distance_comparison<direction>(segment_end_direction, distance_position, found_inserter, found_inserter, item_settings::belt_item_size);
-			if (belt_utility::distance_comparison::distance_is_after == distance_comparison) 
+			if (belt_utility::distance_comparison::distance_is_after == distance_comparison)
 				force_new_group_after = true;
 			else
 			{
@@ -326,7 +349,7 @@ namespace belt_utility
 		{
 			if (begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter) - max_distance <= position)
 			{
-				if (begin_iter->get_direction_position(segment_end_direction, *begin_dist_iter) + max_distance >= position) //found matching group
+				if (begin_iter->get_direction_position(segment_end_direction, (*begin_dist_iter).distance_between) + max_distance >= position) //found matching group
 					return { find_closest_item_group_return_result::insert_into_group, begin_iter };
 			}
 			else if (loop_index + 1ll < vec.size())
@@ -338,12 +361,12 @@ namespace belt_utility
 					_vector_distance::iterator tmp_dist = begin_dist_iter + 1ll;
 					if (tmp->get_last_item_direction_position<direction>(segment_end_direction, *tmp_dist, *tmp_data) - max_distance > position)
 					{
-						if (begin_iter->get_direction_position(segment_end_direction, *begin_dist_iter) + max_distance < position) //if vector is sorted from low to high
+						if (begin_iter->get_direction_position(segment_end_direction, (*begin_dist_iter).distance_between) + max_distance < position) //if vector is sorted from low to high
 							return { find_closest_item_group_return_result::new_group_after_iter, begin_iter };
 					}
 					if (begin_iter->get_last_item_direction_position<direction>(segment_end_direction, *begin_dist_iter, *begin_data_iter) - max_distance > position)
 					{
-						if (tmp->get_direction_position(segment_end_direction, *tmp_dist) + max_distance < position) //if vector is sorted from high to low
+						if (tmp->get_direction_position(segment_end_direction, (*tmp_dist).distance_between) + max_distance < position) //if vector is sorted from high to low
 							return { find_closest_item_group_return_result::new_group_before_iter, tmp };
 					}
 				}
@@ -379,29 +402,29 @@ namespace belt_utility
 
 	constexpr inline long long get_distances_from_to2(_vector_distance::iterator from, const _vector_distance::iterator& to) noexcept
 	{
-		if (from == to) return *to;
-		long long real_distance = *from;
+		if (from == to) return (*to).distance_between;
+		long long real_distance = (*from).distance_between;
 		--from;
-		if (from == to) return real_distance + *to;
+		if (from == to) return real_distance + (*to).distance_between;
 		while (from != to)
 		{
-			real_distance += *from;
+			real_distance += (*from).distance_between;
 			--from;
 		}
 
-		if (from == to) return real_distance + *to;
+		if (from == to) return real_distance + (*to).distance_between;
 		return real_distance;
 	};
 	constexpr inline long long get_distances_from_to(_vector_distance::iterator dist_iter, const _vector_distance::iterator& end_dist_iter, const _vector_item_groups_head_type::iterator& iter) noexcept
 	{
-		long long real_distance = *dist_iter;
-		while (dist_iter != end_dist_iter && (*iter).distance != -1ll && *dist_iter != (*iter).distance)
+		long long real_distance = (*dist_iter).distance_between;
+		while (dist_iter != end_dist_iter && (*iter).distance.distance_between != -1ll && *dist_iter != (*iter).distance)
 		{
-			real_distance += *dist_iter;
+			real_distance += (*dist_iter).distance_between;
 			++dist_iter;
 		}
 
-		return (*iter).distance - real_distance;
+		return (*iter).distance.distance_between - real_distance;
 	};
 	constexpr inline long long get_item_group_distance_from_destination(_vector_distance& distances, _vector_item_groups_head_type& goal_distances, long long index) noexcept
 	{
@@ -413,7 +436,7 @@ namespace belt_utility
 		long long count_index = 0ll;
 		while (begin_iter != last_iter && begin_goal_iter != last_goal_iter)
 		{
-			while (begin_iter != last_iter && (*begin_iter) != 0ll)
+			while (begin_iter != last_iter && (*begin_iter).distance_between != 0ll)
 			{
 				if (count_index == index)
 				{
@@ -424,7 +447,7 @@ namespace belt_utility
 				++begin_iter;
 			}
 
-			if (count_index == index) return (*begin_goal_iter).distance;
+			if (count_index == index) return (*begin_goal_iter).distance.distance_between;
 
 			++begin_goal_iter;
 			++begin_iter;
@@ -473,13 +496,13 @@ namespace belt_utility
 			const auto last = item_groups_goal_distance.last();
 			for (auto biter = item_groups_goal_distance.begin(), next = biter + 1ll; biter != last; ++biter)
 			{
-				if (biter->distance < position && next->distance > position) return biter;
-				if (biter->distance > position && next->distance < position) return next;
+				if (biter->distance.distance_between < position && next->distance.distance_between > position) return biter;
+				if (biter->distance.distance_between > position && next->distance.distance_between < position) return next;
 			}
 		}
 		else if (!item_groups_goal_distance.empty())
 		{
-			if (item_groups_goal_distance[0].distance >= position) return item_groups_goal_distance.begin();
+			if (item_groups_goal_distance[0].distance.distance_between >= position) return item_groups_goal_distance.begin();
 		}
 
 		return item_groups_goal_distance.last();
